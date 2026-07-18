@@ -1,3 +1,20 @@
+# Wacustom
+
+> **Fork de [WAStream](https://gitlab.com/10ho/wastream) (10ho / spel, MIT), lui-même issu du travail de la communauté (Deku).**
+> Wacustom regroupe plusieurs sources francophones et internationales dans un seul addon, pensé pour être branché comme source unique dans un agrégateur (AIOStreams) plutôt que d'empiler plusieurs conteneurs.
+
+**Ce que ce fork ajoute par rapport à WAStream :**
+
+- **Sources consolidées en un seul addon** : Wawacity, Free-Telecharger, Movix, Webshare, trackers Torznab (YggReborn, Tr4ker, Torr9, C411), Zilean, et **Nyaa** (anime, flux RSS) — évite de maintenir 4-5 conteneurs séparés.
+- **Support des torrents AllDebrid** : flux `magnet → upload → ready → files → unlock` (l'endpoint `/magnet/instant` ayant été retiré par AllDebrid, les torrents sont listés `uncached` avec débridage à la demande).
+- **Matching d'épisodes anime robuste** : gestion de la numérotation absolue et des mappings de saisons (`episode_matches`).
+- **Scraper Zilean** (index DMM public) et scraper UNIT3D natif (Gemini / Generation-Free).
+- **Dédoublonnage interne** entre sous-sources (un même torrent remonté par plusieurs sources n'apparaît qu'une fois — complémentaire au dédoublonnage inter-addons d'AIOStreams).
+
+> ⚠️ **Bricolage personnel, développé avec l'aide de Claude.** Pas de garantie de maintenance ni de stabilité. À auditer avant tout usage sérieux.
+
+---
+
 <p align="center"><img src="https://gitlab.com/10ho/wastream/-/raw/main/wastream/public/wastream-logo.jpg" width="150"></p>
 
 <p align="center">
