@@ -1,0 +1,24 @@
+networks:
+  sfusion_network:
+    name: streamfusion_sfusion_network
+    external: true
+
+services:
+  wacustom:
+    build: .
+    image: wacustom:local
+    container_name: wacustom
+    env_file:
+      - wacustom.env
+    volumes:
+      - wacustom-data:/app/data
+    ports:
+      - "127.0.0.1:7012:7000"
+    networks:
+      sfusion_network:
+        aliases:
+          - wastream-reborn
+    restart: unless-stopped
+
+volumes:
+  wacustom-data:
