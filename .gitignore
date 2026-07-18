@@ -94,3 +94,7 @@ Desktop.ini
 # Project Specific
 # ===========================
 assets/
+
+# Scripts de debug jetables
+scratch/
+wastream/scratch/
