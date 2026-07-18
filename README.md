@@ -9,9 +9,8 @@
 - **Support des torrents AllDebrid** : flux `magnet → upload → ready → files → unlock` (l'endpoint `/magnet/instant` ayant été retiré par AllDebrid, les torrents sont listés `uncached` avec débridage à la demande).
 - **Matching d'épisodes anime robuste** : gestion de la numérotation absolue et des mappings de saisons (`episode_matches`).
 - **Scraper Zilean** (index DMM public) et scraper UNIT3D natif (Gemini / Generation-Free).
-- **Dédoublonnage interne** entre sous-sources (un même torrent remonté par plusieurs sources n'apparaît qu'une fois — complémentaire au dédoublonnage inter-addons d'AIOStreams).
+- **Dédoublonnage interne** entre sous-sources (un même torrent remonté par plusieurs sources n'apparaît qu'une fois complémentaire au dédoublonnage inter-addons d'AIOStreams).
 
-> ⚠️ **Bricolage personnel, développé avec l'aide de Claude.** Pas de garantie de maintenance ni de stabilité. À auditer avant tout usage sérieux.
 
 ---
 
