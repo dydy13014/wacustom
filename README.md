@@ -1,6 +1,6 @@
 # Wacustom
 
-> **Fork de [WAStream](https://gitlab.com/10ho/wastream) (10ho / spel, MIT), lui-même issu du travail de la communauté (Deku).**
+> **Fork de [WAStream](https://gitlab.com/10ho/wastream) (10ho / spel, MIT).**
 > Wacustom regroupe plusieurs sources francophones et internationales dans un seul addon, pensé pour être branché comme source unique dans un agrégateur (AIOStreams) plutôt que d'empiler plusieurs conteneurs.
 
 **Ce que ce fork ajoute par rapport à WAStream :**
