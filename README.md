@@ -13,20 +13,6 @@
 
 ---
 
-<p align="center"><img src="https://gitlab.com/10ho/wastream/-/raw/main/wastream/public/wastream-logo.jpg" width="150"></p>
-
-<p align="center">
-  <a href="https://gitlab.com/10ho/wastream/-/releases">
-    <img alt="GitLab release" src="https://img.shields.io/gitlab/v/release/10ho%2Fwastream?style=flat-square&logo=gitlab&logoColor=white&labelColor=1C1E26&color=4A5568">
-  </a>
-  <a href="https://www.python.org/">
-    <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square&logo=python&logoColor=white&labelColor=1C1E26&color=4A5568">
-  </a>
-  <a href="https://gitlab.com/10ho/wastream/-/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/gitlab/license/10ho%2Fwastream?style=flat-square&labelColor=1C1E26&color=4A5568">
-  </a>
-</p>
-
 <p align="center">
   <strong>Addon Stremio non officiel qui transforme des liens de téléchargement direct (DDL) en URLs lisibles en streaming via des services de débridage</strong>
 </p>
@@ -35,7 +21,7 @@
 
 ## ⚠️ Avertissement important
 
-**WAStream est un utilitaire générique de résolution de liens.** C'est un outil technique qui prend un lien de téléchargement direct en entrée et renvoie une URL lisible en streaming en sortie, en utilisant un service de débridage comme intermédiaire.
+**Wacustom est un utilitaire générique de résolution de liens.** C'est un outil technique qui prend un lien de téléchargement direct en entrée et renvoie une URL lisible en streaming en sortie, en utilisant un service de débridage comme intermédiaire.
 
 **Cet outil n'héberge, ne distribue, ne fournit et ne promeut aucun contenu.** Il est agnostique quant au contenu par conception : il se contente de traiter le lien que l'utilisateur configure.
 
@@ -56,7 +42,7 @@
 
 ## À propos
 
-WAStream est un addon Stremio qui convertit des liens de téléchargement direct en contenu lisible instantanément via des services de débridage. Il fournit un pipeline générique et configurable de scraping et de résolution, adaptable à n'importe quelle source DDL via des variables d'environnement.
+Wacustom est un addon Stremio qui convertit des liens de téléchargement direct en contenu lisible instantanément via des services de débridage. Il fournit un pipeline générique et configurable de scraping et de résolution, adaptable à n'importe quelle source DDL via des variables d'environnement.
 
 ### Fonctionnement
 
@@ -65,7 +51,7 @@ WAStream est un addon Stremio qui convertit des liens de téléchargement direct
 3. L'addon convertit les liens de téléchargement direct obtenus en URLs lisibles via le service de débridage de votre choix
 4. Stremio lit le flux obtenu
 
-### Ce que fait WAStream
+### Ce que fait Wacustom
 
 - **Scraping générique de sources** : interface de scraper configurable, compatible avec n'importe quelle source compatible
 - **Intégration débridage** : résout les DDL en URLs lisibles via les services de débridage
@@ -225,7 +211,7 @@ Voir [`.env.example`](.env.example) pour toutes les options de configuration dis
 curl http://localhost:7000/health
 
 # Logs Docker
-docker-compose logs -f wastream
+docker compose logs -f wacustom
 
 # Activer le mode debug
 LOG_LEVEL=DEBUG python -m wastream.main
@@ -241,7 +227,7 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 
 ## Clause de non-responsabilité
 
-**WAStream est un projet non officiel, développé de manière indépendante.**
+**Wacustom est un projet non officiel, développé de manière indépendante.**
 
 - **Non affilié à Stremio ni à aucun fournisseur de source/service**
 - **Fourni « tel quel », sans aucune garantie d'aucune sorte**
