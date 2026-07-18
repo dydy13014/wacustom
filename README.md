@@ -124,34 +124,28 @@ WAStream est un addon Stremio qui convertit des liens de téléchargement direct
 
 ### Docker Compose (recommandé)
 
-1. **Créer un fichier `docker-compose.yml`** :
+Wacustom n'a pas d'image publiée : il se build en local depuis ce dépôt.
 
-```yaml
-services:
-  wastream:
-    image: registry.gitlab.com/10ho/wastream:latest
-    container_name: wastream
-    ports:
-      - "7000:7000"
-    volumes:
-      - ./data:/app/data
-    environment:
-      - SECRET_KEY=your-secret-key-min-32-chars # Requis - Générer avec : openssl rand -hex 32
-      - ADMIN_PASSWORD=your-admin-password-here # (Optionnel) Mot de passe du tableau admin - laisser vide pour désactiver l'admin
-      - DATABASE_TYPE=sqlite
-      - DATABASE_PATH=/app/data/wastream.db
-      # Configurez vos sources via les variables d'environnement (voir .env.example)
-    restart: unless-stopped
+1. **Cloner le dépôt** :
+```bash
+git clone https://github.com/dydy13014/wacustom.git
+cd wacustom
 ```
 
-2. **Démarrer le conteneur** :
+2. **Configurer l'environnement** :
 ```bash
-docker-compose up -d
+cp .env.example wacustom.env
+# Éditez wacustom.env selon vos besoins
 ```
 
-3. **Consulter les logs** :
+3. Le `docker-compose.yml` fourni build l'image locale (`wacustom:local`) depuis le `Dockerfile`. Démarrer :
 ```bash
-docker-compose logs -f wastream
+docker compose up -d --build
+```
+
+4. **Consulter les logs** :
+```bash
+docker compose logs -f wacustom
 ```
 
 ### Installation manuelle
@@ -164,8 +158,8 @@ docker-compose logs -f wastream
 
 1. **Cloner le dépôt** :
 ```bash
-git clone https://gitlab.com/10ho/wastream.git
-cd wastream
+git clone https://github.com/dydy13014/wacustom.git
+cd wacustom
 ```
 
 2. **Installer les dépendances** :
