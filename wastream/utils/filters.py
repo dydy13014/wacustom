@@ -162,7 +162,8 @@ def apply_all_filters(results: List[Dict], config: Dict) -> List[Dict]:
         results = filter_by_languages(results, user_languages)
 
     user_resolutions = config.get("resolutions", [])
-    results = filter_by_resolutions(results, user_resolutions)
+    if user_resolutions:
+        results = filter_by_resolutions(results, user_resolutions)
 
     max_per_resolution = config.get("max_results_per_resolution", 0)
     results = limit_results_per_resolution(results, max_per_resolution)
