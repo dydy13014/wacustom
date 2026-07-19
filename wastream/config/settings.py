@@ -127,13 +127,13 @@ class Settings(BaseSettings):
     # ===========================
     # Tracker Configuration (Torznab)
     # ===========================
-    YGGREBORN_URL: Optional[str] = "https://www.yggreborn.org/api"
+    YGGREBORN_URL: Optional[str] = None
     YGGREBORN_API_KEY: Optional[str] = None
-    TR4KER_URL: Optional[str] = "https://tr4ker.net/api"
+    TR4KER_URL: Optional[str] = None
     TR4KER_API_KEY: Optional[str] = None
-    TORR9_URL: Optional[str] = "https://api.torr9.net/api/v1/torznab"
+    TORR9_URL: Optional[str] = None
     TORR9_API_KEY: Optional[str] = None
-    C411_URL: Optional[str] = "https://c411.org/api"
+    C411_URL: Optional[str] = None
     C411_API_KEY: Optional[str] = None
 
     # ===========================
