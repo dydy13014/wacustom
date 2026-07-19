@@ -1273,6 +1273,7 @@ class StreamService:
             actual_season = None
             actual_episode = None
             base_metadata = None
+            season_mapping = None
             search_title = kitsu_metadata["title"]
             search_year = kitsu_metadata.get("year")
 
