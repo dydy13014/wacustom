@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 from wastream.config.settings import settings
 from wastream.debrid.base import BaseDebridService, HTTP_RETRY_ERRORS
-from wastream.services.hoster_status import mark_hoster_down, is_hoster_up, schedule_recheck
+from wastream.services.hoster_status import get_hoster_status, mark_hoster_down, is_hoster_up, schedule_recheck
 from wastream.utils.helpers import select_episode_file
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import debrid_logger, cache_logger
@@ -85,7 +85,9 @@ class AllDebridService(BaseDebridService):
             debrid_logger.debug("[AllDebrid] No supported results")
             return []
 
-        # --- DDL : filtrer les hosters down ---
+        # --- DDL : filtrer les hosters down (réactif + proactif via /v4.1/user/hosts) ---
+        if ddl_results:
+            await get_hoster_status("alldebrid", api_key)
         kept_ddl = []
         down_hosters = {}
         for r in ddl_results:
