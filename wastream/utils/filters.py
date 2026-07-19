@@ -106,6 +106,73 @@ def filter_by_max_size(results: List[Dict], max_size_gb: float) -> List[Dict]:
 
 
 # ===========================
+# Plausible Size Filtering (anti-mislabeled/fake releases)
+# ===========================
+# Taille minimale plausible (Go) par résolution — un fichier plus petit ne
+# peut physiquement pas contenir un film complet dans cette résolution avec
+# un encodage raisonnable. Cas réel (2026-07-20, "Bagarre") : plusieurs
+# torrents Tr4ker annoncés "1080p BluRay" à 698 Mo / 2.19 Go — impossible
+# (un vrai 1080p BluRay, même très compressé, ne descend jamais sous 3 Go).
+# Seuil plus bas pour les sources non-BluRay/REMUX (WEBRip/WEB-DL/HDRip),
+# dont la compression varie plus légitimement.
+_MIN_PLAUSIBLE_GB = {
+    "480p": 0.15,
+    "720p": 0.3,
+    "1080p": 0.6,
+    "1440p": 1.0,
+    "2160p": 2.0,
+}
+_MIN_PLAUSIBLE_GB_BLURAY = {
+    "480p": 1.0,
+    "720p": 2.0,
+    "1080p": 3.0,
+    "1440p": 5.0,
+    "2160p": 8.0,
+}
+# Taille maximale plausible (Go) — un fichier plus gros ne peut pas non plus
+# être un vrai film dans cette résolution (torrent factice/empoisonné gonflé
+# artificiellement). Cas réel (2026-07-19, "Toy Story 5") : un "1080p"
+# annoncé à 231 Go sur Tr4ker — même un REMUX 1080p ne dépasse jamais ça
+# pour un film de ~100 min.
+_MAX_PLAUSIBLE_GB = {
+    "480p": 6.0,
+    "720p": 15.0,
+    "1080p": 40.0,
+    "1440p": 60.0,
+    "2160p": 100.0,
+}
+
+
+def filter_implausible_size(results: List[Dict]) -> List[Dict]:
+    filtered_results = []
+
+    for result in results:
+        result_quality = result.get("quality", "Unknown")
+        resolution = extract_resolution(result_quality)
+
+        is_high_bitrate_source = any(
+            tag in result_quality.upper() for tag in ("BLURAY", "REMUX")
+        )
+        min_thresholds = _MIN_PLAUSIBLE_GB_BLURAY if is_high_bitrate_source else _MIN_PLAUSIBLE_GB
+        min_gb = min_thresholds.get(resolution)
+        max_gb = _MAX_PLAUSIBLE_GB.get(resolution)
+
+        if min_gb is not None or max_gb is not None:
+            size_gb = parse_size_to_gb(result.get("size", "Unknown"))
+            if size_gb is not None:
+                if min_gb is not None and size_gb < min_gb:
+                    continue
+                if max_gb is not None and size_gb > max_gb:
+                    continue
+
+        filtered_results.append(result)
+
+    if len(filtered_results) < len(results):
+        stream_logger.debug(f"Implausible size filter: {len(results)} → {len(filtered_results)}")
+    return filtered_results
+
+
+# ===========================
 # Archive Files Filtering
 # ===========================
 def filter_archive_files(streams: List[Dict]) -> List[Dict]:
@@ -157,6 +224,8 @@ def filter_excluded_keywords(streams: List[Dict], excluded_keywords: List[str]) 
 # All Filters Application
 # ===========================
 def apply_all_filters(results: List[Dict], config: Dict) -> List[Dict]:
+    results = filter_implausible_size(results)
+
     user_languages = config.get("languages", [])
     if user_languages:
         results = filter_by_languages(results, user_languages)
