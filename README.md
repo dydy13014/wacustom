@@ -110,29 +110,54 @@ Wacustom est un addon Stremio qui convertit des liens de téléchargement direct
 
 ### Docker Compose (recommandé)
 
-Wacustom n'a pas d'image publiée : il se build en local depuis ce dépôt.
+Une image est publiée automatiquement (multi-arch `amd64`/`arm64`) sur GitHub Container Registry à chaque push sur `main` : `ghcr.io/dydy13014/wacustom:latest`. Pas besoin de cloner ni de builder pour l'utiliser.
 
-1. **Cloner le dépôt** :
+1. **Récupérer la config d'exemple** :
 ```bash
-git clone https://github.com/dydy13014/wacustom.git
-cd wacustom
-```
-
-2. **Configurer l'environnement** :
-```bash
+curl -O https://raw.githubusercontent.com/dydy13014/wacustom/main/.env.example
 cp .env.example wacustom.env
 # Éditez wacustom.env selon vos besoins
 ```
 
-3. Le `docker-compose.yml` fourni build l'image locale (`wacustom:local`) depuis le `Dockerfile`. Démarrer :
+2. **`docker-compose.yml`** :
+```yaml
+services:
+  wacustom:
+    image: ghcr.io/dydy13014/wacustom:latest
+    container_name: wacustom
+    env_file:
+      - wacustom.env
+    volumes:
+      - wacustom-data:/app/data
+    ports:
+      - "7000:7000"
+    restart: unless-stopped
+
+volumes:
+  wacustom-data:
+```
+
+3. **Démarrer** :
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 4. **Consulter les logs** :
 ```bash
 docker compose logs -f wacustom
 ```
+
+#### Build local (alternative)
+
+Pour modifier le code ou builder vous-même l'image :
+```bash
+git clone https://github.com/dydy13014/wacustom.git
+cd wacustom
+cp .env.example wacustom.env
+# Éditez wacustom.env selon vos besoins
+docker compose up -d --build
+```
+(le `docker-compose.yml` du dépôt utilise `build: .` au lieu de l'image publiée)
 
 ### Installation manuelle
 
