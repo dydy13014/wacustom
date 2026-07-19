@@ -62,26 +62,37 @@ class PremiumizeService(BaseDebridService):
 
         supported_hosts = user_hosts if user_hosts else settings.PREMIUMIZE_SUPPORTED_HOSTS
 
-        initial_count = len(results)
-        filtered_results = []
+        # Séparer DDL et torrents (transfer/directdl accepte les magnets à la
+        # conversion, mais le filtre par hoster ci-dessous ne concerne que les DDL).
+        ddl_results = []
+        torrent_results = []
         for result in results:
             if result.get("model_type") == "nzb":
                 continue
-            hoster = result.get("hoster", "").lower()
-            if any(supported_host in hoster for supported_host in supported_hosts):
-                filtered_results.append(result)
+            if result.get("model_type") == "torrent":
+                torrent_results.append(result)
+            else:
+                hoster = result.get("hoster", "").lower()
+                if any(supported_host in hoster for supported_host in supported_hosts):
+                    ddl_results.append(result)
 
-        if len(filtered_results) < initial_count:
-            debrid_logger.debug(f"[Premiumize] Filtered: {initial_count} → {len(filtered_results)} links (DDL only)")
+        if len(ddl_results) + len(torrent_results) < len(results):
+            debrid_logger.debug(f"[Premiumize] Filtered: {len(results)} → {len(ddl_results)} DDL + {len(torrent_results)} torrents")
 
-        if not filtered_results:
-            debrid_logger.debug("[Premiumize] No supported hosts")
+        if not ddl_results and not torrent_results:
+            debrid_logger.debug("[Premiumize] No supported results")
             return []
 
-        results = filtered_results
-
-        for result in results:
+        for result in ddl_results:
             result["cache_status"] = "cached"
+
+        # Torrents : pas de vérification de cache instantané implémentée ici,
+        # on les marque "uncached" au listing (comme AllDebrid) — la conversion
+        # à la lecture via transfer/directdl fonctionne pour les magnets.
+        for result in torrent_results:
+            result["cache_status"] = "uncached"
+
+        results = ddl_results + torrent_results
 
         deduplicate_results = config.get("deduplicate_results", False)
 
@@ -96,7 +107,7 @@ class PremiumizeService(BaseDebridService):
         cached_results.sort(key=quality_sort_key)
 
         elapsed = time.time() - start_time
-        cache_logger.debug(f"[Premiumize] Done in {elapsed:.1f}s: {len(cached_results)} results (all marked cached)")
+        cache_logger.debug(f"[Premiumize] Done in {elapsed:.1f}s: {len(cached_results)} results")
 
         return cached_results
 
