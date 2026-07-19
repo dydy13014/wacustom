@@ -809,18 +809,24 @@ class StreamService:
             except (ValueError, TypeError):
                 pass
 
-        if content_type == "anime":
-            season_str = str(season) if season is not None else None
-            episode_str = str(episode) if episode is not None else None
-            filtered = [
-                r for r in results
-                if r.get("season") == season_str and r.get("episode") == episode_str
-            ]
-        else:
-            filtered = [
-                r for r in results
-                if r.get("season") == season and r.get("episode") == episode
-            ]
+        # Comparaison numérique tolérante au zero-padding : les sites DDL
+        # (Wawacity/Free-Telecharger) renvoient parfois "Saison 02"/"s01" →
+        # season="02" alors que la requête Stremio est "2". Une égalité de
+        # chaînes brute écarterait ces résultats en silence. On compare donc
+        # numériquement quand c'est possible, avec repli sur l'égalité de
+        # chaînes si une valeur n'est pas un entier propre.
+        def _se_equal(a, b) -> bool:
+            if a is None or b is None:
+                return a == b
+            try:
+                return int(a) == int(b)
+            except (ValueError, TypeError):
+                return str(a) == str(b)
+
+        filtered = [
+            r for r in results
+            if _se_equal(r.get("season"), season) and _se_equal(r.get("episode"), episode)
+        ]
 
         stream_logger.debug(f"Filtered S{season}E{episode}: {len(filtered)} results")
         return filtered
