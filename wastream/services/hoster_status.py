@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import Dict
+from typing import Dict, Optional
 
 from wastream.config.settings import settings
 from wastream.utils.http_client import http_client
@@ -11,11 +11,18 @@ from wastream.utils.logger import debrid_logger
 # Hoster Status Cache
 # ===========================
 # TorBox: proactive check via public API (/webdl/hosters)
-# AllDebrid: reactive detection via convert_link() errors (LINK_HOST_UNAVAILABLE)
+# AllDebrid: double détection —
+#   - reactive (cache["hosts"]) via convert_link() errors (LINK_HOST_UNAVAILABLE)
+#   - proactive (cache["proactive"]) via /v4.1/user/hosts (status + quota restant)
+#     Quota critique (<QUOTA_CRITICAL_PCT restant) traité comme "down" pour
+#     éviter de continuer à recommander un hébergeur qui va bientôt refuser
+#     les nouveaux téléchargements du jour.
 _hoster_status_cache = {
-    "alldebrid": {"hosts": {}},
+    "alldebrid": {"hosts": {}, "proactive": {}, "proactive_last_check": None},
     "torbox": {"hosts": {}, "last_check": None},
 }
+
+QUOTA_CRITICAL_PCT = 5.0
 
 
 # ===========================
@@ -55,6 +62,50 @@ async def _check_torbox_hosters() -> Dict[str, bool]:
 
 
 # ===========================
+# AllDebrid Proactive Check
+# ===========================
+async def _check_alldebrid_hosters(api_key: str) -> Dict[str, dict]:
+    """Interroge /v4.1/user/hosts (statut + quota restant par hébergeur, propre
+    au compte). Renvoie {hoster: {"up": bool, "quota_pct": float|None}} pour
+    les hébergeurs configurés (ALLDEBRID_SUPPORTED_HOSTS, hors pseudo-entrées
+    "alldebrid"/"torrent")."""
+    try:
+        response = await http_client.get(
+            settings.ALLDEBRID_API_URL.replace("/v4", "/v4.1") + "/user/hosts",
+            params={"agent": settings.ADDON_NAME, "apikey": api_key},
+            timeout=settings.HEALTH_CHECK_TIMEOUT
+        )
+
+        if response.status_code != 200:
+            debrid_logger.debug(f"[HosterStatus] AllDebrid user/hosts HTTP {response.status_code}")
+            return {}
+
+        data = response.json()
+        if data.get("status") != "success":
+            debrid_logger.debug("[HosterStatus] AllDebrid user/hosts request failed")
+            return {}
+
+        all_hosts = data.get("data", {}).get("hosts", {})
+        tracked = {h.lower() for h in settings.ALLDEBRID_SUPPORTED_HOSTS if h not in ("alldebrid", "torrent")}
+        result = {}
+
+        for name, info in all_hosts.items():
+            if name.lower() not in tracked:
+                continue
+            quota = info.get("quota")
+            quota_max = info.get("quotaMax")
+            quota_pct = (quota / quota_max * 100) if quota_max else None
+            result[name.lower()] = {"up": bool(info.get("status", True)), "quota_pct": quota_pct}
+
+        debrid_logger.debug(f"[HosterStatus] AllDebrid: {result}")
+        return result
+
+    except Exception as e:
+        debrid_logger.debug(f"[HosterStatus] AllDebrid check failed: {type(e).__name__}: {e}")
+        return {}
+
+
+# ===========================
 # AllDebrid Reactive Detection
 # ===========================
 def mark_hoster_down(service: str, hoster_name: str):
@@ -71,7 +122,7 @@ def mark_hoster_down(service: str, hoster_name: str):
 # ===========================
 # Cache Management
 # ===========================
-async def get_hoster_status(service: str) -> Dict[str, bool]:
+async def get_hoster_status(service: str, api_key: Optional[str] = None) -> Dict[str, bool]:
     cache = _hoster_status_cache.get(service)
     if not cache:
         return {}
@@ -87,6 +138,17 @@ async def get_hoster_status(service: str) -> Dict[str, bool]:
             cache["last_check"] = now
         return cache["hosts"]
 
+    if service == "alldebrid" and api_key:
+        now = time.time()
+        if cache["proactive_last_check"] and (now - cache["proactive_last_check"]) < settings.HOSTER_STATUS_CACHE_TTL:
+            return cache["proactive"]
+
+        proactive = await _check_alldebrid_hosters(api_key)
+        if proactive:
+            cache["proactive"] = proactive
+            cache["proactive_last_check"] = now
+        return cache["proactive"]
+
     return {}
 
 
@@ -95,7 +157,7 @@ async def get_hoster_status(service: str) -> Dict[str, bool]:
 # ===========================
 def is_hoster_up(service: str, hoster_name: str) -> bool:
     cache = _hoster_status_cache.get(service)
-    if not cache or not cache["hosts"]:
+    if not cache:
         return True
 
     hoster_key = hoster_name.lower().strip()
@@ -116,7 +178,21 @@ def is_hoster_up(service: str, hoster_name: str) -> bool:
         for key in expired_keys:
             del cache["hosts"][key]
 
-        return result
+        if not result:
+            return False
+
+        # Proactive : statut serveur + quota critique (/v4.1/user/hosts)
+        for cached_name, info in cache["proactive"].items():
+            if cached_name in hoster_key or hoster_key in cached_name:
+                if not info["up"]:
+                    return False
+                if info["quota_pct"] is not None and info["quota_pct"] < QUOTA_CRITICAL_PCT:
+                    return False
+
+        return True
+
+    if not cache["hosts"]:
+        return True
 
     # TorBox: proactive, hosts dict = {name: bool}
     for cached_name, status in cache["hosts"].items():
