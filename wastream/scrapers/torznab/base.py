@@ -13,6 +13,30 @@ from wastream.utils.helpers import (
 )
 from wastream.utils.quality import quality_sort_key
 
+# Mots trop courants pour être discriminants (FR + EN) — exclus du calcul de
+# pertinence pour ne pas gonfler artificiellement le score de correspondance
+# sur des titres qui les contiennent par coïncidence.
+_STOPWORDS = {
+    "le", "la", "les", "un", "une", "des", "de", "du", "et", "a", "au", "aux",
+    "en", "sur", "dans", "avec", "pour", "the", "a", "an", "of", "and",
+}
+_MIN_RELEVANCE_RATIO = 0.6
+
+
+def _is_relevant(title: str, release_name: str) -> bool:
+    """Certains trackers Torznab (constaté sur C411, 2026-07-20) retombent
+    silencieusement sur des résultats "tendance" sans rapport quand la
+    recherche ne matche rien en interne — jamais une liste vide, donc rien
+    ne signale l'échec. Cas réel : la recherche "comme les grands S01E01"
+    a renvoyé des animes isekai totalement étrangers. On revalide localement
+    que le titre du résultat contient l'essentiel des mots du titre demandé."""
+    title_tokens = {t for t in tokenize_filename(title) if len(t) > 1 and t not in _STOPWORDS}
+    if not title_tokens:
+        return True
+    release_tokens = set(tokenize_filename(release_name)) - _STOPWORDS
+    matched = len(title_tokens & release_tokens)
+    return (matched / len(title_tokens)) >= _MIN_RELEVANCE_RATIO
+
 
 class BaseTorznab:
     def __init__(self, name: str, url: str, api_key: str, auth_type: str = "query"):
@@ -31,10 +55,19 @@ class BaseTorznab:
         # 1. Formulate search query
         search_query = title
         if season and episode:
+            # Saison seule dans la requête, pas l'épisode : certains trackers
+            # (constaté sur C411, 2026-07-20) ne remontent JAMAIS un pack de
+            # saison ("...S03.VFF...") si la requête contient "S03E01" — leur
+            # moteur de recherche fait un matching textuel qui ne trouve pas
+            # "E01" dans un nom de pack, donc le pack n'apparaît même pas dans
+            # les résultats. Le filtrage client (episode_matches, plus bas)
+            # sait déjà repérer un pack de la bonne saison ou l'épisode exact
+            # dans un ensemble de résultats plus large — inutile de
+            # sur-préciser la requête envoyée au tracker.
             try:
-                search_query += f" S{int(season):02d}E{int(episode):02d}"
+                search_query += f" S{int(season):02d}"
             except (ValueError, TypeError):
-                search_query += f" S{season}E{episode}"
+                search_query += f" S{season}"
         elif year:
             search_query += f" {year}"
 
@@ -65,6 +98,12 @@ class BaseTorznab:
                 if title_node is None or not title_node.text:
                     continue
                 release_name = title_node.text
+
+                if not _is_relevant(title, release_name):
+                    scraper_logger.debug(
+                        f"[{self.name}] Skip (hors sujet, tracker en repli tendance ?): {release_name}"
+                    )
+                    continue
 
                 # Parse custom Torznab attributes
                 size = 0

@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # Addon Customization
     # ===========================
     ADDON_ID: str = "community.wastream"
-    ADDON_NAME: str = "WAStream"
+    ADDON_NAME: str = "Wacustom"
 
     # ===========================
     # Server Configuration
@@ -310,5 +310,6 @@ SOURCE_DISPLAY_NAMES = {
     "gemini": "Gemini",
     "generation-free": "Generation-Free",
     "zilean": "Zilean",
-    "nyaa": "Nyaa"
+    "nyaa": "Nyaa",
+    "extra": "Extra"
 }

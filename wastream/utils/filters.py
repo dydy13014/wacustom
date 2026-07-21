@@ -143,7 +143,16 @@ _MAX_PLAUSIBLE_GB = {
 }
 
 
-def filter_implausible_size(results: List[Dict]) -> List[Dict]:
+def filter_implausible_size(results: List[Dict], content_type: str = "movie") -> List[Dict]:
+    # Réservé aux films : les seuils ci-dessus supposent un long-métrage
+    # (~90-150 min). Un épisode de série peut légitimement peser 20x moins
+    # (20 min, cas réel "Comme les grands" cassé par une première version de
+    # ce filtre le 2026-07-20) et un pack de saison 10-20x plus — pas encore
+    # de seuils fiables pour ces deux cas, donc on ne filtre pas du tout
+    # plutôt que de risquer de rejeter du contenu légitime.
+    if content_type != "movie":
+        return results
+
     filtered_results = []
 
     for result in results:
@@ -223,8 +232,8 @@ def filter_excluded_keywords(streams: List[Dict], excluded_keywords: List[str]) 
 # ===========================
 # All Filters Application
 # ===========================
-def apply_all_filters(results: List[Dict], config: Dict) -> List[Dict]:
-    results = filter_implausible_size(results)
+def apply_all_filters(results: List[Dict], config: Dict, content_type: str = "movie") -> List[Dict]:
+    results = filter_implausible_size(results, content_type)
 
     user_languages = config.get("languages", [])
     if user_languages:
