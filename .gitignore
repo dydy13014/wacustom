@@ -98,3 +98,6 @@ assets/
 # Scripts de debug jetables
 scratch/
 wastream/scratch/
+
+# Extensions locales (jamais publiées)
+wastream/scrapers/_private/
