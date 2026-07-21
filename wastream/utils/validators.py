@@ -44,6 +44,7 @@ class UserConfig(BaseModel):
     tmdb_api_token: str
     debrid_services: List[DebridServiceEntry]
     excluded_keywords: List[str] = []
+    preferred_keywords: List[str] = []
     languages: List[str] = []
     resolutions: List[str] = AVAILABLE_RESOLUTIONS
     max_results_per_resolution: int = 0

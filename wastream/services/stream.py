@@ -34,6 +34,10 @@ from wastream.scrapers.webshare.series import series_scraper as webshare_series_
 from wastream.scrapers.torznab.trackers import yggreborn_scraper, tr4ker_scraper, torr9_scraper, c411_scraper, gemini_scraper, generationfree_scraper
 from wastream.scrapers.zilean.base import zilean_scraper
 from wastream.scrapers.nyaa.base import nyaa_scraper
+try:
+    from wastream.scrapers._private.extra import extra_source_scraper
+except ImportError:
+    extra_source_scraper = None
 from wastream.services.kitsu import kitsu_service
 from wastream.services.tmdb import tmdb_service
 from wastream.utils.cache import get_cache, get_cache_with_status, get_cache_parallel, set_cache, set_cache_if_not_exists
@@ -372,6 +376,15 @@ class StreamService:
                 elif is_vostfr:
                     french_sub_priority = 1
 
+            # Preferred keywords (symmetric to excluded_keywords) : contenus
+            # correspondant à un mot-clé libre (ex. MULTI, TRUEFRENCH) classés
+            # avant le reste, sans les exclure comme excluded_keywords le fait.
+            preferred_keywords = config.get("preferred_keywords", [])
+            preferred_priority = 0
+            if preferred_keywords:
+                match_text = (display_name or "").lower()
+                preferred_priority = 0 if any(kw.lower() in match_text for kw in preferred_keywords) else 1
+
             # Stream type priority (DDL/NZB vs Torrent)
             is_torrent = (result.get("model_type") == "torrent")
             pref = config.get("stream_type_preference", "ddl_first")
@@ -389,6 +402,7 @@ class StreamService:
                 "url": playback_url,
                 "_sort_values": {
                     "cached": 0 if cache_status == "cached" else 1,
+                    "preferred": preferred_priority,
                     "resolution": q_key[0],
                     "size": -size_bytes,
                     "release_type": q_key[1],
@@ -397,7 +411,7 @@ class StreamService:
                 },
             })
 
-        default_sort_order = ["cached", "resolution", "size", "release_type", "language", "stream_type"]
+        default_sort_order = ["cached", "preferred", "resolution", "size", "release_type", "language", "stream_type"]
         valid_keys = set(default_sort_order)
         sort_order = config.get("sort_order") or default_sort_order
         sort_order = [k for k in sort_order if k in valid_keys]
@@ -474,13 +488,50 @@ class StreamService:
             search_config
         )
 
+        # Titres alternatifs : essayés en plus du titre principal si celui-ci
+        # a ramené peu de résultats — certains trackers n'indexent un contenu
+        # que sous un titre précis (ex. C411 = "Seuls face à l'Alaska" en
+        # français uniquement, jamais "Mountain Men"). Cas réel (2026-07-20) :
+        # un gate "if not results" cachait totalement cette tentative dès
+        # qu'UN SEUL autre tracker répondait déjà quelque chose avec le titre
+        # principal — C411 n'avait alors jamais sa chance avec le titre FR.
+        # Mais "toujours" essayer (peu importe le nombre de résultats déjà
+        # trouvés) fait exploser la charge sur un blockbuster à cache froid
+        # (5+ titres traduits TMDB × tout le pipeline de sources en
+        # parallèle) → timeout côté AIOStreams observé sur Doctor Strange 2
+        # (2026-07-20). Seuil pragmatique : le titre principal a déjà de quoi
+        # proposer un choix correct au-delà de ce nombre, l'exhaustivité
+        # cross-titre ne vaut plus le coût en charge/latence.
+        ALT_TITLE_RESULT_THRESHOLD = 15
+        alt_titles = [
+            t for t in (metadata.get("enhanced") or {}).get("titles", [])
+            if t != metadata["title"]
+        ] if len(results) < ALT_TITLE_RESULT_THRESHOLD else []
+        if alt_titles:
+            alt_results_list = await asyncio.gather(*(
+                self._search_content(
+                    alt_title,
+                    metadata.get("year"),
+                    content_type,
+                    media_info.get("season"),
+                    media_info.get("episode"),
+                    metadata.get("enhanced"),
+                    search_config
+                )
+                for alt_title in alt_titles
+            ))
+            for alt_title, alt_results in zip(alt_titles, alt_results_list):
+                if alt_results:
+                    stream_logger.debug(f"Titre alternatif '{alt_title}' : {len(alt_results)} résultat(s) en plus")
+                    results = results + alt_results
+
         if not results:
             stream_logger.debug(f"No content: '{metadata['title']}' ({metadata.get('year', 'Unknown')})")
             return []
 
         results = deduplicate_and_sort_results(results, quality_sort_key)
 
-        results = apply_all_filters(results, config)
+        results = apply_all_filters(results, config, content_type)
 
         elapsed = time.time() - start_time
         timeout = config.get("stream_request_timeout", settings.STREAM_REQUEST_TIMEOUT)
@@ -1082,6 +1133,19 @@ class StreamService:
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("zilean", coro))
 
+        # Extension locale optionnelle (absente du dépôt public) — jamais
+        # gérée par supported_sources puisqu'elle n'existe pas côté UI/config.
+        if extra_source_scraper is not None:
+            if use_episode_cache:
+                coro = self._search_source_with_cache(
+                    "extra", content_type, lambda: extra_source_scraper.search(title, year, metadata, season, episode, config),
+                    title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
+            else:
+                coro = self._search_source_with_cache(
+                    "extra", content_type, lambda: extra_source_scraper.search(title, year, metadata, config=config),
+                    title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
+            tasks_with_sources.append(("extra", coro))
+
         if not tasks_with_sources:
             return []
 
@@ -1252,7 +1316,7 @@ class StreamService:
 
             results = deduplicate_and_sort_results(results, quality_sort_key)
 
-            results = apply_all_filters(results, config)
+            results = apply_all_filters(results, config, "movie")
 
             elapsed = time.time() - start_time
             timeout = config.get("stream_request_timeout", settings.STREAM_REQUEST_TIMEOUT)
@@ -1384,7 +1448,7 @@ class StreamService:
 
             results = deduplicate_and_sort_results(results, quality_sort_key)
 
-            results = apply_all_filters(results, config)
+            results = apply_all_filters(results, config, "series")
 
             elapsed = time.time() - start_time
             timeout = config.get("stream_request_timeout", settings.STREAM_REQUEST_TIMEOUT)
