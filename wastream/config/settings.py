@@ -64,7 +64,11 @@ class Settings(BaseSettings):
     # ===========================
     # Lock Configuration
     # ===========================
-    SCRAPE_LOCK_TTL: int = 300
+    # Duree de vie d'un verrou de scrape. Sert de filet si un scrape meurt
+    # sans liberer : au-dela, le verrou est considere perime. 5 min etait bien
+    # plus long qu'un scrape reel, donc un verrou orphelin faisait travailler
+    # tout le monde en double pendant tout ce temps.
+    SCRAPE_LOCK_TTL: int = 60
     # Attente max d'un scrape concurrent sur le meme contenu. Doit rester sous
     # le timeout du client appelant (un agregateur type AIOStreams abandonne
     # souvent en 7-20s) : au-dela, on attend un verrou plus longtemps que
@@ -72,6 +76,17 @@ class Settings(BaseSettings):
     # aboutit quand meme. Passe de 30 a 8s (2026-07-25) apres une panne reelle
     # ou un tracker en 502 a fait expirer 20 requetes sur 20.
     SCRAPE_WAIT_TIMEOUT: int = 8
+
+    # Seconde chance sur erreur serveur d'un tracker Torznab (cf. scrapers/
+    # torznab/base.py). Assez court pour rester sous le timeout de l'appelant.
+    TORZNAB_RETRY_DELAY: float = 0.5
+
+    # Nombre de resultats a partir duquel la source d'appoint optionnelle
+    # (cf. scrapers/_private, absente du depot public) n'est plus sollicitee :
+    # elle sert a completer une recherche pauvre, pas a alourdir une recherche
+    # deja fournie. Son quota de requetes est tres bas, on le reserve aux cas
+    # ou il apporte vraiment quelque chose.
+    EXTRA_SOURCE_MAX_RESULTS: int = 10
 
     # ===========================
     # HTTP Timeout Configuration
