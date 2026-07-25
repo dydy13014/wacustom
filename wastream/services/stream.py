@@ -53,7 +53,14 @@ from wastream.utils.helpers import (
 from wastream.utils.languages import MULTI_LANGUAGE_PREFIX, MULTI_PREFIX_LENGTH
 from wastream.utils.logger import stream_logger, metadata_logger
 from wastream.utils.quality import quality_sort_key, extract_resolution
+from wastream.utils.urls import canonicalize_url
 from wastream.utils.validators import extract_media_info
+
+
+# ===========================
+# Playback Sentinels
+# ===========================
+PLAYBACK_SENTINELS = ("LINK_DOWN", "RETRY_ERROR", "FATAL_ERROR", "LINK_UNCACHED")
 
 
 # ===========================
@@ -255,6 +262,20 @@ class StreamService:
         all_links = [r.get("link") for r in results if r.get("link")]
         dead_links_map = await check_dead_links_batch(all_links)
 
+        resilient_config = self._get_resilient_config(config)
+        if resilient_config["enabled"]:
+            excluded_keywords = config.get("excluded_keywords", [])
+            live_results = [
+                r for r in results
+                if r.get("link") and not dead_links_map.get(r.get("link"))
+                and not (r.get("model_type") == "nzb" and not is_source_online(r.get("source", "")))
+                and not self._is_archive_result(r)
+                and not self._matches_excluded_keyword(r, excluded_keywords)
+            ]
+            live_results.sort(key=lambda r: 0 if r.get("cache_status") == "cached" else 1)
+        else:
+            live_results = []
+
         for result in results:
             link = result.get("link")
             if not link:
@@ -327,7 +348,15 @@ class StreamService:
             if service_name == "nzbdav" and display_name and display_name != "Unknown":
                 token_data["t"] = display_name
 
+            if resilient_config["enabled"]:
+                fallback_candidates = self._build_fallback_candidates(result, live_results, resilient_config)
+                if fallback_candidates:
+                    token_data["a"] = fallback_candidates
+
             token = encode_playback_token(token_data)
+            if len(token) > settings.RESILIENT_TOKEN_MAX_BYTES and "a" in token_data:
+                del token_data["a"]
+                token = encode_playback_token(token_data)
             filename = quote_path_segment(display_name) if display_name and display_name != "Unknown" else "stream"
             playback_url = f"{base_url}/playback/{token}/{filename}"
 
@@ -893,6 +922,98 @@ class StreamService:
             "include_nzb": config.get("early_stop_include_nzb", False)
         }
 
+    def _clamp_int(self, value, default: int, low: int, high: int) -> int:
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            value = default
+        return min(max(low, value), high)
+
+    def _get_resilient_config(self, config: Dict) -> Dict:
+        return {
+            "enabled": config.get("resilient_enabled", False),
+            "mode": config.get("resilient_mode", "sequential"),
+            "max_fallbacks": self._clamp_int(config.get("resilient_max_fallbacks", 3), 3, 0, settings.RESILIENT_MAX_FALLBACKS),
+            "attempt_timeout": self._clamp_int(config.get("resilient_max_delay", 0), 0, 0, settings.RESILIENT_ATTEMPT_TIMEOUT_MAX),
+            "same_resolution": config.get("resilient_same_resolution", True),
+            "same_language": config.get("resilient_same_language", True),
+            "same_quality": config.get("resilient_same_quality", False),
+            "same_host": config.get("resilient_same_host", False),
+            "same_source": config.get("resilient_same_source", False),
+            "same_debrid": config.get("resilient_same_debrid_only", True),
+            "allow_uncached": config.get("resilient_allow_uncached", False)
+        }
+
+    def _parse_language_set(self, language: str) -> set:
+        if not language or language == "Unknown":
+            return set()
+        if language.startswith(MULTI_LANGUAGE_PREFIX.title()) and language.endswith(")"):
+            inner = language[MULTI_PREFIX_LENGTH:-1]
+            return {lang.strip() for lang in inner.split(",") if lang.strip()}
+        return {language}
+
+    def _is_archive_result(self, result: Dict) -> bool:
+        archive_extensions = (".rar", ".zip", ".7z", ".tar", ".gz")
+        for key in ("display_name", "debrid_filename"):
+            name = (result.get(key) or "").strip().lower()
+            if name.endswith(archive_extensions):
+                return True
+        return False
+
+    def _matches_excluded_keyword(self, result: Dict, excluded_keywords: List[str]) -> bool:
+        if not excluded_keywords:
+            return False
+        text = " ".join(
+            str(result.get(key, "")) for key in ("display_name", "debrid_filename", "quality", "language", "source", "hoster", "size")
+        ).lower()
+        return any(keyword.lower() in text for keyword in excluded_keywords)
+
+    def _build_fallback_candidates(self, primary: Dict, pool: List[Dict], rp: Dict) -> List[Dict]:
+        if rp["max_fallbacks"] <= 0:
+            return []
+
+        orig_resolution = extract_resolution(primary.get("quality", "Unknown"))
+        orig_release = quality_sort_key(primary)[1]
+        orig_languages = self._parse_language_set(primary.get("language", "Unknown"))
+        orig_host = primary.get("hoster", "").lower()
+        orig_source = primary.get("source", "")
+        orig_debrid = primary.get("debrid_service", "")
+
+        candidates = []
+        seen = {primary.get("link")}
+
+        for result in pool:
+            link = result.get("link")
+            if not link or link in seen:
+                continue
+            if not rp["allow_uncached"] and result.get("cache_status", "uncached") != "cached":
+                continue
+            if rp["same_debrid"] and result.get("debrid_service", "") != orig_debrid:
+                continue
+            if rp["same_source"] and result.get("source", "") != orig_source:
+                continue
+            if rp["same_host"] and result.get("hoster", "").lower() != orig_host:
+                continue
+            if rp["same_resolution"] and extract_resolution(result.get("quality", "Unknown")) != orig_resolution:
+                continue
+            if rp["same_quality"] and quality_sort_key(result)[1] != orig_release:
+                continue
+            if rp["same_language"] and orig_languages and not (orig_languages & self._parse_language_set(result.get("language", "Unknown"))):
+                continue
+
+            seen.add(link)
+            candidate = {"l": link, "s": result.get("debrid_service", "alldebrid"), "h": result.get("hoster", "")}
+            if candidate["s"] == "nzbdav":
+                nzb_name = result.get("debrid_filename") or result.get("display_name")
+                if nzb_name and nzb_name != "Unknown":
+                    candidate["t"] = nzb_name
+            candidates.append(candidate)
+
+            if len(candidates) >= rp["max_fallbacks"]:
+                break
+
+        return candidates
+
     def _is_source_allowed_for_content(self, source_name: str, content_name: str, config: Dict) -> bool:
         if not config or not config.get("source_content_types", False):
             return True
@@ -1233,7 +1354,8 @@ class StreamService:
                                                  free_telecharger_series_scraper, wasource_series_scraper, movix_series_scraper, webshare_series_scraper,
                                                  title, year, metadata, season, episode, config, use_episode_cache=True)
 
-    async def resolve_link(self, link: str, config: Dict, season: Optional[str] = None, episode: Optional[str] = None, service: Optional[str] = None, content_type: Optional[str] = None, title: Optional[str] = None, source: Optional[str] = None, hoster: Optional[str] = None) -> Optional[str]:
+    async def resolve_link(self, link: str, config: Dict, season: Optional[str] = None, episode: Optional[str] = None, service: Optional[str] = None, content_type: Optional[str] = None, title: Optional[str] = None, source: Optional[str] = None, hoster: Optional[str] = None, mark_dead: bool = True) -> Optional[str]:
+        link = canonicalize_url(link)
         if service:
             debrid_service = self._get_debrid_service(service)
             debrid_api_key = get_debrid_api_key(config, service)
@@ -1257,15 +1379,13 @@ class StreamService:
         else:
             result = await debrid_service.convert_link(link, debrid_api_key, season, episode, hoster=hoster)
 
-        if result == "LINK_DOWN":
+        if result == "LINK_DOWN" and mark_dead:
             await mark_dead_link(link, settings.DEAD_LINK_TTL)
 
         return result
 
-    async def resolve_link_with_response(self, link: str, config: Dict, season: Optional[str] = None, episode: Optional[str] = None, service: Optional[str] = None, content_type: Optional[str] = None, title: Optional[str] = None, source: Optional[str] = None, hoster: Optional[str] = None):
-        direct_link = await self.resolve_link(link, config, season, episode, service, content_type, title, source, hoster)
-
-        if direct_link and direct_link not in ["LINK_DOWN", "RETRY_ERROR", "FATAL_ERROR", "LINK_UNCACHED"]:
+    def _build_link_response(self, direct_link: Optional[str]):
+        if direct_link and direct_link not in PLAYBACK_SENTINELS:
             return RedirectResponse(url=direct_link, status_code=302)
         elif direct_link == "LINK_DOWN":
             return FileResponse("wastream/public/link_down.mp4")
@@ -1275,6 +1395,101 @@ class StreamService:
             return FileResponse("wastream/public/retry_error.mp4")
         else:
             return FileResponse("wastream/public/fatal_error.mp4")
+
+    async def _resolve_attempt(self, attempt: Dict, config: Dict, season: Optional[str], episode: Optional[str], content_type: Optional[str], source: Optional[str], timeout: int, is_primary: bool) -> Optional[str]:
+        try:
+            coro = self.resolve_link(
+                attempt.get("l"), config, season, episode,
+                attempt.get("s"), content_type, attempt.get("t"), source, attempt.get("h"),
+                mark_dead=is_primary
+            )
+            if timeout > 0:
+                return await asyncio.wait_for(coro, timeout=timeout)
+            return await coro
+        except asyncio.TimeoutError:
+            stream_logger.debug(f"[Resilient] Attempt timed out after {timeout}s")
+            return "RETRY_ERROR"
+        except Exception as e:
+            stream_logger.error(f"[Resilient] Attempt error: {type(e).__name__}: {e}")
+            return "FATAL_ERROR"
+
+    async def _resolve_sequential(self, attempts: List[Dict], config: Dict, season: Optional[str], episode: Optional[str], content_type: Optional[str], source: Optional[str], rp: Dict) -> Optional[str]:
+        primary_result = None
+        for index, attempt in enumerate(attempts):
+            result = await self._resolve_attempt(attempt, config, season, episode, content_type, source, rp["attempt_timeout"], index == 0)
+            if result and result not in PLAYBACK_SENTINELS:
+                if index > 0:
+                    stream_logger.info(f"[Resilient] Recovered via backup #{index} ({attempt.get('h') or '?'} / {attempt.get('s') or '?'})")
+                return result
+            if index == 0:
+                primary_result = result
+                if len(attempts) > 1:
+                    stream_logger.info(f"[Resilient] Primary link down ({result}), trying {len(attempts) - 1} backup(s) sequentially")
+            else:
+                stream_logger.debug(f"[Resilient] Backup #{index} ({attempt.get('h') or '?'}) failed ({result})")
+        stream_logger.info(f"[Resilient] All backups exhausted, keeping primary result ({primary_result})")
+        return primary_result
+
+    async def _resolve_race(self, attempts: List[Dict], config: Dict, season: Optional[str], episode: Optional[str], content_type: Optional[str], source: Optional[str]) -> Optional[str]:
+        primary_result = {}
+        queue = list(enumerate(attempts))
+        concurrency = min(len(attempts), settings.RESILIENT_MAX_CONCURRENCY)
+        stream_logger.debug(f"[Resilient] Racing primary + {len(attempts) - 1} backup(s)")
+
+        async def run(index, attempt):
+            result = await self._resolve_attempt(attempt, config, season, episode, content_type, source, 0, index == 0)
+            if index == 0:
+                primary_result["value"] = result
+            return index, result
+
+        pending = set()
+        while queue and len(pending) < concurrency:
+            index, attempt = queue.pop(0)
+            pending.add(asyncio.create_task(run(index, attempt)))
+
+        winner = None
+        while pending:
+            done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                index, result = task.result()
+                if result and result not in PLAYBACK_SENTINELS:
+                    winner = result
+                    if index > 0:
+                        won = attempts[index]
+                        stream_logger.info(f"[Resilient] Race recovered via backup #{index} ({won.get('h') or '?'} / {won.get('s') or '?'})")
+                    break
+            if winner:
+                break
+            while queue and len(pending) < concurrency:
+                index, attempt = queue.pop(0)
+                pending.add(asyncio.create_task(run(index, attempt)))
+
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+
+        if winner:
+            return winner
+        stream_logger.info(f"[Resilient] Race: all failed, keeping primary result ({primary_result.get('value')})")
+        return primary_result.get("value", "FATAL_ERROR")
+
+    async def resolve_link_with_response(self, link: str, config: Dict, season: Optional[str] = None, episode: Optional[str] = None, service: Optional[str] = None, content_type: Optional[str] = None, title: Optional[str] = None, source: Optional[str] = None, hoster: Optional[str] = None, alternates: Optional[List[Dict]] = None):
+        rp = self._get_resilient_config(config)
+
+        if not rp["enabled"] or not alternates:
+            direct_link = await self.resolve_link(link, config, season, episode, service, content_type, title, source, hoster)
+            return self._build_link_response(direct_link)
+
+        primary = {"l": link, "s": service, "h": hoster, "t": title}
+        attempts = [primary] + list(alternates)[:rp["max_fallbacks"]]
+
+        if rp["mode"] == "parallel":
+            direct_link = await self._resolve_race(attempts, config, season, episode, content_type, source)
+        else:
+            direct_link = await self._resolve_sequential(attempts, config, season, episode, content_type, source, rp)
+
+        return self._build_link_response(direct_link)
 
     async def _handle_kitsu_request(self, media_info: Dict, config: Dict, base_url: str, start_time: float) -> List[Dict]:
         kitsu_id = media_info.get("kitsu_id")

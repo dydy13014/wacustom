@@ -125,6 +125,14 @@ class Settings(BaseSettings):
     WASOURCE_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "sendcm", "darkibox", "alldebrid"]
 
     # ===========================
+    # Resilient Playback Configuration
+    # ===========================
+    RESILIENT_MAX_FALLBACKS: int = 10
+    RESILIENT_MAX_CONCURRENCY: int = 4
+    RESILIENT_ATTEMPT_TIMEOUT_MAX: int = 60
+    RESILIENT_TOKEN_MAX_BYTES: int = 3500
+
+    # ===========================
     # Tracker Configuration (Torznab)
     # ===========================
     YGGREBORN_URL: Optional[str] = None
@@ -159,6 +167,8 @@ class Settings(BaseSettings):
     # ===========================
     PASTEBIN_SCRAPER_URLS: List[str] = []
     PASTEBIN_SCRAPER_INTERVAL: int = 86400
+    PASTEBIN_SCRAPER_MAX_DEPTH: int = 5
+    PASTEBIN_SCRAPER_MAX_PAGES: int = 1000
 
     # ===========================
     # TMDB Configuration

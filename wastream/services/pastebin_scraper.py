@@ -1,6 +1,7 @@
 import ast
 import asyncio
 import hashlib
+import math
 import re
 import time
 from typing import Any, List, Dict, Optional, Tuple
@@ -12,6 +13,7 @@ from wastream.utils.http_client import http_client
 from wastream.utils.languages import normalize_language
 from wastream.utils.logger import scraper_logger
 from wastream.utils.quality import extract_resolution
+from wastream.utils.urls import canonicalize_url
 
 
 # ===========================
@@ -19,26 +21,44 @@ from wastream.utils.quality import extract_resolution
 # ===========================
 ALLDEBRID_DEFAULT_BASE_URL = "https://alldebrid.com/f/"
 
+# Domain fragments used to detect a known host inside a full URL. The set of ACCEPTED hosts
+# stays driven by settings.WASOURCE_SUPPORTED_HOSTS; this only maps a host name to its domain(s).
+HOST_DOMAINS = {
+    "1fichier": ("1fichier.com",),
+    "turbobit": ("turbobit.net",),
+    "rapidgator": ("rapidgator.net",),
+    "sendcm": ("send.cm",),
+    "darkibox": ("darkibox.com",),
+    "alldebrid": ("alldebrid.com",),
+}
+
 COL_CAT = 0
 COL_TMDB = 1
 COL_TITLE = 2
 COL_SAISON = 3
 COL_YEAR = 8
 COL_RES = 10
-COL_URLS = 11
+COL_SIZE = 11
 
 SERIES_URL_PATTERN = re.compile(r"(\d+)\s*:\s*'([^']*)'")
+
+# Auto-discovery: a paste "code" is a bare alphanumeric token on its own line (a paste id
+# to append to the base URL). Used to tell an index page (only codes) from a content page.
+PASTE_CODE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{4,64}$")
 
 _pastebin_content_hashes: Dict[str, str] = {}
 
 _scraper_state: Dict[str, Any] = {
     "running": False,
+    "stop_requested": False,
     "last_run": None,
     "last_stats": None,
     "current_url": None,
     "progress": 0,
     "progress_total": 0,
 }
+
+_manual_scrape_task = None
 
 
 # ===========================
@@ -112,9 +132,40 @@ def parse_series_urls(urls_raw: str) -> List[Tuple[int, str]]:
 
 
 # ===========================
+# URL Host Detection
+# ===========================
+def detect_known_host(value: str) -> Optional[str]:
+    lowered = value.lower()
+    for host in settings.WASOURCE_SUPPORTED_HOSTS:
+        for domain in HOST_DOMAINS.get(host, (host,)):
+            if domain in lowered:
+                return host
+    return None
+
+
+def resolve_pastebin_url(value: str, alldebrid_base_url: str) -> Optional[Dict[str, str]]:
+    value = canonicalize_url(value.strip())
+    if not value:
+        return None
+
+    host = detect_known_host(value)
+    if host:
+        url = value if "://" in value else f"https://{value}"
+        return {"host": host, "url": url}
+
+    # No known host: a bare token is a legacy AllDebrid share suffix; anything already
+    # shaped like a URL points to an unsupported host, so it is dropped.
+    if "://" in value or ("." in value and "/" in value):
+        scraper_logger.debug(f"[PastebinScraper] Ignored unsupported-host URL: {value[:80]}")
+        return None
+
+    return {"host": "alldebrid", "url": alldebrid_base_url + value}
+
+
+# ===========================
 # TMDB → IMDB Resolution
 # ===========================
-async def lookup_imdb_from_wasource(tmdb_id: str) -> Optional[str]:
+async def get_imdb_id_from_wasource(tmdb_id: str) -> Optional[str]:
     try:
         row = await database.fetch_one(
             "SELECT imdb_id FROM wasource WHERE tmdb_id = :tmdb_id LIMIT 1",
@@ -127,8 +178,8 @@ async def lookup_imdb_from_wasource(tmdb_id: str) -> Optional[str]:
     return None
 
 
-async def fetch_imdb_id_from_tmdb(tmdb_id: str, content_type: str, tmdb_api_token: str) -> Optional[str]:
-    imdb_id = await lookup_imdb_from_wasource(tmdb_id)
+async def resolve_imdb_id(tmdb_id: str, content_type: str, tmdb_api_token: str) -> Optional[str]:
+    imdb_id = await get_imdb_id_from_wasource(tmdb_id)
     if imdb_id:
         return imdb_id
 
@@ -168,6 +219,31 @@ async def fetch_imdb_id_from_tmdb(tmdb_id: str, content_type: str, tmdb_api_toke
 
 
 # ===========================
+# Size Parsing
+# ===========================
+def _size_gb_to_bytes(value) -> Optional[int]:
+    try:
+        gb = float(value)
+    except (ValueError, TypeError):
+        return None
+    if not math.isfinite(gb) or gb <= 0:
+        return None
+    return int(gb * (1024 ** 3))
+
+
+def _parse_size_list(size_raw: str) -> List[Optional[int]]:
+    if not size_raw:
+        return []
+    try:
+        values = ast.literal_eval(size_raw)
+    except (ValueError, SyntaxError):
+        return []
+    if not isinstance(values, (list, tuple)):
+        return []
+    return [_size_gb_to_bytes(v) for v in values]
+
+
+# ===========================
 # Parse Pastebin Content
 # ===========================
 def parse_pastebin_content(content: str) -> tuple:
@@ -178,8 +254,8 @@ def parse_pastebin_content(content: str) -> tuple:
     header = lines[0]
     alldebrid_base_url = ALLDEBRID_DEFAULT_BASE_URL
     header_parts = header.split(";")
-    if len(header_parts) > COL_URLS:
-        urls_header = header_parts[COL_URLS].strip()
+    if header_parts:
+        urls_header = header_parts[-1].strip()
         if "=" in urls_header:
             alldebrid_base_url = urls_header.split("=", 1)[1].strip()
 
@@ -200,7 +276,8 @@ def parse_pastebin_content(content: str) -> tuple:
             season_str = parts[COL_SAISON].strip()
             year_str = parts[COL_YEAR].strip()
             res_raw = parts[COL_RES].strip()
-            urls_raw = parts[COL_URLS].strip()
+            urls_raw = parts[-1].strip()
+            sizes = _parse_size_list(parts[COL_SIZE].strip()) if len(parts) >= 13 else []
 
             if not tmdb_id or not title:
                 continue
@@ -216,8 +293,12 @@ def parse_pastebin_content(content: str) -> tuple:
                     continue
 
                 episodes: Dict[int, List[str]] = {}
+                episode_sizes: Dict[int, Optional[int]] = {}
                 for ep_num, suffix in episode_urls:
                     episodes.setdefault(ep_num, []).append(suffix)
+                    if ep_num not in episode_sizes:
+                        k = len(episode_sizes)
+                        episode_sizes[ep_num] = sizes[k] if k < len(sizes) else None
 
                 entries.append({
                     "cat": "serie",
@@ -227,14 +308,23 @@ def parse_pastebin_content(content: str) -> tuple:
                     "year": year,
                     "release_name": release_name,
                     "episodes": episodes,
+                    "episode_sizes": episode_sizes,
                 })
 
             else:
                 res_list = ast.literal_eval(res_raw) if res_raw else []
                 urls_list = ast.literal_eval(urls_raw) if urls_raw else []
 
+                if not isinstance(res_list, (list, tuple)) or not isinstance(urls_list, (list, tuple)):
+                    continue
+
                 if not res_list or not urls_list or len(res_list) != len(urls_list):
                     continue
+
+                releases = [
+                    (res, url, sizes[i] if i < len(sizes) else None)
+                    for i, (res, url) in enumerate(zip(res_list, urls_list))
+                ]
 
                 entries.append({
                     "cat": "film",
@@ -242,7 +332,7 @@ def parse_pastebin_content(content: str) -> tuple:
                     "title": title,
                     "season": None,
                     "year": year,
-                    "releases": list(zip(res_list, urls_list)),
+                    "releases": releases,
                 })
 
         except (ValueError, SyntaxError):
@@ -252,100 +342,179 @@ def parse_pastebin_content(content: str) -> tuple:
 
 
 # ===========================
-# Scrape Single Pastebin URL
+# Fetch
 # ===========================
-async def scrape_pastebin_url(url: str, tmdb_api_token: str) -> Dict:
-    stats = {"added": 0, "skipped": 0, "errors": 0, "total": 0}
-
+async def _fetch_pastebin(url: str) -> Optional[str]:
     try:
         response = await http_client.get(url, timeout=30)
         if response.status_code != 200:
             scraper_logger.error(f"[PastebinScraper] Failed to fetch {url}: HTTP {response.status_code}")
-            return stats
+            return None
+        return response.text
+    except Exception as e:
+        scraper_logger.error(f"[PastebinScraper] Fetch error for {url}: {type(e).__name__}: {e}")
+        return None
 
-        content = response.text
 
-        content_hash = hashlib.md5(content.encode(), usedforsecurity=False).hexdigest()
-        if _pastebin_content_hashes.get(url) == content_hash:
-            scraper_logger.info("[PastebinScraper] Unchanged, skipping")
-            return stats
+# ===========================
+# Content Processing
+# ===========================
+async def _process_content_entries(entries: List[Dict], alldebrid_base_url: str, tmdb_api_token: str, stats: Dict):
+    for entry in entries:
+        if _scraper_state["stop_requested"]:
+            break
+        try:
+            tmdb_id = entry["tmdb_id"]
+            cat = entry["cat"]
 
-        entries, alldebrid_base_url = parse_pastebin_content(content)
-        stats["total"] = len(entries)
+            imdb_id = await resolve_imdb_id(tmdb_id, cat, tmdb_api_token)
+            if not imdb_id:
+                stats["errors"] += 1
+                continue
 
-        for entry in entries:
-            try:
-                tmdb_id = entry["tmdb_id"]
-                cat = entry["cat"]
+            if cat == "serie":
+                res_name = entry.get("release_name")
+                language, raw_quality = parse_release_info(res_name)
+                quality = extract_resolution(raw_quality)
 
-                imdb_id = await fetch_imdb_id_from_tmdb(tmdb_id, cat, tmdb_api_token)
-                if not imdb_id:
-                    stats["errors"] += 1
-                    continue
+                episode_sizes = entry.get("episode_sizes", {})
+                for ep_num, suffixes in entry["episodes"].items():
+                    urls = [link for link in (resolve_pastebin_url(s, alldebrid_base_url) for s in suffixes) if link]
+                    if not urls:
+                        continue
+                    release_name = build_pastebin_release_name(
+                        entry["title"], entry["year"], entry["season"], ep_num, res_name
+                    )
 
-                if cat == "serie":
-                    res_name = entry.get("release_name")
+                    result = await add_wasource_links_bulk(
+                        imdb_id=imdb_id,
+                        title=entry["title"],
+                        release_name=release_name,
+                        quality=quality,
+                        language=language,
+                        size=episode_sizes.get(ep_num),
+                        season=entry["season"],
+                        episode=ep_num,
+                        urls=urls,
+                        tmdb_id=str(tmdb_id),
+                        year=entry["year"]
+                    )
+
+                    stats["added"] += result.get("added", 0)
+                    stats["skipped"] += result.get("skipped", 0)
+
+            else:
+                for res_name, url_suffix, size_bytes in entry["releases"]:
+                    link = resolve_pastebin_url(url_suffix, alldebrid_base_url)
+                    if not link:
+                        continue
                     language, raw_quality = parse_release_info(res_name)
                     quality = extract_resolution(raw_quality)
+                    release_name = build_pastebin_release_name(
+                        entry["title"], entry["year"], None, None, res_name
+                    )
 
-                    for ep_num, suffixes in entry["episodes"].items():
-                        urls = [{"host": "alldebrid", "url": alldebrid_base_url + s} for s in suffixes]
-                        release_name = build_pastebin_release_name(
-                            entry["title"], entry["year"], entry["season"], ep_num, res_name
-                        )
+                    result = await add_wasource_links_bulk(
+                        imdb_id=imdb_id,
+                        title=entry["title"],
+                        release_name=release_name,
+                        quality=quality,
+                        language=language,
+                        size=size_bytes,
+                        season=None,
+                        episode=None,
+                        urls=[link],
+                        tmdb_id=str(tmdb_id),
+                        year=entry["year"]
+                    )
 
-                        result = await add_wasource_links_bulk(
-                            imdb_id=imdb_id,
-                            title=entry["title"],
-                            release_name=release_name,
-                            quality=quality,
-                            language=language,
-                            size=None,
-                            season=entry["season"],
-                            episode=ep_num,
-                            urls=urls,
-                            tmdb_id=str(tmdb_id),
-                            year=entry["year"]
-                        )
+                    stats["added"] += result.get("added", 0)
+                    stats["skipped"] += result.get("skipped", 0)
 
-                        stats["added"] += result.get("added", 0)
-                        stats["skipped"] += result.get("skipped", 0)
+        except Exception as e:
+            scraper_logger.error(f"[PastebinScraper] Entry error ({entry.get('title', '?')}): {type(e).__name__}: {e}")
+            stats["errors"] += 1
 
-                else:
-                    for res_name, url_suffix in entry["releases"]:
-                        full_url = alldebrid_base_url + url_suffix
-                        language, raw_quality = parse_release_info(res_name)
-                        quality = extract_resolution(raw_quality)
-                        release_name = build_pastebin_release_name(
-                            entry["title"], entry["year"], None, None, res_name
-                        )
 
-                        result = await add_wasource_links_bulk(
-                            imdb_id=imdb_id,
-                            title=entry["title"],
-                            release_name=release_name,
-                            quality=quality,
-                            language=language,
-                            size=None,
-                            season=None,
-                            episode=None,
-                            urls=[{"host": "alldebrid", "url": full_url}],
-                            tmdb_id=str(tmdb_id),
-                            year=entry["year"]
-                        )
+async def _process_content_page(url: str, content: str, entries: List[Dict], alldebrid_base_url: str, tmdb_api_token: str, stats: Dict):
+    content_hash = hashlib.md5(content.encode(), usedforsecurity=False).hexdigest()
+    if _pastebin_content_hashes.get(url) == content_hash:
+        scraper_logger.info("[PastebinScraper] Unchanged, skipping")
+        return
+    stats["total"] += len(entries)
+    await _process_content_entries(entries, alldebrid_base_url, tmdb_api_token, stats)
+    _pastebin_content_hashes[url] = content_hash
 
-                        stats["added"] += result.get("added", 0)
-                        stats["skipped"] += result.get("skipped", 0)
 
-            except Exception as e:
-                scraper_logger.error(f"[PastebinScraper] Entry error ({entry.get('title', '?')}): {type(e).__name__}: {e}")
-                stats["errors"] += 1
+# ===========================
+# Auto-Discovery
+# ===========================
+def _extract_paste_codes(content: str) -> List[str]:
+    codes = []
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if PASTE_CODE_PATTERN.match(line):
+            codes.append(line)
+        else:
+            return []
+    return codes
 
-        _pastebin_content_hashes[url] = content_hash
 
+def _derive_paste_base(url: str) -> str:
+    return url.rsplit("/", 1)[0] + "/"
+
+
+async def _discover_and_scrape(url: str, tmdb_api_token: str, ctx: Dict, depth: int, stats: Dict):
+    if _scraper_state["stop_requested"]:
+        return
+    if url in ctx["visited"]:
+        return
+    if len(ctx["visited"]) >= settings.PASTEBIN_SCRAPER_MAX_PAGES:
+        if not ctx["cap_logged"]:
+            scraper_logger.warning(f"[PastebinScraper] Page cap ({settings.PASTEBIN_SCRAPER_MAX_PAGES}) reached, discovery truncated")
+            ctx["cap_logged"] = True
+        return
+    if depth > settings.PASTEBIN_SCRAPER_MAX_DEPTH:
+        scraper_logger.debug(f"[PastebinScraper] Max depth reached at {url}")
+        return
+    ctx["visited"].add(url)
+
+    content = await _fetch_pastebin(url)
+    if not content:
+        return
+
+    entries, alldebrid_base_url = parse_pastebin_content(content)
+    if entries:
+        ctx["content_pages"] += 1
+        scraper_logger.debug(f"[PastebinScraper] Content page ({len(entries)} entries): {url}")
+        await _process_content_page(url, content, entries, alldebrid_base_url, tmdb_api_token, stats)
+        return
+
+    codes = _extract_paste_codes(content)
+    if not codes:
+        return
+    scraper_logger.debug(f"[PastebinScraper] Index page ({len(codes)} codes): {url}")
+    base = _derive_paste_base(url)
+    for code in codes:
+        await _discover_and_scrape(base + code, tmdb_api_token, ctx, depth + 1, stats)
+
+
+# ===========================
+# Scrape Pastebin URL
+# ===========================
+async def scrape_pastebin_url(url: str, tmdb_api_token: str) -> Dict:
+    stats = {"added": 0, "skipped": 0, "errors": 0, "total": 0}
+    try:
+        ctx = {"visited": set(), "cap_logged": False, "content_pages": 0}
+        await _discover_and_scrape(url, tmdb_api_token, ctx, 0, stats)
+        scraper_logger.info(
+            f"[PastebinScraper] {url}: {len(ctx['visited'])} page(s) visited, "
+            f"{ctx['content_pages']} content page(s), {stats['added']} link(s) added"
+        )
     except Exception as e:
         scraper_logger.error(f"[PastebinScraper] Scrape error for {url}: {type(e).__name__}: {e}")
-
     return stats
 
 
@@ -353,6 +522,9 @@ async def scrape_pastebin_url(url: str, tmdb_api_token: str) -> Dict:
 # Run Pastebin Scraper
 # ===========================
 async def run_pastebin_scraper():
+    if _scraper_state["running"]:
+        return
+
     if not settings.PASTEBIN_SCRAPER_URLS:
         return
 
@@ -361,45 +533,83 @@ async def run_pastebin_scraper():
         return
 
     _scraper_state["running"] = True
+    _scraper_state["stop_requested"] = False
     _scraper_state["progress"] = 0
     _scraper_state["progress_total"] = len(settings.PASTEBIN_SCRAPER_URLS)
 
     scraper_logger.info(f"[PastebinScraper] Starting scrape of {len(settings.PASTEBIN_SCRAPER_URLS)} URL(s)")
 
     total_stats = {"added": 0, "skipped": 0, "errors": 0, "total": 0}
+    stopped = False
 
-    for i, url in enumerate(settings.PASTEBIN_SCRAPER_URLS):
-        _scraper_state["current_url"] = url
-        _scraper_state["progress"] = i + 1
+    try:
+        for i, url in enumerate(settings.PASTEBIN_SCRAPER_URLS):
+            if _scraper_state["stop_requested"]:
+                stopped = True
+                break
 
-        stats = await scrape_pastebin_url(url, settings.TMDB_API_KEY)
+            _scraper_state["current_url"] = url
+            _scraper_state["progress"] = i + 1
 
-        for key in total_stats:
-            total_stats[key] += stats[key]
+            stats = await scrape_pastebin_url(url, settings.TMDB_API_KEY)
 
-        scraper_logger.info(
-            f"[PastebinScraper] {stats['added']} added, {stats['skipped']} skipped, "
-            f"{stats['errors']} errors / {stats['total']} entries"
-        )
+            for key in total_stats:
+                total_stats[key] += stats[key]
 
-    _scraper_state["running"] = False
-    _scraper_state["current_url"] = None
-    _scraper_state["last_run"] = int(time.time())
-    _scraper_state["last_stats"] = total_stats
+            scraper_logger.info(
+                f"[PastebinScraper] {stats['added']} added, {stats['skipped']} skipped, "
+                f"{stats['errors']} errors / {stats['total']} entries"
+            )
+        stopped = stopped or _scraper_state["stop_requested"]
+    finally:
+        _scraper_state["running"] = False
+        _scraper_state["stop_requested"] = False
+        _scraper_state["current_url"] = None
+        _scraper_state["last_run"] = int(time.time())
+        _scraper_state["last_stats"] = total_stats
 
     scraper_logger.info(
-        f"[PastebinScraper] Done: {total_stats['added']} added, {total_stats['skipped']} skipped, "
-        f"{total_stats['errors']} errors / {total_stats['total']} entries"
+        f"[PastebinScraper] {'Stopped' if stopped else 'Done'}: {total_stats['added']} added, "
+        f"{total_stats['skipped']} skipped, {total_stats['errors']} errors / {total_stats['total']} entries"
     )
+
+
+# ===========================
+# Manual Control
+# ===========================
+def _log_manual_task_result(task):
+    try:
+        exc = task.exception()
+    except asyncio.CancelledError:
+        return
+    if exc:
+        scraper_logger.error(f"[PastebinScraper] Manual run crashed: {type(exc).__name__}: {exc}")
+
+
+async def trigger_pastebin_scraper() -> str:
+    if _scraper_state["running"]:
+        return "already_running"
+    if not settings.PASTEBIN_SCRAPER_URLS:
+        return "no_urls"
+    if not settings.TMDB_API_KEY:
+        return "no_tmdb_key"
+    global _manual_scrape_task
+    _manual_scrape_task = asyncio.create_task(run_pastebin_scraper())
+    _manual_scrape_task.add_done_callback(_log_manual_task_result)
+    return "started"
+
+
+def request_stop_pastebin_scraper() -> str:
+    if not _scraper_state["running"]:
+        return "not_running"
+    _scraper_state["stop_requested"] = True
+    return "stopping"
 
 
 # ===========================
 # Background Loop
 # ===========================
 async def start_pastebin_scraper_loop():
-    if not settings.PASTEBIN_SCRAPER_URLS:
-        return
-
     await asyncio.sleep(15)
 
     while True:
@@ -408,4 +618,4 @@ async def start_pastebin_scraper_loop():
         except Exception as e:
             scraper_logger.error(f"[PastebinScraper] Loop error: {type(e).__name__}: {e}")
 
-        await asyncio.sleep(settings.PASTEBIN_SCRAPER_INTERVAL)
+        await asyncio.sleep(max(1, settings.PASTEBIN_SCRAPER_INTERVAL))
