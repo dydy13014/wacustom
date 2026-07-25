@@ -768,6 +768,12 @@
             margin-bottom: 0;
         }
 
+        .resilient-block .early-stop-options .toggle-wrapper {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+        }
+
         /* ===========================
            Source Content Types
            =========================== */
@@ -1975,6 +1981,155 @@
                             </div>
                         </div>
                         <div class="form-field">
+                            <div class="early-stop-container resilient-block">
+                                <div class="toggle-wrapper" id="resilientPlaybackToggle">
+                                    <div class="toggle" id="resilientPlaybackToggleBtn">
+                                        <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                        <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="toggle-label" data-i18n="toggles.resilientPlayback">Resilient playback</span>
+                                        <span class="field-help" style="margin-top: 2px;" data-i18n="help.resilientPlaybackInfo">If the clicked link is dead or too slow, automatically try other links for the same content before giving up</span>
+                                    </div>
+                                </div>
+                                <input type="checkbox" id="resilientPlayback" style="display: none;" />
+                                <div id="resilientPlaybackOptions" class="early-stop-options" style="display: none;">
+                                    <div class="form-field">
+                                        <sl-select id="resilientMode" label="Mode" value="sequential">
+                                            <sl-option value="sequential" id="resilientModeSeqOption">Sequential (fallback)</sl-option>
+                                            <sl-option value="parallel" id="resilientModeRaceOption">Parallel (race)</sl-option>
+                                        </sl-select>
+                                        <span class="field-help" data-i18n="help.resilientMode">Sequential tries the other links one by one (safe). Parallel races several at once (faster, uses more debrid calls)</span>
+                                    </div>
+                                    <div class="form-field">
+                                        <sl-input id="resilientMaxFallbacks" type="number" label="Max backups" value="3" min="0"></sl-input>
+                                        <span class="field-help" data-i18n="help.resilientMaxFallbacks">Maximum number of backup links to try</span>
+                                    </div>
+                                    <div class="form-field" id="resilientMaxDelayField">
+                                        <sl-input id="resilientMaxDelay" type="number" label="Max wait per link (s)" value="0" min="0"></sl-input>
+                                        <span class="field-help" data-i18n="help.resilientMaxDelay">Give up on a link after this many seconds and try the next — sequential mode only (0 = no limit)</span>
+                                    </div>
+                                    <div class="form-field">
+                                        <div class="toggle-wrapper" id="resilientSameResolutionToggle">
+                                            <div class="toggle active" id="resilientSameResolutionToggleBtn">
+                                                <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                </svg>
+                                                <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
+                                            </div>
+                                            <span class="toggle-label" data-i18n="toggles.resilientSameResolution">Same resolution</span>
+                                        </div>
+                                        <input type="checkbox" id="resilientSameResolution" style="display: none;" checked />
+                                        <span class="field-help" data-i18n="help.resilientSameResolution">Only try links with the same resolution as the clicked one</span>
+                                    </div>
+                                    <div class="form-field">
+                                        <div class="toggle-wrapper" id="resilientSameLanguageToggle">
+                                            <div class="toggle active" id="resilientSameLanguageToggleBtn">
+                                                <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                </svg>
+                                                <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
+                                            </div>
+                                            <span class="toggle-label" data-i18n="toggles.resilientSameLanguage">Same language</span>
+                                        </div>
+                                        <input type="checkbox" id="resilientSameLanguage" style="display: none;" checked />
+                                        <span class="field-help" data-i18n="help.resilientSameLanguage">Only try links that share a language with the clicked one</span>
+                                    </div>
+                                    <div class="form-field">
+                                        <div class="toggle-wrapper" id="resilientSameQualityToggle">
+                                            <div class="toggle" id="resilientSameQualityToggleBtn">
+                                                <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                </svg>
+                                                <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
+                                            </div>
+                                            <span class="toggle-label" data-i18n="toggles.resilientSameQuality">Same quality</span>
+                                        </div>
+                                        <input type="checkbox" id="resilientSameQuality" style="display: none;" />
+                                        <span class="field-help" data-i18n="help.resilientSameQuality">Only try links with the same release type (BluRay, WEB-DL...) — stricter than resolution</span>
+                                    </div>
+                                    <div class="form-field">
+                                        <div class="toggle-wrapper" id="resilientSameHostToggle">
+                                            <div class="toggle" id="resilientSameHostToggleBtn">
+                                                <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                </svg>
+                                                <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
+                                            </div>
+                                            <span class="toggle-label" data-i18n="toggles.resilientSameHost">Same host</span>
+                                        </div>
+                                        <input type="checkbox" id="resilientSameHost" style="display: none;" />
+                                        <span class="field-help" data-i18n="help.resilientSameHost">Only try links on the same host (1fichier, Rapidgator...)</span>
+                                    </div>
+                                    <div class="form-field">
+                                        <div class="toggle-wrapper" id="resilientSameSourceToggle">
+                                            <div class="toggle" id="resilientSameSourceToggleBtn">
+                                                <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                </svg>
+                                                <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
+                                            </div>
+                                            <span class="toggle-label" data-i18n="toggles.resilientSameSource">Same source</span>
+                                        </div>
+                                        <input type="checkbox" id="resilientSameSource" style="display: none;" />
+                                        <span class="field-help" data-i18n="help.resilientSameSource">Only try links from the same source (Wawacity, Darki-API...)</span>
+                                    </div>
+                                    <div class="form-field">
+                                        <div class="toggle-wrapper" id="resilientSameDebridOnlyToggle">
+                                            <div class="toggle active" id="resilientSameDebridOnlyToggleBtn">
+                                                <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                </svg>
+                                                <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
+                                            </div>
+                                            <span class="toggle-label" data-i18n="toggles.resilientSameDebridOnly">Same debrid service</span>
+                                        </div>
+                                        <input type="checkbox" id="resilientSameDebridOnly" style="display: none;" checked />
+                                        <span class="field-help" data-i18n="help.resilientSameDebridOnly">Only try links that resolve through the same debrid service</span>
+                                    </div>
+                                    <div class="form-field">
+                                        <div class="toggle-wrapper" id="resilientAllowUncachedToggle">
+                                            <div class="toggle" id="resilientAllowUncachedToggleBtn">
+                                                <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                </svg>
+                                                <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
+                                            </div>
+                                            <span class="toggle-label" data-i18n="toggles.resilientAllowUncached">Allow uncached backups</span>
+                                        </div>
+                                        <input type="checkbox" id="resilientAllowUncached" style="display: none;" />
+                                        <span class="field-help" data-i18n="help.resilientAllowUncached">Also try links that are not cached yet (off = instant cached backups only)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-field">
                             <div class="source-content-types-container">
                                 <div class="toggle-wrapper" id="sourceContentTypesToggle">
                                     <div class="toggle" id="sourceContentTypesToggleBtn">
@@ -2153,7 +2308,7 @@
             preferredKeywords: [],
             passwordRequired: false,
             loading: false,
-            currentLanguage: 'en',
+            currentLanguage: 'fr',
             serviceConfig: {},
             userUuid: null,
             encryptedPassword: null,
@@ -2202,6 +2357,37 @@
             earlyStopIncludeNzbToggle: null,
             earlyStopIncludeNzbToggleBtn: null,
             earlyStopIncludeNzbField: null,
+            resilientPlayback: null,
+            resilientPlaybackToggle: null,
+            resilientPlaybackToggleBtn: null,
+            resilientPlaybackOptions: null,
+            resilientMode: null,
+            resilientModeSeqOption: null,
+            resilientModeRaceOption: null,
+            resilientMaxFallbacks: null,
+            resilientMaxDelay: null,
+            resilientMaxDelayField: null,
+            resilientSameResolution: null,
+            resilientSameResolutionToggle: null,
+            resilientSameResolutionToggleBtn: null,
+            resilientSameLanguage: null,
+            resilientSameLanguageToggle: null,
+            resilientSameLanguageToggleBtn: null,
+            resilientSameQuality: null,
+            resilientSameQualityToggle: null,
+            resilientSameQualityToggleBtn: null,
+            resilientSameHost: null,
+            resilientSameHostToggle: null,
+            resilientSameHostToggleBtn: null,
+            resilientSameSource: null,
+            resilientSameSourceToggle: null,
+            resilientSameSourceToggleBtn: null,
+            resilientSameDebridOnly: null,
+            resilientSameDebridOnlyToggle: null,
+            resilientSameDebridOnlyToggleBtn: null,
+            resilientAllowUncached: null,
+            resilientAllowUncachedToggle: null,
+            resilientAllowUncachedToggleBtn: null,
             sourceContentTypes: null,
             sourceContentTypesToggle: null,
             sourceContentTypesToggleBtn: null,
@@ -2561,6 +2747,15 @@
             }
         };
 
+
+        // ===========================
+        // Resilient Playback Mode Sync
+        // ===========================
+        const updateResilientMode = () => {
+            if (!els.resilientMaxDelayField) return;
+            const isParallel = els.resilientMode && els.resilientMode.value === 'parallel';
+            els.resilientMaxDelayField.style.display = isParallel ? 'none' : 'block';
+        };
 
         // ===========================
         // Early Stop Options Sync
@@ -3280,6 +3475,17 @@
                     early_stop_hosts: els.earlyStopHosts.value || [],
                     early_stop_resolutions: els.earlyStopResolutions.value || [],
                     early_stop_include_nzb: els.earlyStopIncludeNzb.checked,
+                    resilient_enabled: els.resilientPlayback.checked,
+                    resilient_mode: els.resilientMode.value || 'sequential',
+                    resilient_max_fallbacks: parseInt(els.resilientMaxFallbacks.value) || 3,
+                    resilient_max_delay: parseInt(els.resilientMaxDelay.value) || 0,
+                    resilient_same_resolution: els.resilientSameResolution.checked,
+                    resilient_same_language: els.resilientSameLanguage.checked,
+                    resilient_same_quality: els.resilientSameQuality.checked,
+                    resilient_same_host: els.resilientSameHost.checked,
+                    resilient_same_source: els.resilientSameSource.checked,
+                    resilient_same_debrid_only: els.resilientSameDebridOnly.checked,
+                    resilient_allow_uncached: els.resilientAllowUncached.checked,
                     source_content_types: els.sourceContentTypes.checked,
                     source_content_types_config: (() => {
                         const sctConfig = {};
@@ -3600,6 +3806,49 @@
             els.earlyStopIncludeNzbToggle.addEventListener('click', () => {
                 els.earlyStopIncludeNzb.checked = !els.earlyStopIncludeNzb.checked;
                 els.earlyStopIncludeNzbToggleBtn.classList.toggle('active', els.earlyStopIncludeNzb.checked);
+            });
+
+            els.resilientPlaybackToggle.addEventListener('click', () => {
+                els.resilientPlayback.checked = !els.resilientPlayback.checked;
+                els.resilientPlaybackToggleBtn.classList.toggle('active', els.resilientPlayback.checked);
+                els.resilientPlaybackOptions.style.display = els.resilientPlayback.checked ? 'block' : 'none';
+            });
+
+            els.resilientMode.addEventListener('sl-change', updateResilientMode);
+
+            els.resilientSameResolutionToggle.addEventListener('click', () => {
+                els.resilientSameResolution.checked = !els.resilientSameResolution.checked;
+                els.resilientSameResolutionToggleBtn.classList.toggle('active', els.resilientSameResolution.checked);
+            });
+
+            els.resilientSameLanguageToggle.addEventListener('click', () => {
+                els.resilientSameLanguage.checked = !els.resilientSameLanguage.checked;
+                els.resilientSameLanguageToggleBtn.classList.toggle('active', els.resilientSameLanguage.checked);
+            });
+
+            els.resilientSameQualityToggle.addEventListener('click', () => {
+                els.resilientSameQuality.checked = !els.resilientSameQuality.checked;
+                els.resilientSameQualityToggleBtn.classList.toggle('active', els.resilientSameQuality.checked);
+            });
+
+            els.resilientSameHostToggle.addEventListener('click', () => {
+                els.resilientSameHost.checked = !els.resilientSameHost.checked;
+                els.resilientSameHostToggleBtn.classList.toggle('active', els.resilientSameHost.checked);
+            });
+
+            els.resilientSameSourceToggle.addEventListener('click', () => {
+                els.resilientSameSource.checked = !els.resilientSameSource.checked;
+                els.resilientSameSourceToggleBtn.classList.toggle('active', els.resilientSameSource.checked);
+            });
+
+            els.resilientSameDebridOnlyToggle.addEventListener('click', () => {
+                els.resilientSameDebridOnly.checked = !els.resilientSameDebridOnly.checked;
+                els.resilientSameDebridOnlyToggleBtn.classList.toggle('active', els.resilientSameDebridOnly.checked);
+            });
+
+            els.resilientAllowUncachedToggle.addEventListener('click', () => {
+                els.resilientAllowUncached.checked = !els.resilientAllowUncached.checked;
+                els.resilientAllowUncachedToggleBtn.classList.toggle('active', els.resilientAllowUncached.checked);
             });
 
             els.sourceContentTypesToggle.addEventListener('click', () => {
@@ -3953,6 +4202,61 @@
                 els.earlyStopIncludeNzbToggleBtn.classList.add('active');
             }
 
+            if (config.resilient_enabled) {
+                els.resilientPlayback.checked = true;
+                els.resilientPlaybackToggleBtn.classList.add('active');
+                els.resilientPlaybackOptions.style.display = 'block';
+            }
+
+            if (config.resilient_mode) {
+                els.resilientMode.value = config.resilient_mode;
+            }
+
+            if (config.resilient_max_fallbacks !== undefined) {
+                els.resilientMaxFallbacks.value = config.resilient_max_fallbacks;
+            }
+
+            if (config.resilient_max_delay !== undefined) {
+                els.resilientMaxDelay.value = config.resilient_max_delay;
+            }
+
+            if (config.resilient_same_resolution === false) {
+                els.resilientSameResolution.checked = false;
+                els.resilientSameResolutionToggleBtn.classList.remove('active');
+            }
+
+            if (config.resilient_same_language === false) {
+                els.resilientSameLanguage.checked = false;
+                els.resilientSameLanguageToggleBtn.classList.remove('active');
+            }
+
+            if (config.resilient_same_quality) {
+                els.resilientSameQuality.checked = true;
+                els.resilientSameQualityToggleBtn.classList.add('active');
+            }
+
+            if (config.resilient_same_host) {
+                els.resilientSameHost.checked = true;
+                els.resilientSameHostToggleBtn.classList.add('active');
+            }
+
+            if (config.resilient_same_source) {
+                els.resilientSameSource.checked = true;
+                els.resilientSameSourceToggleBtn.classList.add('active');
+            }
+
+            if (config.resilient_same_debrid_only === false) {
+                els.resilientSameDebridOnly.checked = false;
+                els.resilientSameDebridOnlyToggleBtn.classList.remove('active');
+            }
+
+            if (config.resilient_allow_uncached) {
+                els.resilientAllowUncached.checked = true;
+                els.resilientAllowUncachedToggleBtn.classList.add('active');
+            }
+
+            updateResilientMode();
+
             if (config.source_content_types) {
                 els.sourceContentTypes.checked = true;
                 els.sourceContentTypesToggleBtn.classList.add('active');
@@ -4147,6 +4451,7 @@
 
             updateEarlyStopOptions();
             updateSourceContentTypesOptions();
+            updateResilientMode();
             renderSortOrderList(null);
 
             if (els.prioritizeVffMulti) {
@@ -4161,7 +4466,7 @@
 
             loadExistingConfig();
 
-            const savedLang = localStorage.getItem('wastream_language') || 'en';
+            const savedLang = localStorage.getItem('wastream_language') || 'fr';
             switchLanguage(savedLang);
         };
 
