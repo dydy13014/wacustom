@@ -65,7 +65,13 @@ class Settings(BaseSettings):
     # Lock Configuration
     # ===========================
     SCRAPE_LOCK_TTL: int = 300
-    SCRAPE_WAIT_TIMEOUT: int = 30
+    # Attente max d'un scrape concurrent sur le meme contenu. Doit rester sous
+    # le timeout du client appelant (un agregateur type AIOStreams abandonne
+    # souvent en 7-20s) : au-dela, on attend un verrou plus longtemps que
+    # l'appelant ne patiente, et il repart avec zero flux alors que le scrape
+    # aboutit quand meme. Passe de 30 a 8s (2026-07-25) apres une panne reelle
+    # ou un tracker en 502 a fait expirer 20 requetes sur 20.
+    SCRAPE_WAIT_TIMEOUT: int = 8
 
     # ===========================
     # HTTP Timeout Configuration
