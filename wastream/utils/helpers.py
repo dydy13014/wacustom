@@ -7,6 +7,7 @@ from urllib.parse import quote, quote_plus, urlparse, parse_qs, unquote
 
 from wastream.utils.languages import normalize_language, LANGUAGE_MAPPING
 from wastream.utils.quality import normalize_quality
+from wastream.utils.urls import canonicalize_url
 
 
 # ===========================
@@ -328,7 +329,7 @@ def deduplicate_and_sort_results(results: list, quality_sort_key_func) -> list:
     deduplicated = []
 
     for result in results:
-        link_key = result.get("link", "")
+        link_key = canonicalize_url(result.get("link", ""))
         infohash = result.get("infohash", "")
 
         # For torrents: deduplicate by infohash so the same release from

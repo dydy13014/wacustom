@@ -7,6 +7,7 @@ from wastream.config.settings import settings
 from wastream.utils.helpers import create_cache_key
 from wastream.utils.logger import cache_logger
 from wastream.utils.database import update_cache_stats_on_set
+from wastream.utils.urls import canonicalize_results
 
 
 # ===========================
@@ -92,7 +93,7 @@ async def set_cache(database, cache_type: str, title: str, year: Optional[str] =
         else:
             current_time = int(time.time())
             expires_at = current_time + ttl
-        content = json.dumps(results or [])
+        content = json.dumps(canonicalize_results(results or []))
 
         if settings.DATABASE_TYPE == "sqlite":
             query = """INSERT OR REPLACE INTO content_cache (cache_key, content, expires_at)
@@ -137,7 +138,7 @@ async def set_cache_if_not_exists(
         else:
             current_time = int(time.time())
             expires_at = current_time + ttl
-        content = json.dumps(results or [])
+        content = json.dumps(canonicalize_results(results or []))
 
         await database.execute(
             "INSERT INTO content_cache (cache_key, content, expires_at) VALUES (:cache_key, :content, :expires_at)",

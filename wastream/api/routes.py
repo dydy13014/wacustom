@@ -462,6 +462,7 @@ async def playback(
     title = data.get("t")
     source = data.get("so")
     hoster = data.get("h")
+    alternates = data.get("a")
 
     if not link:
         return FileResponse("wastream/public/fatal_error.mp4")
@@ -479,7 +480,7 @@ async def playback(
     if not debrid_services:
         return FileResponse("wastream/public/fatal_error.mp4")
 
-    return await stream_service.resolve_link_with_response(link, config, season, episode, service, content_type, title, source, hoster)
+    return await stream_service.resolve_link_with_response(link, config, season, episode, service, content_type, title, source, hoster, alternates)
 
 
 # ===========================
