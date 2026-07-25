@@ -1,8 +1,10 @@
+import asyncio
 import xml.etree.ElementTree as ET
 import urllib.parse
 import re
 from typing import List, Dict, Optional, Tuple
 
+from wastream.config.settings import settings
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import scraper_logger
 from wastream.utils.helpers import (
@@ -85,6 +87,17 @@ class BaseTorznab:
 
         try:
             response = await http_client.get(url, headers=headers)
+            # Un 5xx isole est frequent sur ces trackers et coutait toute la
+            # source pour la recherche en cours. Une seule seconde chance,
+            # uniquement sur erreur serveur : un 4xx (cle invalide, quota)
+            # ne se repare pas en reessayant et ne doit pas doubler la charge.
+            if 500 <= response.status_code < 600:
+                scraper_logger.debug(
+                    f"[{self.name}] HTTP {response.status_code}, nouvelle tentative dans {settings.TORZNAB_RETRY_DELAY}s"
+                )
+                await asyncio.sleep(settings.TORZNAB_RETRY_DELAY)
+                response = await http_client.get(url, headers=headers)
+
             if response.status_code != 200:
                 scraper_logger.error(f"[{self.name}] Torznab search failed: HTTP {response.status_code}")
                 return []

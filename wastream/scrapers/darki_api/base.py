@@ -23,7 +23,7 @@ class BaseDarkiAPI:
 
     async def search_by_titles(self, titles: List[str], metadata: Optional[Dict] = None) -> Optional[Dict]:
         if not settings.DARKI_API_URL:
-            scraper_logger.error("[Darki-API] settings.DARKI_API_URL not configured")
+            scraper_logger.debug("[Darki-API] non configure (DARKI_API_URL absent) - source ignoree")
             return None
 
         if not metadata:
@@ -151,7 +151,7 @@ class BaseDarkiAPI:
 
     async def get_all_links(self, title_id: int, season: Optional[str] = None, episode: Optional[str] = None) -> List[Dict]:
         if not settings.DARKI_API_URL:
-            scraper_logger.error("[Darki-API] settings.DARKI_API_URL not configured")
+            scraper_logger.debug("[Darki-API] non configure (DARKI_API_URL absent) - source ignoree")
             return []
 
         all_links = []
@@ -206,7 +206,7 @@ class BaseDarkiAPI:
 
     async def get_all_nzb(self, title_id: int, season: Optional[str] = None, episode: Optional[str] = None) -> List[Dict]:
         if not settings.DARKI_API_URL:
-            scraper_logger.error("[Darki-API] settings.DARKI_API_URL not configured")
+            scraper_logger.debug("[Darki-API] non configure (DARKI_API_URL absent) - source ignoree")
             return []
 
         all_nzb = []
@@ -287,7 +287,7 @@ class BaseDarkiAPI:
 
     async def verify_and_get_link(self, link_id: int) -> Optional[str]:
         if not settings.DARKI_API_URL:
-            scraper_logger.error("[Darki-API] settings.DARKI_API_URL not configured")
+            scraper_logger.debug("[Darki-API] non configure (DARKI_API_URL absent) - source ignoree")
             return None
 
         try:
@@ -569,7 +569,7 @@ class BaseDarkiAPI:
 
     async def get_title_details(self, title_id: int) -> Optional[Dict]:
         if not settings.DARKI_API_URL:
-            scraper_logger.error("[Darki-API] settings.DARKI_API_URL not configured")
+            scraper_logger.debug("[Darki-API] non configure (DARKI_API_URL absent) - source ignoree")
             return None
 
         try:
