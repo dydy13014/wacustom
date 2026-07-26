@@ -6,6 +6,12 @@
 .env.*.local
 *.env
 !.env.example
+# Sauvegardes de fichiers d'environnement : elles contiennent les clés en clair
+# et ne sont PAS couvertes par "*.env" (le nom se termine par .bak-<date>).
+# Sans cette règle, un `git add -A` les pousserait vers le dépôt public.
+*.env.bak*
+*.env.*.bak*
+
 
 # ===========================
 # Python
