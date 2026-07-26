@@ -105,28 +105,29 @@ class LoguruMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await setup_database()
-    asyncio.create_task(rebuild_cache_stats())
-    cleanup_task = asyncio.create_task(cleanup_expired_data())
-    health_check_task = asyncio.create_task(start_background_health_check())
-    pastebin_scraper_task = asyncio.create_task(start_pastebin_scraper_loop())
+
+    # Toutes les tâches de fond doivent être référencées : l'event loop ne
+    # garde qu'une référence FAIBLE, donc une tâche dont plus personne ne
+    # detient le handle peut etre ramassee par le garbage collector en pleine
+    # execution, et donc annulee silencieusement. rebuild_cache_stats() etait
+    # dans ce cas : elle parcourt tout le cache par lots de 500 lignes, ce qui
+    # laisse une vraie fenetre pour se faire interrompre sans la moindre trace
+    # dans les logs (statistiques de cache incompletes au demarrage).
+    background_tasks = [
+        asyncio.create_task(rebuild_cache_stats()),
+        asyncio.create_task(cleanup_expired_data()),
+        asyncio.create_task(start_background_health_check()),
+        asyncio.create_task(start_pastebin_scraper_loop()),
+    ]
 
     yield
 
-    cleanup_task.cancel()
-    health_check_task.cancel()
-    pastebin_scraper_task.cancel()
-    try:
-        await cleanup_task
-    except asyncio.CancelledError:
-        pass
-    try:
-        await health_check_task
-    except asyncio.CancelledError:
-        pass
-    try:
-        await pastebin_scraper_task
-    except asyncio.CancelledError:
-        pass
+    for task in background_tasks:
+        task.cancel()
+    # return_exceptions=True : rebuild_cache_stats() est one-shot et peut etre
+    # deja terminee au moment de l'arret ; on ne veut ni que son resultat ni
+    # une eventuelle exception ne fasse echouer la fermeture.
+    await asyncio.gather(*background_tasks, return_exceptions=True)
 
     await http_client.close()
     await teardown_database()
