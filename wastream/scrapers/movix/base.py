@@ -8,6 +8,7 @@ from wastream.utils.http_client import http_client
 from wastream.utils.languages import normalize_language
 from wastream.utils.logger import scraper_logger
 from wastream.utils.quality import quality_sort_key, normalize_quality
+from wastream.utils.tasks import lancer_tache
 
 
 # ===========================
@@ -258,7 +259,7 @@ class BaseMovix:
                     except Exception:
                         pass
 
-                asyncio.create_task(background_task())
+                lancer_tache(background_task())
                 return None
 
         except Exception as e:

@@ -10,6 +10,7 @@ from databases import Database
 from wastream.config.settings import settings
 from wastream.utils.helpers import create_cache_key
 from wastream.utils.logger import database_logger
+from wastream.utils.tasks import lancer_tache
 
 # ===========================
 # Database Instance
@@ -495,7 +496,7 @@ async def check_dead_links_batch(urls: List[str]) -> Dict[str, bool]:
                 if is_dead and url not in results:
                     results[url] = True
                     if should_store:
-                        asyncio.create_task(_store_remote_dead_link(url))
+                        lancer_tache(_store_remote_dead_link(url))
 
         return results
 

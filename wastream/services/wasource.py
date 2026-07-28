@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from wastream.config.settings import settings
 from wastream.utils.database import database
 from wastream.utils.logger import database_logger
+from wastream.utils.tasks import lancer_tache
 
 MAX_WASOURCE_LOCKS = 10000
 
@@ -340,7 +341,7 @@ async def add_wasource_links_bulk(
             errors.append(f"Database error: {type(e).__name__}: {e}")
 
     if added > 0:
-        asyncio.create_task(_increment_wasource_link_count(added))
+        lancer_tache(_increment_wasource_link_count(added))
 
     return {
         "added": added,
@@ -512,7 +513,7 @@ async def add_wasource_links_from_remote(
             errors.append(f"Database error: {type(e).__name__}: {e}")
 
     if added > 0:
-        asyncio.create_task(_increment_wasource_link_count(added))
+        lancer_tache(_increment_wasource_link_count(added))
 
     return {
         "added": added,
@@ -595,7 +596,7 @@ async def delete_all_wasource_links() -> int:
         total = await database.fetch_val("SELECT COUNT(*) FROM wasource") or 0
         await database.execute("DELETE FROM wasource")
         if total > 0:
-            asyncio.create_task(_reset_wasource_link_count())
+            lancer_tache(_reset_wasource_link_count())
         return total
     except Exception as e:
         database_logger.error(f"[WASource] Failed to delete all contents: {type(e).__name__}: {e}")
@@ -760,7 +761,7 @@ async def delete_wasource_url(content_id: int, url_to_delete: str) -> bool:
                 {"id": content_id, "data": json.dumps(data), "updated_at": int(time.time())}
             )
 
-        asyncio.create_task(_decrement_wasource_link_count(1))
+        lancer_tache(_decrement_wasource_link_count(1))
         return True
 
     except Exception as e:
