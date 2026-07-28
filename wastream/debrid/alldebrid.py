@@ -112,8 +112,15 @@ class AllDebridService(BaseDebridService):
         # de vérifier le cache sans uploader le magnet sur le compte. On les marque
         # "uncached" au listing ; la conversion au moment de la lecture (magnet/upload
         # → ready → files → unlock) fonctionne, elle, normalement.
+        #
+        # Exception : une source qui maintient sa propre base de cache mutualisée
+        # peut SAVOIR qu'un torrent est déjà disponible. C'est désormais la seule
+        # information de cache fiable qui nous reste, et l'écraser affichait ⏳ sur
+        # des flux lisibles immédiatement — ce qui les enterrait aussi dans le tri,
+        # « cached » étant le premier critère de classement.
         for result in torrent_results:
-            result["cache_status"] = "uncached"
+            if result.get("cache_status") != "cached":
+                result["cache_status"] = "uncached"
 
         all_results = ddl_results + torrent_results
 

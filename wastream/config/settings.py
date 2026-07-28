@@ -81,12 +81,12 @@ class Settings(BaseSettings):
     # torznab/base.py). Assez court pour rester sous le timeout de l'appelant.
     TORZNAB_RETRY_DELAY: float = 0.5
 
-    # Nombre de resultats a partir duquel la source d'appoint optionnelle
-    # (cf. scrapers/_private, absente du depot public) n'est plus sollicitee :
-    # elle sert a completer une recherche pauvre, pas a alourdir une recherche
-    # deja fournie. Son quota de requetes est tres bas, on le reserve aux cas
-    # ou il apporte vraiment quelque chose.
-    EXTRA_SOURCE_MAX_RESULTS: int = 10
+    # (EXTRA_SOURCE_MAX_RESULTS retire le 2026-07-27 : conditionner la source
+    # d'appoint au NOMBRE de resultats etait une erreur de conception. Elle
+    # n'apporte que des torrents deja verifies en cache, donc lisibles tout de
+    # suite ; or une recherche peut remonter 80 flux dont aucun ne demarre.
+    # Elle tourne desormais en parallele des autres sources, sur chaque
+    # recherche, et se protege du quota par sa pause de 24h persistee.)
 
     # ===========================
     # HTTP Timeout Configuration

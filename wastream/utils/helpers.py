@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 import re
 import unicodedata
@@ -32,16 +34,47 @@ def encode_config_to_base64(config: Dict[str, Any]) -> str:
     return b64encode(json.dumps(config).encode()).decode()
 
 
+# Longueur de la signature tronquée, en caractères hexadécimaux. 128 bits :
+# largement hors de portée d'une falsification, et bien plus court que les 64
+# caractères d'un SHA-256 complet — le jeton finit dans une URL, sa taille est
+# déjà plafonnée par RESILIENT_TOKEN_MAX_BYTES.
+_SIGNATURE_LEN = 32
+
+
+def _signer(charge: str) -> str:
+    from wastream.config.settings import settings   # import tardif : évite un cycle
+    return hmac.new(
+        settings.SECRET_KEY.encode("utf-8"), charge.encode("utf-8"), hashlib.sha256
+    ).hexdigest()[:_SIGNATURE_LEN]
+
+
 def encode_playback_token(data: Dict[str, Any]) -> str:
-    return urlsafe_b64encode(json.dumps(data, separators=(",", ":")).encode()).decode().rstrip("=")
+    """Jeton signé, au format `<charge base64>.<signature>`.
+
+    Sans signature, le contenu du jeton — le lien à débrider, et jusqu'à une
+    configuration complète avec sa clé debrid — était entièrement forgeable par
+    quiconque savait construire du base64.
+    """
+    charge = urlsafe_b64encode(
+        json.dumps(data, separators=(",", ":")).encode()
+    ).decode().rstrip("=")
+    return f"{charge}.{_signer(charge)}"
 
 
 def decode_playback_token(token: str) -> Optional[Dict[str, Any]]:
+    """Renvoie None si la signature est absente, invalide, ou si le contenu est
+    illisible. Un jeton non signé (ancien format) est donc rejeté."""
     try:
-        padding = 4 - len(token) % 4
+        charge, _, signature = token.rpartition(".")
+        if not charge or not signature:
+            return None
+        if not hmac.compare_digest(signature, _signer(charge)):
+            return None
+
+        padding = 4 - len(charge) % 4
         if padding != 4:
-            token += "=" * padding
-        return json.loads(urlsafe_b64decode(token).decode())
+            charge += "=" * padding
+        return json.loads(urlsafe_b64decode(charge).decode())
     except Exception:
         return None
 
