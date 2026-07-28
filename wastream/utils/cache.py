@@ -8,6 +8,7 @@ from wastream.utils.helpers import create_cache_key
 from wastream.utils.logger import cache_logger
 from wastream.utils.database import update_cache_stats_on_set
 from wastream.utils.urls import canonicalize_results
+from wastream.utils.tasks import lancer_tache
 
 
 # ===========================
@@ -110,7 +111,7 @@ async def set_cache(database, cache_type: str, title: str, year: Optional[str] =
             "expires_at": expires_at
         })
 
-        asyncio.create_task(update_cache_stats_on_set(cache_key, results or [], old_results))
+        lancer_tache(update_cache_stats_on_set(cache_key, results or [], old_results))
 
         ttl_str = "permanent" if ttl == -1 else f"{ttl}s"
         cache_logger.debug(f"Saved: {cache_type} {title} ({year}) - {len(results or [])} results ({ttl_str})")
@@ -145,7 +146,7 @@ async def set_cache_if_not_exists(
             {"cache_key": cache_key, "content": content, "expires_at": expires_at}
         )
 
-        asyncio.create_task(update_cache_stats_on_set(cache_key, results or []))
+        lancer_tache(update_cache_stats_on_set(cache_key, results or []))
 
         ttl_str = "permanent" if ttl == -1 else f"{ttl}s"
         cache_logger.debug(f"Saved (new): {cache_type} {title} ({year}) - {len(results or [])} results ({ttl_str})")

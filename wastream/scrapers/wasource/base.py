@@ -8,6 +8,7 @@ from wastream.utils.helpers import build_display_name, normalize_size, get_debri
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import scraper_logger
 from wastream.utils.quality import quality_sort_key
+from wastream.utils.tasks import lancer_tache
 
 
 async def _store_remote_links(remote_results: List[Dict], local_urls: set):
@@ -131,7 +132,7 @@ class BaseWASource:
                 all_links.extend(remote_results)
 
             if should_store and remote_results:
-                asyncio.create_task(_store_remote_links(remote_results, local_urls))
+                lancer_tache(_store_remote_links(remote_results, local_urls))
 
             seen_urls = set()
             unique_links = []
@@ -171,7 +172,7 @@ class BaseWASource:
                 all_links.extend(remote_results)
 
             if should_store and remote_results:
-                asyncio.create_task(_store_remote_links(remote_results, local_urls))
+                lancer_tache(_store_remote_links(remote_results, local_urls))
 
             seen_urls = set()
             unique_links = []
@@ -225,7 +226,7 @@ class BaseWASource:
                             if link.get("id"):
                                 affected_row_ids.append(link["id"])
                     if affected_row_ids:
-                        asyncio.create_task(update_wasource_release_sizes(affected_row_ids, url_to_size))
+                        lancer_tache(update_wasource_release_sizes(affected_row_ids, url_to_size))
 
             is_series = season is not None and episode is not None
 

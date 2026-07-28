@@ -35,9 +35,10 @@ from wastream.scrapers.torznab.trackers import yggreborn_scraper, tr4ker_scraper
 from wastream.scrapers.zilean.base import zilean_scraper
 from wastream.scrapers.nyaa.base import nyaa_scraper
 try:
-    from wastream.scrapers._private.extra import extra_source_scraper
+    from wastream.scrapers._private.extra import extra_source_scraper, SOURCE_LABEL as EXTRA_SOURCE_LABEL
 except ImportError:
     extra_source_scraper = None
+    EXTRA_SOURCE_LABEL = None
 from wastream.services.kitsu import kitsu_service
 from wastream.services.tmdb import tmdb_service
 from wastream.utils.cache import get_cache, get_cache_with_status, get_cache_parallel, set_cache, set_cache_if_not_exists
@@ -55,6 +56,7 @@ from wastream.utils.logger import stream_logger, metadata_logger
 from wastream.utils.quality import quality_sort_key, extract_resolution
 from wastream.utils.urls import canonicalize_url
 from wastream.utils.validators import extract_media_info
+from wastream.utils.tasks import lancer_tache
 
 
 # ===========================
@@ -205,6 +207,14 @@ class StreamService:
 
             supported_sources = self._get_sources_for_service(service_name, service_entry)
             allowed_sources = [source_mapping.get(s, s) for s in supported_sources]
+            # La source d'appoint optionnelle n'est pas proposee dans l'interface
+            # de configuration : elle n'apparait donc JAMAIS dans les sources
+            # declarees par l'utilisateur, et se faisait rejeter ici alors
+            # qu'elle avait bien ete interrogee, filtree et mise en cache. Ses
+            # resultats sont les seuls garantis deja en cache debrid, donc
+            # lisibles immediatement — precisement ceux qu'il ne faut pas perdre.
+            if EXTRA_SOURCE_LABEL:
+                allowed_sources.append(EXTRA_SOURCE_LABEL)
 
             filtered_results = [
                 r.copy() for r in results
@@ -678,7 +688,7 @@ class StreamService:
             cached_results, is_valid = await get_cache_with_status(database, cache_type, title, year)
 
             if cached_results is not None and is_valid:
-                asyncio.create_task(_background_refresh())
+                lancer_tache(_background_refresh())
                 return _maybe_filter(cached_results)
 
             if cached_results is None:
@@ -688,7 +698,7 @@ class StreamService:
                     if remote_data:
                         if should_store:
                             await set_cache_if_not_exists(database, cache_type, title, year, remote_data, settings.CONTENT_CACHE_TTL)
-                        asyncio.create_task(_background_refresh())
+                        lancer_tache(_background_refresh())
                         return _maybe_filter(remote_data)
 
             async with SearchLock(lock_type, title, year):
@@ -1265,13 +1275,29 @@ class StreamService:
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("zilean", coro))
 
-        # La source d'appoint optionnelle n'est PAS lancee ici avec les autres :
-        # elle est sollicitee apres coup, seulement si la recherche est pauvre
-        # (cf. _maybe_add_extra_source).
+        # Source d'appoint optionnelle (absente du depot public) : lancee en
+        # parallele des autres, sur chaque recherche. Elle n'apporte QUE des
+        # torrents deja verifies en cache, donc lisibles immediatement — c'est
+        # exactement ce qui manque quand une recherche remonte beaucoup de flux
+        # dont aucun ne demarre. La conditionner au NOMBRE de resultats etait
+        # une erreur : le nombre ne dit rien de leur jouabilite.
+        # Sa protection contre le quota n'est pas ici mais dans le module lui-
+        # meme : pause de 24h persistee sur disque apres un refus (429).
+        if extra_source_scraper is not None:
+            if use_episode_cache:
+                coro = self._search_source_with_cache(
+                    "extra", content_type,
+                    lambda: extra_source_scraper.search(title, year, metadata, season, episode, config),
+                    title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
+            else:
+                coro = self._search_source_with_cache(
+                    "extra", content_type,
+                    lambda: extra_source_scraper.search(title, year, metadata, config=config),
+                    title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
+            tasks_with_sources.append(("extra", coro))
 
         if not tasks_with_sources:
-            return await self._maybe_add_extra_source(
-                [], content_type, title, year, season, episode, metadata, config, use_episode_cache)
+            return []
 
         if not early_stop_config["enabled"]:
             tasks = [t[1] for t in tasks_with_sources]
@@ -1284,8 +1310,7 @@ class StreamService:
                 elif isinstance(result, Exception):
                     stream_logger.error(f"{content_name.title()} search failed: {type(result).__name__}: {result}")
 
-            return await self._maybe_add_extra_source(
-                all_results, content_type, title, year, season, episode, metadata, config, use_episode_cache)
+            return all_results
 
         all_results = []
         pending_tasks = {}
@@ -1331,7 +1356,7 @@ class StreamService:
                             except Exception as e:
                                 stream_logger.error(f"[Early-Stop] Background task failed: {type(e).__name__}: {e}")
 
-                    asyncio.create_task(background_collector(list(pending_tasks.keys()), all_results))
+                    lancer_tache(background_collector(list(pending_tasks.keys()), all_results))
                     break
 
         except Exception as e:
@@ -1339,52 +1364,7 @@ class StreamService:
             for task in pending_tasks:
                 task.cancel()
 
-        # Early-stop declenche = on a deja ce qu'il faut, inutile de depenser
-        # une requete de la source d'appoint (et d'annuler le gain de temps).
-        if early_stop_triggered:
-            return all_results
-
-        return await self._maybe_add_extra_source(
-            all_results, content_type, title, year, season, episode, metadata, config, use_episode_cache)
-
-    async def _maybe_add_extra_source(self, results: List[Dict], content_type: str,
-                                      title: str, year: Optional[str],
-                                      season: Optional[str], episode: Optional[str],
-                                      metadata: Optional[Dict], config: Optional[Dict],
-                                      use_episode_cache: bool) -> List[Dict]:
-        """Source d'appoint optionnelle (cf. scrapers/_private, absente du depot
-        public). Volontairement sollicitee en dernier et seulement quand la
-        recherche a peu donne : son quota de requetes est tres bas, la depenser
-        sur une recherche deja fournie la rend indisponible quand elle servirait
-        vraiment. Toute erreur de sa part est sans consequence sur le reste."""
-        if extra_source_scraper is None:
-            return results
-
-        if len(results) >= settings.EXTRA_SOURCE_MAX_RESULTS:
-            stream_logger.debug(
-                f"[Extra] non sollicitee ({len(results)} resultats deja trouves)"
-            )
-            return results
-
-        try:
-            if use_episode_cache:
-                extra = await self._search_source_with_cache(
-                    "extra", content_type,
-                    lambda: extra_source_scraper.search(title, year, metadata, season, episode, config),
-                    title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
-            else:
-                extra = await self._search_source_with_cache(
-                    "extra", content_type,
-                    lambda: extra_source_scraper.search(title, year, metadata, config=config),
-                    title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
-        except Exception as e:
-            stream_logger.error(f"[Extra] echec: {type(e).__name__}: {e}")
-            return results
-
-        if extra:
-            stream_logger.debug(f"[Extra] {len(extra)} resultat(s) en complement")
-            results.extend(extra)
-        return results
+        return all_results
 
     async def _search_movie(self, title: str, year: Optional[str], metadata: Optional[Dict] = None, config: Dict = None) -> List[Dict]:
         return await self._search_content_common("movies", "movie", movie_scraper, darki_api_movie_scraper,

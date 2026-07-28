@@ -5,6 +5,7 @@ from typing import Dict, Optional
 from wastream.config.settings import settings
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import debrid_logger
+from wastream.utils.tasks import lancer_tache
 
 
 # ===========================
@@ -260,6 +261,6 @@ def schedule_recheck(link: str, api_key: str, hoster_name: str):
         return
     _recheck_in_progress.add(hoster_key)
     try:
-        asyncio.create_task(_recheck_alldebrid_hoster(link, api_key, hoster_key))
+        lancer_tache(_recheck_alldebrid_hoster(link, api_key, hoster_key))
     except RuntimeError:
         _recheck_in_progress.discard(hoster_key)
