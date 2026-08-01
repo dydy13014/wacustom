@@ -88,9 +88,18 @@ class AnimeScraper(BaseWawacity):
 
             page_results = await asyncio.gather(*page_tasks, return_exceptions=True)
 
-            for result in page_results:
+            for anime_page, result in zip(all_anime_pages, page_results):
                 if isinstance(result, list):
                     all_results.extend(result)
+                elif isinstance(result, Exception):
+                    # gather(return_exceptions=True) transforme un echec en objet
+                    # Exception dans la liste : le filtre isinstance(list) le
+                    # jetait donc en silence. Une coupure reseau sur une page
+                    # faisait disparaitre ses episodes sans la moindre trace.
+                    scraper_logger.warning(
+                        f"[Wawacity] Page anime ignoree ({anime_page.get('page_path')}): "
+                        f"{type(result).__name__}: {result}"
+                    )
 
         except Exception as e:
             scraper_logger.error(f"[Wawacity] Anime episodes extraction error: {type(e).__name__}: {e}")

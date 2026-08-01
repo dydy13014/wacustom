@@ -104,7 +104,16 @@ def decrypt_config(encrypted_config: str, password: str, salt_b64: str) -> Optio
         decompressed = zlib.decompress(decrypted)
         return json.loads(decompressed.decode("utf-8"))
 
-    except Exception:
+    except Exception as e:
+        # Un mot de passe faux est un cas NORMAL (l'appelant teste des identifiants)
+        # et ne doit pas polluer les logs -> niveau debug, pas error. Mais sans
+        # aucune trace, une config reellement corrompue (base abimee, changement
+        # de SECRET_KEY, migration de format) etait indiscernable d'un simple
+        # mauvais mot de passe : les deux renvoyaient None en silence.
+        # On ne journalise que le TYPE d'exception, jamais le contenu dechiffre
+        # ni le mot de passe.
+        from wastream.utils.logger import database_logger   # import tardif : evite un cycle
+        database_logger.debug(f"[Crypto] Dechiffrement de config impossible: {type(e).__name__}")
         return None
 
 
