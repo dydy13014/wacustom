@@ -8,7 +8,6 @@ from selectolax.parser import HTMLParser
 from wastream.config.settings import settings
 from wastream.utils.helpers import quote_url_param, normalize_text, build_display_name, normalize_size, format_url
 from wastream.utils.http_client import http_client
-from wastream.utils.languages import normalize_language, LANGUAGE_MAPPING
 from wastream.utils.logger import scraper_logger
 from wastream.utils.quality import quality_sort_key, normalize_quality
 
@@ -35,6 +34,85 @@ ANIME_CATEGORIES = [
 # Quality to ignore (bad quality)
 # ===========================
 IGNORED_QUALITIES = ["cam", "ts", "r5", "dvdscr", "hdcam", "hdts", "telesync", "telecine"]
+
+# ===========================
+# "Langue :" Field Vocabulary
+# ===========================
+# Le champ « Langue : » des pages est un libellé rédigé, où des tags scène
+# côtoient des mots français. Le vocabulaire général de LANGUAGE_MAPPING y est
+# inutilisable : ses codes ISO courts recouvrent des mots français très
+# fréquents — « et » (estonien), « de » (allemand), « que » (quechua),
+# « mon » (mongol), « fin » (finnois). Un libellé « Français et Anglais »
+# ressortait ainsi étiqueté « ET ». On n'accepte donc ici que les libellés que
+# le site écrit réellement ; tout token inconnu est ignoré plutôt que deviné.
+# token de la page -> (langue normalisée, tag affiché)
+LANGUAGE_FIELD_TOKENS = {
+    "vf": ("French", "VF"),
+    "vff": ("French", "VFF"),
+    "vfi": ("French", "VFI"),
+    "vf2": ("French", "VF2"),
+    "vof": ("French", "VOF"),
+    "french": ("French", "FRENCH"),
+    "francais": ("French", "FRENCH"),
+    "français": ("French", "FRENCH"),
+    "truefrench": ("French", "TRUEFRENCH"),
+    "vostfr": ("French", "VOSTFR"),
+    "vost": ("French", "VOST"),
+    "subfrench": ("French", "SUBFRENCH"),
+    "vfq": ("French (Canada)", "VFQ"),
+    "quebecois": ("French (Canada)", "VFQ"),
+    "québécois": ("French (Canada)", "VFQ"),
+    "vo": ("VO", "VO"),
+    "anglais": ("English", "ENGLISH"),
+    "english": ("English", "ENGLISH"),
+    "espagnol": ("Spanish", "SPANISH"),
+    "spanish": ("Spanish", "SPANISH"),
+    "allemand": ("German", "GERMAN"),
+    "german": ("German", "GERMAN"),
+    "italien": ("Italian", "ITALIAN"),
+    "italian": ("Italian", "ITALIAN"),
+    "japonais": ("Japanese", "JAPANESE"),
+    "japanese": ("Japanese", "JAPANESE"),
+    "coreen": ("Korean", "KOREAN"),
+    "coréen": ("Korean", "KOREAN"),
+    "korean": ("Korean", "KOREAN"),
+    "chinois": ("Chinese", "CHINESE"),
+    "chinese": ("Chinese", "CHINESE"),
+    "portugais": ("Portuguese", "PORTUGUESE"),
+    "portuguese": ("Portuguese", "PORTUGUESE"),
+    "russe": ("Russian", "RUSSIAN"),
+    "russian": ("Russian", "RUSSIAN"),
+    "neerlandais": ("Dutch", "DUTCH"),
+    "néerlandais": ("Dutch", "DUTCH"),
+    "dutch": ("Dutch", "DUTCH"),
+    "arabe": ("Arab", "ARAB"),
+    "turc": ("Turkish", "TURKISH"),
+    "turkish": ("Turkish", "TURKISH"),
+    "polonais": ("Polish", "POLISH"),
+    "polish": ("Polish", "POLISH"),
+    "hindi": ("Hindi", "HINDI"),
+    "suedois": ("Swedish", "SWEDISH"),
+    "suédois": ("Swedish", "SWEDISH"),
+    "danois": ("Danish", "DANISH"),
+    "norvegien": ("Norwegian", "NORWEGIAN"),
+    "norvégien": ("Norwegian", "NORWEGIAN"),
+    "finnois": ("Finnish", "FINNISH"),
+    "grec": ("Greek", "GREEK"),
+    "hongrois": ("Hungarian", "HUNGARIAN"),
+    "roumain": ("Romanian", "ROMANIAN"),
+    "ukrainien": ("Ukrainian", "UKRAINIAN"),
+    "vietnamien": ("Vietnamese", "VIETNAMESE"),
+    "hebreu": ("Hebrew", "HEBREW"),
+    "hébreu": ("Hebrew", "HEBREW"),
+}
+
+# Marqueur de piste multiple, cherché en sous-chaîne : le site le colle au reste
+# du mot (« MULTiLANGUES »), et aucun mot français ne contient « multi ».
+MULTI_MARKER = "MULTI"
+
+# Sépare sur tout ce qui n'est pas une lettre ou un chiffre, en gardant les
+# lettres accentuées (« Français » doit rester un seul token).
+LANGUAGE_TOKEN_SPLIT_RE = re.compile(r"[^0-9A-Za-zÀ-ÖØ-öø-ÿ]+")
 
 
 # ===========================
@@ -113,77 +191,56 @@ class BaseFreeTelecharger:
         else:
             return "Unknown"
 
-    def _extract_language_from_text(self, text: str) -> str:
+    def _parse_language_field(self, text: str) -> Tuple[List[str], List[str], bool]:
+        """Découpe le champ « Langue : » en (langues normalisées, tags affichés,
+        multi).
+
+        Le découpage en tokens remplace la recherche de sous-chaîne d'origine,
+        qui trouvait « EN » à l'intérieur de « TRUEFRENCH » et « VO » à
+        l'intérieur de « VOSTFR ». Les deux valeurs les plus courantes du site
+        (« MULTiLANGUES Avec TRUEFRENCH », « MULTI (VFF, VOSTFR) ») ressortaient
+        donc en « Multi (French, VO) » alors qu'aucune piste anglaise n'existe.
+        """
         if not text:
-            return "Unknown"
+            return [], [], False
 
-        text_upper = text.upper()
+        is_multi = MULTI_MARKER in text.upper()
+        languages: List[str] = []
+        raw_tags: List[str] = []
 
-        if "MULTI" in text_upper:
-            langs = []
-            if "VFF" in text_upper or "TRUEFRENCH" in text_upper:
-                normalized = normalize_language("vff")
-                if normalized not in langs:
-                    langs.append(normalized)
-            if "VFQ" in text_upper:
-                normalized = normalize_language("vfq")
-                if normalized not in langs:
-                    langs.append(normalized)
-            if "VF" in text_upper and "VFF" not in text_upper and "VFQ" not in text_upper:
-                normalized = normalize_language("vf")
-                if normalized not in langs:
-                    langs.append(normalized)
-            if "VOSTFR" in text_upper:
-                normalized = normalize_language("vostfr")
-                if normalized not in langs:
-                    langs.append(normalized)
-            if "VO" in text_upper or "EN" in text_upper:
-                normalized = normalize_language("vo")
-                if normalized not in langs:
-                    langs.append(normalized)
-            if langs:
-                return f"Multi ({', '.join(langs)})"
-            return "Multi"
+        for token in LANGUAGE_TOKEN_SPLIT_RE.split(text):
+            entry = LANGUAGE_FIELD_TOKENS.get(token.lower())
+            if not entry:
+                continue
+            language, raw_tag = entry
+            if language not in languages:
+                languages.append(language)
+            if raw_tag not in raw_tags:
+                raw_tags.append(raw_tag)
 
-        if "VFF" in text_upper or "TRUEFRENCH" in text_upper:
-            return normalize_language("vff")
-        if "VFQ" in text_upper:
-            return normalize_language("vfq")
-        if "VF" in text_upper and "VOSTFR" not in text_upper:
-            return normalize_language("vf")
-        if "VOSTFR" in text_upper:
-            return normalize_language("vostfr")
-        if "VO" in text_upper:
-            return normalize_language("vo")
+        return languages, raw_tags, is_multi
 
-        return "Unknown"
+    def _extract_language_from_text(self, text: str) -> str:
+        languages, _, is_multi = self._parse_language_field(text)
+
+        if not languages:
+            return "Multi" if is_multi else "Unknown"
+
+        if is_multi or len(languages) > 1:
+            return f"Multi ({', '.join(languages)})"
+
+        return languages[0]
 
     def _extract_raw_language_from_text(self, text: str) -> str:
-        if not text:
-            return "Unknown"
+        _, raw_tags, is_multi = self._parse_language_field(text)
 
-        text_upper = text.upper()
-        is_multi = "MULTI" in text_upper
-
-        tokens = re.split(r"[\s,;/\-\.\(\)]+", text.strip())
-        raw_langs = []
-
-        for token in tokens:
-            token_lower = token.lower().strip()
-            if not token_lower or token_lower == "multi":
-                continue
-            if token_lower in LANGUAGE_MAPPING:
-                raw_tag = token.upper()
-                if raw_tag not in raw_langs:
-                    raw_langs.append(raw_tag)
-
-        if not raw_langs:
+        if not raw_tags:
             return "MULTi" if is_multi else "Unknown"
 
-        if is_multi or len(raw_langs) > 1:
-            return "MULTi." + ".".join(raw_langs)
+        if is_multi or len(raw_tags) > 1:
+            return "MULTi." + ".".join(raw_tags)
 
-        return raw_langs[0]
+        return raw_tags[0]
 
     def _extract_season_from_title(self, title: str) -> Optional[str]:
         if not title:
@@ -590,6 +647,12 @@ class BaseFreeTelecharger:
         try:
             visited_pages = set()
             pages_to_process = [content_link]
+            # HTML conserve par page. Cette boucle telecharge deja chaque page
+            # pour y lire les liens vers les autres saisons/qualites ; sans ce
+            # cache, _extract_episodes_from_page re-telechargeait exactement les
+            # memes pages juste apres — chaque page etait donc recuperee DEUX
+            # fois (latence et charge sur la source doublees pour rien).
+            pages_html: Dict[str, str] = {}
 
             while pages_to_process:
                 current_link = pages_to_process.pop(0)
@@ -603,6 +666,7 @@ class BaseFreeTelecharger:
 
                 response = await http_client.get(current_url)
                 if response.status_code == 200:
+                    pages_html[current_link] = response.text
                     parser = HTMLParser(response.text)
 
                     other_seasons = parser.css('div.block1 a[href*=".html"]')
@@ -624,7 +688,7 @@ class BaseFreeTelecharger:
                             if any(cat in quality_link_lower for cat in ["series-", "mangas-"]):
                                 pages_to_process.append(quality_link)
 
-            all_pages = [{"page_path": page} for page in visited_pages]
+            all_pages = [{"page_path": page, "html": pages_html.get(page)} for page in visited_pages]
 
             page_tasks = [self._extract_episodes_from_page(page, title, year) for page in all_pages]
             page_results = await asyncio.gather(*page_tasks, return_exceptions=True)
@@ -653,14 +717,20 @@ class BaseFreeTelecharger:
         page_results = []
         page_path = page["page_path"]
 
-        full_url = format_url(page_path, settings.FREE_TELECHARGER_URL)
-
         try:
-            response = await http_client.get(full_url)
-            if response.status_code != 200:
-                return page_results
+            # HTML deja recupere par la boucle de decouverte de
+            # _extract_series_content : on evite un second telechargement de la
+            # meme page. Repli sur une requete si l'appelant ne le fournit pas
+            # (page non lue lors de la decouverte, ou appel depuis ailleurs).
+            html = page.get("html")
+            if html is None:
+                full_url = format_url(page_path, settings.FREE_TELECHARGER_URL)
+                response = await http_client.get(full_url)
+                if response.status_code != 200:
+                    return page_results
+                html = response.text
 
-            parser = HTMLParser(response.text)
+            parser = HTMLParser(html)
             page_text = parser.text()
 
             quality_match = re.search(r"Qualité\s*:\s*([^\n]+)", page_text)

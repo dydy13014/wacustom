@@ -83,7 +83,14 @@ def quality_sort_key(item: Dict[str, Any]) -> tuple:
     elif "BLURAY" in quality_upper or "BLU-RAY" in quality_upper or "BDRIP" in quality_upper or "BRRIP" in quality_upper or "BD-RIP" in quality_upper or "BR-RIP" in quality_upper:
         release_type = 1
 
-    elif "WEB-DL" in quality_upper or "WEBDL" in quality_upper or ("WEB" in quality_upper and "WEBRIP" not in quality_upper):
+    # Le repli generique sur "WEB" doit exclure les DEUX ecritures de WEBRip :
+    # sans tiret ET avec tiret. Sans "WEB-RIP", une release "...WEB-RIP..."
+    # tombait ici et etait classee WEB-DL (type 2, premium) au lieu de type 4,
+    # la branche WEBRip plus bas n'etant jamais atteinte -> un rip remontait en
+    # tete de liste devant de vraies sources WEB-DL.
+    elif "WEB-DL" in quality_upper or "WEBDL" in quality_upper or (
+        "WEB" in quality_upper and "WEBRIP" not in quality_upper and "WEB-RIP" not in quality_upper
+    ):
         release_type = 2
 
     elif "HDLIGHT" in quality_upper or "LIGHT" in quality_upper:

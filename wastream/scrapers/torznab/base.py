@@ -1,6 +1,5 @@
 import asyncio
 import xml.etree.ElementTree as ET
-import urllib.parse
 import re
 from typing import List, Dict, Optional, Tuple
 
@@ -73,20 +72,26 @@ class BaseTorznab:
         elif year:
             search_query += f" {year}"
 
-        # 2. Build URL and headers
+        # 2. Build request
+        # La cle passe par `params` plutot que par une URL assemblee a la main :
+        # elle ne figure ainsi dans aucune chaine que ce code manipule, donc ni
+        # dans un log applicatif, ni dans un message d'exception qui embarquerait
+        # cette chaine (cas de HTTPStatusError, qui expose l'URL complete). httpx
+        # se charge de l'encodage — d'ou le retrait du quote() manuel, qui
+        # produirait sinon un double encodage.
         headers = {
             "User-Agent": "WAStream/1.0"
         }
+        params = {"t": "search", "q": search_query}
         if self.auth_type == "header":
             headers["Authorization"] = f"Bearer {self.api_key}"
-            url = f"{self.url}?t=search&q={urllib.parse.quote(search_query)}"
         else:
-            url = f"{self.url}?t=search&q={urllib.parse.quote(search_query)}&apikey={self.api_key}"
+            params["apikey"] = self.api_key
 
         scraper_logger.debug(f"[{self.name}] Querying: {search_query}")
 
         try:
-            response = await http_client.get(url, headers=headers)
+            response = await http_client.get(self.url, headers=headers, params=params)
             # Un 5xx isole est frequent sur ces trackers et coutait toute la
             # source pour la recherche en cours. Une seule seconde chance,
             # uniquement sur erreur serveur : un 4xx (cle invalide, quota)
@@ -96,7 +101,7 @@ class BaseTorznab:
                     f"[{self.name}] HTTP {response.status_code}, nouvelle tentative dans {settings.TORZNAB_RETRY_DELAY}s"
                 )
                 await asyncio.sleep(settings.TORZNAB_RETRY_DELAY)
-                response = await http_client.get(url, headers=headers)
+                response = await http_client.get(self.url, headers=headers, params=params)
 
             if response.status_code != 200:
                 scraper_logger.error(f"[{self.name}] Torznab search failed: HTTP {response.status_code}")

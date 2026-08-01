@@ -107,3 +107,9 @@ wastream/scratch/
 
 # Extensions locales (jamais publiées)
 wastream/scrapers/_private/
+
+# Notes de revue de code (analyse interne, pas de la doc projet)
+code-verification.md
+code-verification-2.md
+code-verification-resume.md
+code-verification-corrections.md

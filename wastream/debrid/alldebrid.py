@@ -1,6 +1,6 @@
 import re
 import time
-from asyncio import sleep
+from asyncio import sleep, wait_for
 from typing import Optional, List, Dict
 from urllib.parse import urlparse
 
@@ -87,7 +87,24 @@ class AllDebridService(BaseDebridService):
 
         # --- DDL : filtrer les hosters down (réactif + proactif via /v4.1/user/hosts) ---
         if ddl_results:
-            await get_hoster_status("alldebrid", api_key)
+            # Ce rafraichissement ne part en reseau qu'a l'expiration du cache
+            # (HOSTER_STATUS_CACHE_TTL = 1 h), mais il attend alors jusqu'a
+            # HEALTH_CHECK_TIMEOUT (5 s) — un quart du budget de 20 s de la
+            # recherche. `timeout_remaining` etait recu ici sans jamais etre
+            # utilise (TorBox l'exploite, lui) : si AllDebrid trainait pile au
+            # moment ou le cache expire, ces secondes etaient prises sur le
+            # budget sans aucune borne. On plafonne donc au budget reellement
+            # restant ; en cas d'abandon, is_hoster_up est fail-open (statut
+            # inconnu => hebergeur considere up) donc on garde tous les DDL et
+            # un lien mort sera de toute facon marque au moment de la lecture.
+            budget = min(settings.HEALTH_CHECK_TIMEOUT, max(0.0, timeout_remaining))
+            if budget > 0:
+                try:
+                    await wait_for(get_hoster_status("alldebrid", api_key), timeout=budget)
+                except TimeoutError:
+                    debrid_logger.debug(
+                        f"[AllDebrid] Statut hebergeurs abandonne apres {budget:.1f}s (budget epuise)"
+                    )
         kept_ddl = []
         down_hosters = {}
         for r in ddl_results:

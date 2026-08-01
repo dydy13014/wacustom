@@ -36,8 +36,13 @@ async def _increment_wasource_link_count(count: int):
         if stats:
             stats["wasource_total_links"] = stats.get("wasource_total_links", 0) + count
             await save_cache_stats(stats)
-    except Exception:
-        pass
+    except Exception as e:
+        # Ces compteurs sont purement informatifs : un echec ne doit jamais faire
+        # echouer l'operation appelante, d'ou le fait de ne pas relancer. Mais
+        # sans trace, une base verrouillee desynchronisait silencieusement le
+        # total affiche dans le tableau de bord, sans aucun moyen de le
+        # diagnostiquer. Niveau debug : c'est du confort, pas une panne.
+        database_logger.debug(f"[WASource] Compteur (+{count}) non mis a jour: {type(e).__name__}: {e}")
 
 
 async def _decrement_wasource_link_count(count: int):
@@ -47,8 +52,8 @@ async def _decrement_wasource_link_count(count: int):
         if stats:
             stats["wasource_total_links"] = max(0, stats.get("wasource_total_links", 0) - count)
             await save_cache_stats(stats)
-    except Exception:
-        pass
+    except Exception as e:
+        database_logger.debug(f"[WASource] Compteur (-{count}) non mis a jour: {type(e).__name__}: {e}")
 
 
 async def _reset_wasource_link_count():
@@ -58,8 +63,8 @@ async def _reset_wasource_link_count():
         if stats:
             stats["wasource_total_links"] = 0
             await save_cache_stats(stats)
-    except Exception:
-        pass
+    except Exception as e:
+        database_logger.debug(f"[WASource] Remise a zero du compteur echouee: {type(e).__name__}: {e}")
 
 
 def _escape_like(value: str) -> str:
