@@ -205,3 +205,16 @@ remote_logger = get_logger("REMOTE")
 logging.getLogger("uvicorn.access").disabled = True
 logging.getLogger("uvicorn.error").setLevel(logging.CRITICAL)
 logging.getLogger("fastapi").setLevel(logging.CRITICAL)
+
+# httpx journalise chaque requete en INFO sous la forme
+# `HTTP Request: GET <URL COMPLETE> "HTTP/1.1 200 OK"`. Or plusieurs sources
+# passent leur cle API en parametre d'URL (trackers Torznab, entre autres) :
+# cette ligne exposerait donc les cles en clair dans les logs, consultables
+# depuis le tableau de bord admin. Aujourd'hui le message est deja supprime
+# parce que le root logger stdlib n'a aucun handler et retombe sur WARNING —
+# mais ce silence est accidentel : ajouter un logging.basicConfig() ou un
+# InterceptHandler loguru<-stdlib suffirait a tout faire fuiter d'un coup.
+# On fige donc le niveau explicitement plutot que de dependre de cet effet de
+# bord (meme filet que celui pose sur Ludio apres le meme piege).
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)

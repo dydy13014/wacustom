@@ -73,11 +73,17 @@ async def _fetch_alldebrid_sizes(links: List[Dict], api_key: str) -> Dict[str, i
         return {}
 
     try:
-        body = "&".join([f"link[]={url}" for url in alldebrid_urls])
+        # Corps de formulaire construit par httpx (`data=`) et non concatene a
+        # la main : une URL contenant &, = ou + cassait sinon le decoupage des
+        # parametres cote serveur et l'appel repartait avec des liens tronques.
+        # httpx encode les crochets en link%5B%5D — verifie accepte par l'API
+        # AllDebrid (PHP les redecode), meme nombre d'infos renvoyees.
+        # La cle passe par `params` : elle ne figure plus dans une chaine d'URL
+        # que ce code manipule (meme durcissement que les scrapers Torznab).
         response = await http_client.post(
-            f"{settings.ALLDEBRID_API_URL}/link/infos?agent=wastream&apikey={api_key}",
-            content=body,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            f"{settings.ALLDEBRID_API_URL}/link/infos",
+            data={"link[]": alldebrid_urls},
+            params={"agent": "wastream", "apikey": api_key},
             timeout=settings.HTTP_TIMEOUT
         )
 

@@ -107,7 +107,12 @@ class BaseWawacity:
 
             scraper_logger.debug(f"[Wawacity] Found {len(search_nodes)} results for '{search_title}'")
 
-            tmdb_year = metadata.get("year") if metadata else year
+            # `or year` et non `metadata.get("year", year)` : TMDB construit son
+            # annee via `release_date.split("-")[0]`, donc la cle EXISTE mais vaut
+            # "" quand la fiche n'a pas de date de sortie. Avec un simple .get(),
+            # ce "" ecrasait l'annee passee par l'appelant et la verification
+            # d'annee etait abandonnee -> des titres corrects etaient rejetes.
+            tmdb_year = (metadata.get("year") or year) if metadata else year
             if metadata and metadata.get("titles"):
                 verified_result = await self.verify_content_results(search_nodes, metadata, search_title, tmdb_year, content_type)
             else:
