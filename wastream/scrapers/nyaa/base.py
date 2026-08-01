@@ -24,7 +24,7 @@ class NyaaScraper:
 
     async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
                      season: Optional[str] = None, episode: Optional[str] = None,
-                     config: Optional[Dict] = None) -> List[Dict]:
+                     config: Optional[Dict] = None, category: str = "1_0") -> List[Dict]:
         if not settings.NYAA_URL:
             scraper_logger.debug("[Nyaa] URL not configured, skipping")
             return []
@@ -34,7 +34,7 @@ class NyaaScraper:
         try:
             response = await http_client.get(
                 f"{base_url}/",
-                params={"page": "rss", "q": title, "c": "1_0", "f": "0"},
+                params={"page": "rss", "q": title, "c": category, "f": "0"},
                 headers={"User-Agent": "WAStream/1.0"}
             )
             if response.status_code != 200:

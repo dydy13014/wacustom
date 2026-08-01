@@ -1,9 +1,8 @@
-import asyncio
 from typing import List, Dict, Optional
 
 from selectolax.parser import HTMLParser
 
-from wastream.scrapers.wawacity.base import BaseWawacity
+from wastream.scrapers.wawacity.base import BaseWawacity, gather_bounded
 from wastream.config.settings import settings
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import scraper_logger
@@ -86,7 +85,7 @@ class AnimeScraper(BaseWawacity):
                     self._extract_episodes_from_page(anime_page, title, year, extract_season_from_url=True)
                 )
 
-            page_results = await asyncio.gather(*page_tasks, return_exceptions=True)
+            page_results = await gather_bounded(page_tasks)
 
             for anime_page, result in zip(all_anime_pages, page_results):
                 if isinstance(result, list):
