@@ -1275,6 +1275,30 @@ class StreamService:
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("zilean", coro))
 
+        # Nyaa Live Action : les torrents japonais non-anime (dramas, variete,
+        # tele-realite type Old Enough!/Comme les grands) sont indexes sur
+        # Nyaa.si sous la categorie Live Action (4_0), distincte de la
+        # categorie Anime (1_0) deja interrogee cote Kitsu. Gate sur
+        # original_language == "ja" (TMDB) pour ne jamais interroger Nyaa sur
+        # du contenu non-japonais — cout sinon negligeable, l'appel tourne en
+        # parallele des autres sources comme les blocs ci-dessus.
+        if (
+            "nyaa" in supported_sources
+            and content_name in ("movie", "series")
+            and metadata
+            and metadata.get("original_language") == "ja"
+            and self._is_source_allowed_for_content("nyaa", content_name, config)
+        ):
+            if use_episode_cache:
+                coro = self._search_source_with_cache(
+                    "nyaa", content_type, lambda: nyaa_scraper.search(title, year, metadata, season, episode, config, category="4_0"),
+                    title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
+            else:
+                coro = self._search_source_with_cache(
+                    "nyaa", content_type, lambda: nyaa_scraper.search(title, year, metadata, config=config, category="4_0"),
+                    title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
+            tasks_with_sources.append(("nyaa", coro))
+
         # Source d'appoint optionnelle (absente du depot public) : lancee en
         # parallele des autres, sur chaque recherche. Elle n'apporte QUE des
         # torrents deja verifies en cache, donc lisibles immediatement — c'est

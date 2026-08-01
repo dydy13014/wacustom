@@ -263,8 +263,38 @@ def extract_quality_from_tokens(tokens: List[str]) -> str:
 # ===========================
 # Language Extraction from Tokens
 # ===========================
+# `LANGUAGE_MAPPING` couvre ~130 langues via des codes ISO à 2-3 lettres.
+# Un token à 2 lettres a une chance élevée de coïncider avec un mot FR/EN
+# courant OU une syllabe romanisée japonaise ("no", "de", "la", "en", "it",
+# "na", "wa", "ka", "ta"...) sans le moindre rapport avec une langue. Confirmé
+# en conditions réelles (2026-08-01) : "Kimi No Na Wa" matche successivement
+# "no" (Norwegian) PUIS "wa" (Walloon) une fois "no" écarté — whack-a-mole
+# caractéristique des titres romanisés japonais, qui contiennent presque
+# toujours une syllabe de 2 lettres qui coïncide avec un code ISO quelque part
+# dans une liste de 130 langues. Un token à 3 lettres est bien moins exposé,
+# mais pas totalement ("cat", "fin", "ben" sont aussi des mots/prénoms usuels).
+#
+# Stratégie : plutôt qu'une liste noire qui s'allonge indéfiniment à chaque
+# nouvelle collision découverte, un token à 2 lettres n'est accepté que s'il
+# fait partie d'un petit vocabulaire scène explicitement utilisé ici (VF/VO) ;
+# les langues à code 2 lettres restent détectables via leur forme longue
+# ("norwegian", "german"...) ou leur code 3 lettres, non ambigus.
+_SAFE_SHORT_CODES = {"vf", "vo"}
+_AMBIGUOUS_3LETTER_CODES = {"cat", "fin", "ben"}
+
+
+def _is_plausible_language_token(token: str) -> bool:
+    if len(token) == 2:
+        return token in _SAFE_SHORT_CODES
+    if token in _AMBIGUOUS_3LETTER_CODES:
+        return False
+    return True
+
+
 def extract_language_from_tokens(tokens: List[str]) -> str:
     for token in tokens:
+        if not _is_plausible_language_token(token):
+            continue
         mapped = LANGUAGE_MAPPING.get(token)
         if mapped and mapped != "Unknown":
             return mapped
@@ -273,6 +303,8 @@ def extract_language_from_tokens(tokens: List[str]) -> str:
 
 def extract_raw_language_from_tokens(tokens: List[str]) -> str:
     for token in tokens:
+        if not _is_plausible_language_token(token):
+            continue
         mapped = LANGUAGE_MAPPING.get(token)
         if mapped and mapped != "Unknown":
             return token.upper()

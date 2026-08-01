@@ -10,7 +10,7 @@ from wastream.utils.helpers import (
     tokenize_filename, extract_quality_from_tokens,
     extract_language_from_tokens, extract_raw_language_from_tokens,
     build_display_name, normalize_size, normalize_tracker_url,
-    episode_matches
+    episode_matches, normalize_text
 )
 from wastream.utils.quality import quality_sort_key
 
@@ -24,17 +24,34 @@ _STOPWORDS = {
 _MIN_RELEVANCE_RATIO = 0.6
 
 
+def _relevance_tokens(text: str) -> set:
+    """Tokens comparables pour le calcul de pertinence. Les apostrophes sont
+    fusionnées (retirées sans espace), pas remplacées par un séparateur : la
+    convention scène réelle pour un titre comme "Charlie's Angels" ou
+    "Ocean's Eleven" est de coller la lettre restante ("Charlies.Angels",
+    "Oceans.Eleven"), pas de la séparer. `normalize_text` gère ensuite accents
+    et ponctuation restante."""
+    return set(normalize_text(text.replace("'", "").replace("’", "")).split())
+
+
 def _is_relevant(title: str, release_name: str) -> bool:
     """Certains trackers Torznab (constaté sur C411, 2026-07-20) retombent
     silencieusement sur des résultats "tendance" sans rapport quand la
     recherche ne matche rien en interne — jamais une liste vide, donc rien
     ne signale l'échec. Cas réel : la recherche "comme les grands S01E01"
     a renvoyé des animes isekai totalement étrangers. On revalide localement
-    que le titre du résultat contient l'essentiel des mots du titre demandé."""
-    title_tokens = {t for t in tokenize_filename(title) if len(t) > 1 and t not in _STOPWORDS}
+    que le titre du résultat contient l'essentiel des mots du titre demandé.
+
+    Comparaison via `_relevance_tokens` plutôt que `tokenize_filename` : ce
+    dernier ne touche ni aux apostrophes ni aux accents, donc un titre FR
+    comme "Charlie's Angels" ou "Amélie" ne matchait jamais un nom de release
+    qui les écrit différemment — de vrais résultats étaient donc rejetés en
+    silence par ce filtre anti-pollution, sur un projet francophone où ce cas
+    est courant."""
+    title_tokens = {t for t in _relevance_tokens(title) if len(t) > 1 and t not in _STOPWORDS}
     if not title_tokens:
         return True
-    release_tokens = set(tokenize_filename(release_name)) - _STOPWORDS
+    release_tokens = _relevance_tokens(release_name) - _STOPWORDS
     matched = len(title_tokens & release_tokens)
     return (matched / len(title_tokens)) >= _MIN_RELEVANCE_RATIO
 

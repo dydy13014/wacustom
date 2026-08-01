@@ -19,6 +19,25 @@ from wastream.utils.quality import quality_sort_key
 WAWACITY_SEARCH_MAX_LENGTH = 31
 CONTENT_NAME_MAPPING = {"movies": "movie", "films": "movie", "series": "series", "anime": "anime", "mangas": "anime"}
 
+# Une serie longue (beaucoup de saisons x qualites) decouvre ses pages par
+# crawl recursif (other_seasons/other_qualities) puis les recupere toutes en
+# parallele via asyncio.gather, sans aucune limite. Constate en reel (Game of
+# Thrones : 40 pages simultanees, The Walking Dead : 44) — risque de depasser
+# le budget de la recherche (meme famille que l'incident du 26-27/07 sur les
+# timeouts) et de charge excessive sur une source deja fragile.
+_MAX_CONCURRENT_PAGES = 8
+
+
+async def gather_bounded(coros, limit: int = _MAX_CONCURRENT_PAGES):
+    """`asyncio.gather(..., return_exceptions=True)` borne en concurrence."""
+    semaphore = asyncio.Semaphore(limit)
+
+    async def _run(coro):
+        async with semaphore:
+            return await coro
+
+    return await asyncio.gather(*(_run(c) for c in coros), return_exceptions=True)
+
 
 # ===========================
 # Base Wawacity Scraper Class
@@ -360,7 +379,7 @@ class BaseWawacity:
             scraper_logger.error(f"[Wawacity] Quality pages extraction error: {type(e).__name__}: {e}")
 
         tasks = [self._extract_movie_links_for_quality(quality, title, year) for quality in quality_pages]
-        results_lists = await asyncio.gather(*tasks, return_exceptions=True)
+        results_lists = await gather_bounded(tasks)
 
         all_results = []
         for result in results_lists:
@@ -412,7 +431,7 @@ class BaseWawacity:
             all_pages = [{"page_path": page} for page in visited_pages]
 
             page_tasks = [self._extract_episodes_from_page(page, title, year) for page in all_pages]
-            page_results = await asyncio.gather(*page_tasks, return_exceptions=True)
+            page_results = await gather_bounded(page_tasks)
 
             for result in page_results:
                 if isinstance(result, list):

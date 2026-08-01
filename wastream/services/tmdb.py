@@ -83,7 +83,8 @@ class TMDBService:
                         "cz_title": cz_title,
                         "year": year,
                         "type": "movie",
-                        "content_type": "movies"
+                        "content_type": "movies",
+                        "original_language": details.get("original_language")
                     }
 
             elif data.get("tv_results"):
@@ -157,7 +158,8 @@ class TMDBService:
                         "year": year,
                         "type": "series",
                         "content_type": content_type,
-                        "seasons": seasons_data
+                        "seasons": seasons_data,
+                        "original_language": details.get("original_language")
                     }
 
             metadata_logger.debug(f"[TMDB] No metadata: {imdb_id}")
