@@ -9,7 +9,8 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
-        case_sensitive=False
+        case_sensitive=False,
+        validate_assignment=True
     )
 
     # ===========================
@@ -32,8 +33,8 @@ class Settings(BaseSettings):
     DARKI_API_KEY: Optional[str] = None
     MOVIX_URL: Optional[str] = None
     WEBSHARE_URL: Optional[str] = None
-    DARKIMOVIX_KITSU_TMDB_MAPPING: List[str] = ["tt0388629"]
-    KITSU_IMDB_OVERRIDE: List[str] = ["6589=1,8174=2,13893=3,42213=4-1,42927=4-2:tt2250192"]
+    DARKIMOVIX_KITSU_TMDB_MAPPING: List[str] = []
+    KITSU_IMDB_OVERRIDE: List[str] = []
 
     # ===========================
     # Pagination Configuration
@@ -291,7 +292,7 @@ class Settings(BaseSettings):
         return {
             "id": self.ADDON_ID,
             "name": self.ADDON_NAME,
-            "version": "3.6.3",
+            "version": "3.7.0",
             "description": "Stremio addon to convert DDL to streams via debrid services",
             "catalogs": [],
             "resources": ["stream"],

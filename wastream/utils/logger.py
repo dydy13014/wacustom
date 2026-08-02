@@ -8,6 +8,9 @@ from typing import List, Dict, Optional
 from loguru import logger
 
 
+# ===========================
+# Log Contexts & Constants
+# ===========================
 PREFIX_PATTERN = re.compile(r'^\[([^\]]+)\]')
 
 user_id_var: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
@@ -43,6 +46,9 @@ LEVEL_COLORS = {
 }
 
 
+# ===========================
+# Log Buffer
+# ===========================
 class LogBuffer:
     def __init__(self, max_size: int = MAX_LOG_BUFFER):
         self._buffer: deque = deque(maxlen=max_size)
@@ -107,6 +113,9 @@ class LogBuffer:
 log_buffer = LogBuffer()
 
 
+# ===========================
+# Log Sinks & Formatting
+# ===========================
 def log_sink(message):
     record = message.record
     context = record["extra"].get("context", "ADDON")
@@ -150,6 +159,9 @@ def format_log(record):
     )
 
 
+# ===========================
+# Logger Setup
+# ===========================
 def setup_logger(level: str = "INFO"):
     global LOG_LEVEL
     LOG_LEVEL = level
@@ -172,6 +184,9 @@ def setup_logger(level: str = "INFO"):
     )
 
 
+# ===========================
+# Log Accessors
+# ===========================
 def get_logger(context: str):
     return logger.bind(context=context)
 
@@ -192,6 +207,9 @@ def get_available_prefixes() -> List[str]:
     return log_buffer.get_available_prefixes()
 
 
+# ===========================
+# Logger Singletons
+# ===========================
 addon_logger = get_logger("ADDON")
 api_logger = get_logger("API")
 stream_logger = get_logger("STREAM")

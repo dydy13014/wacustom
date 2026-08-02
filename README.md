@@ -101,6 +101,12 @@ Wacustom est un addon Stremio qui convertit des liens de téléchargement direct
 - **WASource** - ajouter des liens personnalisés compatibles avec tous les services de débridage
 - **Système distant** - partager les liens morts, le cache et les liens personnalisés entre instances
 - **Scraper Pastebin** - état et stats des tâches d'import automatique
+- **Explorateur du cache** - consulter le contenu mis en cache et supprimer des entrées ciblées
+- **Sauvegardes** - exporter ou importer WASource, les liens morts et le cache au format NDJSON compressé
+- **Réglages éditables** - modifier depuis l'administration les options non verrouillées par l'environnement, avec export/import sans secrets
+- **Édition WASource avancée** - modifier l'identifiant IMDb et convertir un contenu film/série dans les deux sens
+
+La page `/configure` permet également d'exporter et de réimporter une configuration utilisateur sans inclure les identifiants sensibles.
 
 ---
 

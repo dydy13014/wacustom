@@ -11,6 +11,7 @@ from wastream.config.settings import settings
 from wastream.utils.helpers import create_cache_key
 from wastream.utils.logger import database_logger
 from wastream.utils.tasks import lancer_tache
+from wastream.utils.urls import canonicalize_url
 
 # ===========================
 # Database Instance
@@ -95,6 +96,7 @@ async def setup_database():
         await database.execute("CREATE INDEX IF NOT EXISTS idx_wasource_tmdb ON wasource(tmdb_id)")
         await database.execute("CREATE INDEX IF NOT EXISTS idx_wasource_title ON wasource(title)")
         await database.execute("CREATE TABLE IF NOT EXISTS cache_stats (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL)")
+        await database.execute("CREATE TABLE IF NOT EXISTS settings_overrides (setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL)")
 
         await database.execute("CREATE INDEX IF NOT EXISTS idx_dead_links_expires ON dead_links(expires_at)")
         await database.execute("CREATE INDEX IF NOT EXISTS idx_scrape_lock_expires ON scrape_lock(expires_at)")
@@ -182,7 +184,7 @@ async def setup_database():
                     await database.execute("ALTER TABLE remote_api_keys_new RENAME TO remote_api_keys")
                     await database.execute("CREATE INDEX IF NOT EXISTS idx_remote_api_keys_enabled ON remote_api_keys(enabled)")
                     await database.execute("CREATE INDEX IF NOT EXISTS idx_remote_api_keys_hash ON remote_api_keys(key_hash)")
-                    database_logger.info("Migration: Removed last_used_at column from remote_api_keys")
+                    database_logger.info("[Migration] Removed last_used_at column from remote_api_keys")
             else:
                 column_exists = await database.fetch_one(
                     """SELECT 1 FROM information_schema.columns
@@ -190,7 +192,7 @@ async def setup_database():
                 )
                 if column_exists:
                     await database.execute("ALTER TABLE remote_api_keys DROP COLUMN last_used_at")
-                    database_logger.info("Migration: Removed last_used_at column from remote_api_keys")
+                    database_logger.info("[Migration] Removed last_used_at column from remote_api_keys")
         except Exception:
             pass
 
@@ -214,15 +216,61 @@ async def setup_database():
                     # Empty string means None
                     val_to_apply = value if value.strip() else None
                     setattr(settings, key, val_to_apply)
-                    database_logger.info(f"Loaded persistent setting: {key} = {val_to_apply}")
+                    database_logger.info(f"Loaded persistent setting: {key}")
         except Exception as e:
             database_logger.error(f"Failed to load persistent admin settings: {e}")
+
+        await migrate_domain_aliases()
 
         database_logger.info("Setup completed")
 
     except Exception as e:
         database_logger.error(f"Setup failed: {type(e).__name__}: {e}")
         raise
+
+
+# ===========================
+# Domain Alias Migration
+# ===========================
+async def migrate_domain_aliases():
+    try:
+        like_params = {"p1": "%trbt.cc%", "p2": "%turbobit.cc%"}
+        await database.execute(
+            "UPDATE content_cache SET content = "
+            "REPLACE(REPLACE(content, 'trbt.cc', 'turbobit.net'), 'turbobit.cc', 'turbobit.net') "
+            "WHERE content LIKE :p1 OR content LIKE :p2",
+            like_params
+        )
+        await database.execute(
+            "UPDATE wasource SET data = "
+            "REPLACE(REPLACE(data, 'trbt.cc', 'turbobit.net'), 'turbobit.cc', 'turbobit.net') "
+            "WHERE data LIKE :p1 OR data LIKE :p2",
+            like_params
+        )
+
+        rows = await database.fetch_all(
+            "SELECT url, expires_at FROM dead_links WHERE url LIKE :p1 OR url LIKE :p2",
+            like_params
+        )
+        if settings.DATABASE_TYPE == "sqlite":
+            upsert = "INSERT OR REPLACE INTO dead_links (url, expires_at) VALUES (:url, :expires_at)"
+        else:
+            upsert = ("INSERT INTO dead_links (url, expires_at) VALUES (:url, :expires_at) "
+                      "ON CONFLICT (url) DO UPDATE SET expires_at = :expires_at")
+
+        migrated = 0
+        for row in rows:
+            new_url = canonicalize_url(row["url"])
+            if new_url == row["url"]:
+                continue
+            await database.execute(upsert, {"url": new_url, "expires_at": row["expires_at"]})
+            await database.execute("DELETE FROM dead_links WHERE url = :url", {"url": row["url"]})
+            migrated += 1
+
+        if migrated:
+            database_logger.info(f"[Migration] Normalized {migrated} dead_links to canonical domains")
+    except Exception as e:
+        database_logger.error(f"[Migration] Domain alias normalization failed: {type(e).__name__}: {e}")
 
 
 # ===========================
@@ -254,7 +302,7 @@ async def cleanup_expired_data():
         except Exception as e:
             database_logger.error(f"Cleanup error: {type(e).__name__}: {e}")
 
-        await asyncio.sleep(settings.CLEANUP_INTERVAL)
+        await asyncio.sleep(max(1, settings.CLEANUP_INTERVAL))
 
 
 # ===========================
@@ -460,7 +508,6 @@ async def check_dead_links_batch(urls: List[str]) -> Dict[str, bool]:
         return {}
 
     try:
-        import asyncio
         from wastream.services.remote import fetch_remote_dead_links
 
         async def check_local():
@@ -523,6 +570,7 @@ async def _store_remote_dead_link(url: str):
 # ===========================
 async def mark_dead_link(url: str, ttl: int):
     try:
+        url = canonicalize_url(url)
         if ttl == -1:
             expires_at = -1
         else:

@@ -159,6 +159,16 @@ def decrypt_password_from_url(encrypted_password: str) -> Optional[str]:
         return None
 
 
+# Secrets persistés côté serveur utilisent le même chiffrement authentifié,
+# mais ces alias gardent cet usage distinct des mots de passe placés en URL.
+def encrypt_secret(plaintext: str) -> str:
+    return encrypt_password_for_url(plaintext)
+
+
+def decrypt_secret(ciphertext: str) -> Optional[str]:
+    return decrypt_password_from_url(ciphertext)
+
+
 # fast_hash / verify_fast_hash ont été retirés : sans aucun appelant dans tout
 # le dépôt, ils constituaient du code mort — et leur comparaison par `==` était
 # vulnérable au minutage. Pour signer quoi que ce soit, utiliser hmac.new() et

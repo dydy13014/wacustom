@@ -20,6 +20,7 @@ from wastream.config.settings import settings
 from wastream.utils.logger import setup_logger, addon_logger, api_logger, user_id_var
 from wastream.services.health import start_background_health_check
 from wastream.services.pastebin_scraper import start_pastebin_scraper_loop
+from wastream.services.settings_manager import apply_startup_overrides
 
 
 UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
@@ -105,6 +106,7 @@ class LoguruMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await setup_database()
+    await apply_startup_overrides()
 
     # Toutes les tâches de fond doivent être référencées : l'event loop ne
     # garde qu'une référence FAIBLE, donc une tâche dont plus personne ne

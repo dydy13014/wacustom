@@ -8,7 +8,7 @@ from base64 import b64encode
 
 from fastapi import APIRouter, Request, Query, Path, Body, Cookie, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import JSONResponse, RedirectResponse, FileResponse, HTMLResponse
+from fastapi.responses import JSONResponse, RedirectResponse, FileResponse, HTMLResponse, StreamingResponse
 
 from wastream.config.settings import settings, DEBRID_ABBREVIATIONS
 from wastream.utils.crypto import encrypt_password_for_url
@@ -24,11 +24,19 @@ from wastream.services.users import (
 )
 from wastream.services.stats import (
     get_stats_summary,
+    purge_cached_links
+)
+from wastream.services.dead_links import (
     get_dead_links_list,
     delete_dead_links,
     delete_all_dead_links,
-    add_dead_links,
-    purge_cached_links
+    add_dead_links
+)
+from wastream.services.content_cache import (
+    get_content_cache_list,
+    get_content_cache_entry,
+    delete_content_cache,
+    delete_all_content_cache
 )
 from wastream.services.wasource import (
     get_wasource_links,
@@ -38,9 +46,11 @@ from wastream.services.wasource import (
     update_wasource_content,
     delete_wasource_url,
     get_wasource_stats,
-    get_links_by_imdb,
-    get_links_by_title
+    get_wasource_links_by_imdb,
+    get_wasource_links_by_title
 )
+from wastream.services.backup import export_backup, import_backup
+from wastream.services.settings_manager import get_settings_view, set_override, reset_override, export_settings, import_settings
 from wastream.services.remote import (
     create_api_key,
     get_api_keys,
@@ -72,7 +82,9 @@ from wastream.utils.http_cache import (
     check_etag_match, generate_etag,
     not_modified_response
 )
-from wastream.services.pastebin_scraper import get_pastebin_scraper_status
+from wastream.services.pastebin_scraper import (
+    get_pastebin_scraper_status, trigger_pastebin_scraper, request_stop_pastebin_scraper
+)
 
 
 # ===========================
@@ -264,12 +276,12 @@ async def delete_user_route(
     return JSONResponse(content={"success": True})
 
 
-@router.post("/user/verify",
+@router.post("/user/{user_uuid}/verify",
              tags=["User"],
              summary="Verify Credentials",
              description="Verifies user credentials")
 async def verify_user_route(
-    user_uuid: str = Body(..., embed=True, description="User UUID"),
+    user_uuid: str = Path(..., description="User UUID"),
     password: str = Body(..., embed=True, description="User password")
 ):
     valid = await verify_user(user_uuid, password)
@@ -441,7 +453,7 @@ async def resolve(
 
 @router.get("/playback/{token}/{filename}",
             tags=["Stremio"],
-            summary="Playback",
+            summary="Resolve Playback Token",
             description="Resolves and redirects to streaming URL")
 async def playback(
     token: str = Path(..., description="Encoded playback token"),
@@ -512,28 +524,30 @@ async def get_available_resolutions():
             description="Returns available debrid services with their supported hosts and sources")
 async def get_available_services():
     return JSONResponse(content={
-        "alldebrid": {
-            "hosts": settings.ALLDEBRID_SUPPORTED_HOSTS,
-            "sources": settings.ALLDEBRID_SUPPORTED_SOURCES
-        },
-        "torbox": {
-            "hosts": settings.TORBOX_SUPPORTED_HOSTS,
-            "sources": settings.TORBOX_SUPPORTED_SOURCES
-        },
-        "premiumize": {
-            "hosts": settings.PREMIUMIZE_SUPPORTED_HOSTS,
-            "sources": settings.PREMIUMIZE_SUPPORTED_SOURCES
-        },
-        "1fichier": {
-            "hosts": settings.ONEFICHIER_SUPPORTED_HOSTS,
-            "sources": settings.ONEFICHIER_SUPPORTED_SOURCES
-        },
-        "nzbdav": {
-            "hosts": [],
-            "sources": settings.NZBDAV_SUPPORTED_SOURCES
-        },
-        "wasource": {
-            "hosts": settings.WASOURCE_SUPPORTED_HOSTS
+        "services": {
+            "alldebrid": {
+                "hosts": settings.ALLDEBRID_SUPPORTED_HOSTS,
+                "sources": settings.ALLDEBRID_SUPPORTED_SOURCES
+            },
+            "torbox": {
+                "hosts": settings.TORBOX_SUPPORTED_HOSTS,
+                "sources": settings.TORBOX_SUPPORTED_SOURCES
+            },
+            "premiumize": {
+                "hosts": settings.PREMIUMIZE_SUPPORTED_HOSTS,
+                "sources": settings.PREMIUMIZE_SUPPORTED_SOURCES
+            },
+            "1fichier": {
+                "hosts": settings.ONEFICHIER_SUPPORTED_HOSTS,
+                "sources": settings.ONEFICHIER_SUPPORTED_SOURCES
+            },
+            "nzbdav": {
+                "hosts": [],
+                "sources": settings.NZBDAV_SUPPORTED_SOURCES
+            },
+            "wasource": {
+                "hosts": settings.WASOURCE_SUPPORTED_HOSTS
+            }
         }
     })
 
@@ -548,7 +562,7 @@ async def get_password_config():
     })
 
 
-@router.post("/config/verify-password",
+@router.post("/config/password/verify",
              tags=["Configuration"],
              summary="Verify Password",
              description="Validates the provided password")
@@ -562,7 +576,7 @@ async def verify_password(password: str = Body(..., embed=True, description="Pas
     return JSONResponse(content={"valid": is_valid})
 
 
-@router.get("/config/verify-api-key",
+@router.get("/config/api-key/verify",
             tags=["Configuration"],
             summary="Verify API Key",
             description="Validates debrid service API key or TMDB token")
@@ -987,7 +1001,7 @@ class AdminSessionManager:
             del self._sessions[t]
 
 
-admin_sessions = AdminSessionManager()
+admin_session_manager = AdminSessionManager()
 
 
 # ===========================
@@ -1006,7 +1020,7 @@ def _verify_admin_password(password: str) -> bool:
 def _verify_admin_token(token: str) -> bool:
     if not _is_admin_enabled():
         return False
-    return admin_sessions.validate_session(token)
+    return admin_session_manager.validate_session(token)
 
 
 # ===========================
@@ -1078,7 +1092,7 @@ async def admin_login(
             content={"error": "Invalid password"}
         )
 
-    token = admin_sessions.create_session()
+    token = admin_session_manager.create_session()
 
     response = JSONResponse(content={"success": True})
     response.set_cookie(
@@ -1099,7 +1113,7 @@ async def admin_login(
              description="Clears admin session")
 async def admin_logout(admin_token: Optional[str] = Cookie(None)):
     if admin_token:
-        admin_sessions.delete_session(admin_token)
+        admin_session_manager.delete_session(admin_token)
 
     response = JSONResponse(content={"success": True})
     response.delete_cookie(key="admin_token")
@@ -1125,7 +1139,7 @@ async def admin_get_stats(
 
 @router.get("/admin/api/pastebin-scraper",
             tags=["Admin"],
-            summary="Pastebin Scraper Status",
+            summary="Get Pastebin Scraper Status",
             description="Returns current pastebin scraper status")
 async def admin_get_pastebin_scraper_status(
     admin_token: Optional[str] = Cookie(None)
@@ -1134,6 +1148,34 @@ async def admin_get_pastebin_scraper_status(
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
 
     return JSONResponse(content=get_pastebin_scraper_status())
+
+
+@router.post("/admin/api/pastebin-scraper/run",
+             tags=["Admin"],
+             summary="Run Pastebin Scraper",
+             description="Manually triggers a pastebin scrape now (background)")
+async def admin_run_pastebin_scraper(
+    admin_token: Optional[str] = Cookie(None)
+):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    result = await trigger_pastebin_scraper()
+    return JSONResponse(content={"result": result})
+
+
+@router.post("/admin/api/pastebin-scraper/stop",
+             tags=["Admin"],
+             summary="Stop Pastebin Scraper",
+             description="Requests the running pastebin scrape to stop gracefully")
+async def admin_stop_pastebin_scraper(
+    admin_token: Optional[str] = Cookie(None)
+):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    result = request_stop_pastebin_scraper()
+    return JSONResponse(content={"result": result})
 
 
 @router.get("/admin/api/dead-links",
@@ -1188,6 +1230,60 @@ async def admin_add_dead_links(
     return JSONResponse(content={"added": added})
 
 
+@router.get("/admin/api/content-cache",
+            tags=["Admin"],
+            summary="Get Content Cache",
+            description="Returns cached content entries")
+async def admin_get_content_cache(
+    admin_token: Optional[str] = Cookie(None),
+    limit: int = Query(100, description="Max results"),
+    offset: int = Query(0, description="Offset for pagination"),
+    search: Optional[str] = Query(None, description="Filter by title (partial match)")
+):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    cache = await get_content_cache_list(limit, offset, search)
+    return JSONResponse(content=cache)
+
+
+@router.get("/admin/api/content-cache/entry",
+            tags=["Admin"],
+            summary="Get Content Cache Entry",
+            description="Returns the streams of a single cached entry")
+async def admin_get_content_cache_entry(
+    admin_token: Optional[str] = Cookie(None),
+    cache_key: str = Query(..., description="Cache key of the entry")
+):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    entry = await get_content_cache_entry(cache_key)
+    if entry is None:
+        return JSONResponse(status_code=404, content={"error": "Not found"})
+    return JSONResponse(content=entry)
+
+
+@router.delete("/admin/api/content-cache",
+               tags=["Admin"],
+               summary="Delete Content Cache",
+               description="Delete selected or all cached content entries")
+async def admin_delete_content_cache(
+    admin_token: Optional[str] = Cookie(None),
+    cache_keys: Optional[list] = Body(None, embed=True, description="List of cache keys to delete"),
+    delete_all: bool = Query(False, description="Delete all cached content")
+):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    if delete_all:
+        deleted = await delete_all_content_cache()
+    else:
+        deleted = await delete_content_cache(cache_keys or [])
+
+    return JSONResponse(content={"deleted": deleted})
+
+
 @router.get("/admin/api/logs",
             tags=["Admin"],
             summary="Get Logs",
@@ -1197,7 +1293,7 @@ async def admin_get_logs(
     since: float = Query(0, description="Unix timestamp to get logs since"),
     context: Optional[str] = Query(None, description="Filter by context (ADDON, API, STREAM, etc.)"),
     level: Optional[str] = Query(None, description="Minimum log level (DEBUG, INFO, WARNING, ERROR)"),
-    prefix: Optional[str] = Query(None, description="Filter by message prefix (Early-Stop, Torbox, etc.)"),
+    prefix: Optional[str] = Query(None, description="Filter by message prefix (Early-Stop, TorBox, etc.)"),
     search: Optional[str] = Query(None, description="Search text in log messages")
 ):
     if not _verify_admin_token(admin_token):
@@ -1430,7 +1526,7 @@ async def admin_add_wasource_links(
             tags=["Admin"],
             summary="Update WASource Content",
             description="Update an existing WASource content entry")
-async def admin_update_wasource_content_route(
+async def admin_update_wasource_content(
     content_id: int = Path(..., description="Content ID"),
     admin_token: Optional[str] = Cookie(None),
     imdb_id: Optional[str] = Body(None, embed=True),
@@ -1443,14 +1539,41 @@ async def admin_update_wasource_content_route(
     size: Optional[int] = Body(None, embed=True),
     season: Optional[int] = Body(None, embed=True),
     episode: Optional[int] = Body(None, embed=True),
-    urls: Optional[list] = Body(None, embed=True)
+    urls: Optional[list] = Body(None, embed=True),
+    release_idx: Optional[int] = Body(None, embed=True),
+    is_movie: Optional[bool] = Body(None, embed=True)
 ):
     if not _verify_admin_token(admin_token):
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
 
-    success = await update_wasource_content(content_id, imdb_id, tmdb_id, title, year, release_name, quality, language, size, season, episode, urls)
-    if not success:
+    if imdb_id is not None and not imdb_id.startswith("tt"):
+        return JSONResponse(status_code=400, content={"error": "Invalid IMDB ID"})
+
+    result = await update_wasource_content(
+        content_id,
+        imdb_id=imdb_id,
+        tmdb_id=tmdb_id,
+        title=title,
+        year=year,
+        release_name=release_name,
+        quality=quality,
+        language=language,
+        size=size,
+        season=season,
+        episode=episode,
+        urls=urls,
+        release_idx=release_idx,
+        is_movie=is_movie
+    )
+
+    if result == "conflict":
+        return JSONResponse(status_code=409, content={"error": "An entry already exists for this IMDB ID and season/episode"})
+    if result == "release_not_found":
+        return JSONResponse(status_code=404, content={"error": "Release not found, please refresh the list"})
+    if result == "not_found":
         return JSONResponse(status_code=404, content={"error": "Content not found"})
+    if result != "ok":
+        return JSONResponse(status_code=500, content={"error": "Failed to update content"})
 
     return JSONResponse(content={"success": True})
 
@@ -1459,7 +1582,7 @@ async def admin_update_wasource_content_route(
                tags=["Admin"],
                summary="Delete WASource URL",
                description="Delete a specific URL from WASource content")
-async def admin_delete_wasource_url_route(
+async def admin_delete_wasource_url(
     content_id: int = Path(..., description="Content ID"),
     url: str = Body(..., embed=True, description="URL to delete"),
     admin_token: Optional[str] = Cookie(None)
@@ -1480,7 +1603,7 @@ async def admin_delete_wasource_url_route(
                description="Delete selected or all WASource links (release-specific)")
 async def admin_delete_wasource_links(
     admin_token: Optional[str] = Cookie(None),
-    ids: Optional[List[str]] = Body(None, embed=True, description="List of release IDs (format: contentId_releaseIdx)"),
+    release_ids: Optional[List[str]] = Body(None, embed=True, description="List of release IDs (format: contentId_releaseIdx)"),
     delete_all: bool = Query(False, description="Delete all WASource links")
 ):
     if not _verify_admin_token(admin_token):
@@ -1489,9 +1612,142 @@ async def admin_delete_wasource_links(
     if delete_all:
         deleted = await delete_all_wasource_links()
     else:
-        deleted = await delete_wasource_links(ids or [])
+        deleted = await delete_wasource_links(release_ids or [])
 
     return JSONResponse(content={"deleted": deleted})
+
+
+# ===========================
+# Backup Admin API Endpoints
+# ===========================
+@router.get("/admin/api/backup/export",
+            tags=["Admin"],
+            summary="Export Backup",
+            description="Streams database data (WASource, dead links, content cache) as a gzip'd NDJSON file")
+async def admin_export_backup(
+    admin_token: Optional[str] = Cookie(None),
+    wasource: bool = Query(True, description="Include WASource links"),
+    dead_links: bool = Query(True, description="Include dead links"),
+    content_cache: bool = Query(False, description="Include content cache")
+):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    include = {"wasource": wasource, "dead_links": dead_links, "content_cache": content_cache}
+    return StreamingResponse(
+        export_backup(include),
+        media_type="application/gzip",
+        headers={"Content-Disposition": 'attachment; filename="wastream-backup.ndjson.gz"'}
+    )
+
+
+@router.post("/admin/api/backup/import",
+             tags=["Admin"],
+             summary="Import Backup",
+             description="Imports database data from a backup file (merge or replace)")
+async def admin_import_backup(
+    request: Request,
+    admin_token: Optional[str] = Cookie(None),
+    mode: str = Query("merge"),
+    wasource: bool = Query(True),
+    dead_links: bool = Query(True),
+    content_cache: bool = Query(False)
+):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    if mode not in ("merge", "replace"):
+        return JSONResponse(status_code=400, content={"error": "Invalid mode"})
+
+    include = {"wasource": wasource, "dead_links": dead_links, "content_cache": content_cache}
+    result = await import_backup(request.stream(), mode, include)
+
+    if result.get("error") == "invalid_format":
+        return JSONResponse(status_code=400, content={"error": "Invalid or unsupported backup file"})
+    if result.get("error"):
+        return JSONResponse(status_code=500, content={"error": "Import failed"})
+
+    return JSONResponse(content=result)
+
+
+# ===========================
+# Settings Admin API Endpoints
+# ===========================
+@router.get("/admin/api/settings",
+            tags=["Admin"],
+            summary="Get Settings",
+            description="Lists editable settings with their effective value, source and lock state")
+async def admin_get_settings(admin_token: Optional[str] = Cookie(None)):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    return JSONResponse(content={"categories": await get_settings_view()})
+
+
+@router.put("/admin/api/settings",
+            tags=["Admin"],
+            summary="Update Settings",
+            description="Persists setting overrides (env values always win, excluded keys are refused)")
+async def admin_update_settings(
+    admin_token: Optional[str] = Cookie(None),
+    updates: Dict[str, Any] = Body(..., embed=True)
+):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    results = {key: await set_override(key, value) for key, value in updates.items()}
+    success = all(status in ("ok", "skipped") for status in results.values())
+    return JSONResponse(content={"success": success, "results": results})
+
+
+@router.delete("/admin/api/settings/{key}",
+               tags=["Admin"],
+               summary="Reset Setting",
+               description="Removes a setting override and restores its default value")
+async def admin_reset_setting(
+    key: str = Path(..., description="Setting key"),
+    admin_token: Optional[str] = Cookie(None)
+):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    result = await reset_override(key)
+    if result == "ok":
+        return JSONResponse(content={"success": True})
+    if result in ("not_editable", "env_locked"):
+        return JSONResponse(status_code=400, content={"error": result})
+    return JSONResponse(status_code=500, content={"error": "reset_failed"})
+
+
+@router.get("/admin/api/settings/export",
+            tags=["Admin"],
+            summary="Export Settings",
+            description="Downloads the editable settings overrides (sensitive values excluded) for sharing")
+async def admin_export_settings(admin_token: Optional[str] = Cookie(None)):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    data = await export_settings()
+    return JSONResponse(content=data, headers={"Content-Disposition": 'attachment; filename="wastream-settings.json"'})
+
+
+@router.post("/admin/api/settings/import",
+             tags=["Admin"],
+             summary="Import Settings",
+             description="Applies settings from an exported file (sensitive and env-locked keys are skipped)")
+async def admin_import_settings(
+    admin_token: Optional[str] = Cookie(None),
+    payload: Dict[str, Any] = Body(..., embed=True)
+):
+    if not _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    result = await import_settings(payload)
+    if result.get("error") == "invalid_format":
+        return JSONResponse(status_code=400, content={"error": "Invalid or unsupported settings file"})
+    if result.get("error"):
+        return JSONResponse(status_code=500, content={"error": "Import failed"})
+    return JSONResponse(content=result)
 
 
 # ===========================
@@ -1626,9 +1882,9 @@ async def remote_search_wasource(
     results = []
 
     if imdb_id:
-        results = await get_links_by_imdb(imdb_id, season, episode)
+        results = await get_wasource_links_by_imdb(imdb_id, season, episode)
     elif title:
-        results = await get_links_by_title(title, year, season, episode)
+        results = await get_wasource_links_by_title(title, year, season, episode)
 
     remote_logger.debug(f"[Request] WASource search by {key_data['name']}: {imdb_id or title}, {len(results)} results")
     return JSONResponse(content={"results": results, "count": len(results)})
@@ -1858,7 +2114,7 @@ async def admin_check_remote_instance(
 # ===========================
 @router.get("/admin/api/tmdb/find/{imdb_id}",
             tags=["Admin"],
-            summary="Find by IMDB ID",
+            summary="Find TMDB Content",
             description="Fetch TMDB info from IMDB ID")
 async def admin_tmdb_find_by_imdb(
     imdb_id: str = Path(..., description="IMDB ID (e.g., tt1234567)"),
@@ -1916,78 +2172,3 @@ async def admin_tmdb_find_by_imdb(
     except Exception as e:
         api_logger.error(f"TMDB fetch failed: {type(e).__name__}: {e}")
         return JSONResponse(status_code=500, content={"error": "Failed to fetch TMDB data"})
-
-
-# ===========================
-# Admin Settings Endpoints
-# ===========================
-@router.get("/admin/api/settings",
-            tags=["Admin"],
-            summary="Get Settings",
-            description="Returns editable system settings")
-async def admin_get_settings(admin_token: Optional[str] = Cookie(None)):
-    if not _verify_admin_token(admin_token):
-        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-
-    keys = [
-        "WAWACITY_URL", "FREE_TELECHARGER_URL", "DARKI_API_URL", "MOVIX_URL", "WEBSHARE_URL",
-        "YGGREBORN_URL", "YGGREBORN_API_KEY", "TR4KER_URL", "TR4KER_API_KEY",
-        "TORR9_URL", "TORR9_API_KEY", "C411_URL", "C411_API_KEY",
-        "GEMINI_URL", "GEMINI_API_KEY", "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY",
-        "ZILEAN_URL"
-    ]
-    
-    settings_dict = {}
-    for key in keys:
-        settings_dict[key] = getattr(settings, key, "") or ""
-    return JSONResponse(content=settings_dict)
-
-
-@router.post("/admin/api/settings",
-             tags=["Admin"],
-             summary="Save Settings",
-             description="Updates system settings and persists them to the database")
-async def admin_save_settings(
-    request: Request,
-    admin_token: Optional[str] = Cookie(None)
-):
-    if not _verify_admin_token(admin_token):
-        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
-
-    allowed_keys = [
-        "WAWACITY_URL", "FREE_TELECHARGER_URL", "DARKI_API_URL", "MOVIX_URL", "WEBSHARE_URL",
-        "YGGREBORN_URL", "YGGREBORN_API_KEY", "TR4KER_URL", "TR4KER_API_KEY",
-        "TORR9_URL", "TORR9_API_KEY", "C411_URL", "C411_API_KEY",
-        "GEMINI_URL", "GEMINI_API_KEY", "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY",
-        "ZILEAN_URL"
-    ]
-
-    from wastream.utils.database import database
-
-    try:
-        for key, value in body.items():
-            if key not in allowed_keys:
-                continue
-
-            # Apply to settings singleton in memory
-            val_to_apply = value if (value and str(value).strip()) else None
-            setattr(settings, key, val_to_apply)
-
-            # Persist to database
-            await database.execute(
-                """
-                INSERT OR REPLACE INTO admin_settings (key, value)
-                VALUES (:key, :value)
-                """,
-                {"key": key, "value": str(value) if value is not None else ""}
-            )
-
-        return JSONResponse(content={"success": True})
-    except Exception as e:
-        api_logger.error(f"Failed to save settings: {e}")
-        return JSONResponse(status_code=500, content={"error": f"Failed to save settings: {e}"})

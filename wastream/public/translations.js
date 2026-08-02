@@ -126,7 +126,9 @@ const translations = {
             login: 'Login',
             logout: 'Logout',
             cancel: 'Cancel',
-            deleteAccount: 'Delete account'
+            deleteAccount: 'Delete account',
+            exportConfig: 'Export config',
+            importConfig: 'Import config'
         },
         login: {
             title: 'Login to your account',
@@ -143,6 +145,9 @@ const translations = {
             errorGenerating: 'Error generating link',
             errorCopying: 'Error copying',
             configLoaded: 'Configuration loaded successfully',
+            configExported: 'Config exported (credentials excluded)',
+            configImported: 'Config imported — review and generate your link',
+            invalidConfigFile: 'Invalid config file',
             validatingKeys: 'Validating API keys...',
             invalidDebridKey: 'Invalid Debrid API key',
             invalidTmdbToken: 'Invalid TMDB token',
@@ -154,7 +159,10 @@ const translations = {
             confirmDelete: 'Are you sure you want to delete your account? This action cannot be undone.',
             accountDeleted: 'Account deleted successfully',
             errorDeleting: 'Failed to delete account',
-            userNotFound: 'User not found'
+            userNotFound: 'User not found',
+            errorUpdating: 'Failed to update configuration',
+            errorCreating: 'Failed to create user',
+            invalidCredentials: 'Invalid credentials'
         },
         warnings: {
             premiumizeTitle: 'Premiumize Daily Limit Warning',
@@ -287,7 +295,9 @@ const translations = {
             login: 'Connexion',
             logout: 'Déconnexion',
             cancel: 'Annuler',
-            deleteAccount: 'Supprimer le compte'
+            deleteAccount: 'Supprimer le compte',
+            exportConfig: 'Exporter la config',
+            importConfig: 'Importer la config'
         },
         login: {
             title: 'Connexion à votre compte',
@@ -304,6 +314,9 @@ const translations = {
             errorGenerating: 'Erreur lors de la génération du lien',
             errorCopying: 'Erreur lors de la copie',
             configLoaded: 'Configuration chargée avec succès',
+            configExported: 'Config exportée (identifiants exclus)',
+            configImported: 'Config importée — vérifiez puis générez votre lien',
+            invalidConfigFile: 'Fichier de config invalide',
             validatingKeys: 'Vérification des clés API...',
             invalidDebridKey: 'Clé API Debrid invalide',
             invalidTmdbToken: 'Token TMDB invalide',
@@ -315,7 +328,10 @@ const translations = {
             confirmDelete: 'Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.',
             accountDeleted: 'Compte supprimé avec succès',
             errorDeleting: 'Échec de la suppression du compte',
-            userNotFound: 'Utilisateur introuvable'
+            userNotFound: 'Utilisateur introuvable',
+            errorUpdating: 'Échec de la mise à jour de la configuration',
+            errorCreating: 'Échec de la création du compte',
+            invalidCredentials: 'Identifiants invalides'
         },
         warnings: {
             premiumizeTitle: 'Avertissement Limite Quotidienne Premiumize',
