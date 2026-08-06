@@ -3,13 +3,50 @@
 > **Fork de [WAStream](https://gitlab.com/10ho/wastream) (10ho / spel, MIT).**
 > Wacustom regroupe plusieurs sources francophones et internationales dans un seul addon, pensé pour être branché comme source unique dans un agrégateur (AIOStreams) plutôt que d'empiler plusieurs conteneurs.
 
-**Ce que ce fork ajoute par rapport à WAStream :**
+## Ce que ce fork ajoute par rapport à WAStream
 
-- **Sources consolidées en un seul addon** : Wawacity, Free-Telecharger, Movix, Webshare, trackers Torznab (YggReborn, Tr4ker, Torr9, C411), Zilean, et **Nyaa** (anime, flux RSS) - évite de maintenir 4-5 conteneurs séparés.
-- **Support des torrents AllDebrid** : flux `magnet → upload → ready → files → unlock` (l'endpoint `/magnet/instant` ayant été retiré par AllDebrid, les torrents sont listés `uncached` avec débridage à la demande).
-- **Matching d'épisodes anime robuste** : gestion de la numérotation absolue et des mappings de saisons (`episode_matches`).
-- **Scraper Zilean** (index DMM public) et scraper UNIT3D natif (Gemini / Generation-Free).
-- **Dédoublonnage interne** entre sous-sources (un même torrent remonté par plusieurs sources n'apparaît qu'une fois - complémentaire au dédoublonnage inter-addons d'AIOStreams).
+### Sources
+
+- **Consolidation en un seul addon** : Wawacity, Free-Telecharger, Movix, Webshare, trackers Torznab (YggReborn, Tr4ker, Torr9, C411), Zilean et Nyaa — évite de maintenir 4-5 conteneurs séparés.
+- **Scraper Nyaa** (flux RSS, `infoHash` direct, sans clé API) : anime via Kitsu, **et contenu live action japonais**. La recherche essaie aussi les **titres alternatifs TMDB** — Nyaa n'indexe quasiment jamais un titre français, mais répond sur le titre international (cas réel : « Comme les grands » → 0 résultat, « Old Enough » → 3).
+- **Scraper UNIT3D natif** (Gemini, Generation-Free) et **scraper Zilean** (index DMM public).
+- **Portage sélectif de WAStream v3.7.0** : Turbobit, lecture résiliente, scraper Pastebin.
+
+### Débridage
+
+- **Torrents AllDebrid** : flux `magnet → upload → ready → files → unlock`. L'endpoint `/magnet/instant` ayant été retiré par AllDebrid, les torrents sont listés `uncached` avec débridage à la demande.
+- **Détection proactive du statut des hébergeurs** AllDebrid (statut serveur + quota restant, un quota critique étant traité comme indisponible).
+- Correction : **Premiumize écartait silencieusement tous les résultats torrent**.
+
+### Pertinence des résultats
+
+- **Matching d'épisodes robuste** (`episode_matches`) : numérotation absolue, mappings de saisons, plages `SxxExx-Exx`, multi-épisodes, format `2x04`, packs de saison.
+- **Filtre anti-poison** : écarte les torrents dont la taille est incohérente avec la résolution annoncée (cas réels : « 1080p BluRay » à 698 Mo, « 1080p » à 231 Go). Désactivé hors films, un épisode pouvant légitimement peser 20× moins.
+- **Packs de saison retrouvés sur Torznab** : requête construite en saison seule, certains trackers ne remontant pas un pack si la requête contient un numéro d'épisode.
+- **Dédoublonnage interne** entre sous-sources, complémentaire à celui d'AIOStreams.
+- Corrections de détection **de langue** (un titre japonais romanisé comme « Kimi No Na Wa » matchait « no » = norvégien) et **de pertinence** (les accents et apostrophes rejetaient de vrais résultats : « Charlie's Angels », « Amélie »).
+
+### Fiabilité
+
+- **Ne plus interroger les sources hors ligne** + seconde chance sur Torznab.
+- Correction d'un **verrou de scrape plus long que le délai du client appelant**, qui renvoyait zéro flux alors que le scraping aboutissait.
+- Correction d'une **tâche de fond annulable par le ramasse-miettes** (`asyncio.create_task` sans référence forte).
+- Plusieurs **pannes silencieuses** corrigées : filtres écartant des résultats sans trace, `NameError` latent sur les séries Kitsu sans épisode.
+
+### Sécurité
+
+- **Limitation des tentatives** sur les routes vérifiant un mot de passe (10 échecs / 10 min par IP).
+- **Durcissement** du chiffrement et du hachage.
+- **`.dockerignore`** : sans lui, les fichiers `.env` (donc les clés API en clair) finissaient dans les images construites localement.
+- Retrait des **URLs de trackers privés codées en dur** dans les valeurs par défaut.
+
+### Qualité de code
+
+- **156 tests** (`pytest`), ciblés sur les fonctions ayant déjà produit un bug réel — chaque test verrouille une régression précise :
+  ```bash
+  pip install -e ".[test]" && pytest
+  ```
+- **Intégration continue** : image multi-architecture (`amd64`/`arm64`) publiée automatiquement sur GHCR à chaque push.
 
 ---
 
