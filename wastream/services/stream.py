@@ -1282,6 +1282,21 @@ class StreamService:
         # original_language == "ja" (TMDB) pour ne jamais interroger Nyaa sur
         # du contenu non-japonais — cout sinon negligeable, l'appel tourne en
         # parallele des autres sources comme les blocs ci-dessus.
+        #
+        # Nyaa n'indexe quasiment jamais un titre francais : "Comme les
+        # grands" -> 0 resultat, "Old Enough" (titre anglais/romaji, trouve
+        # uniquement via l'endpoint TMDB alternative_titles) -> 3, constate en
+        # reel le 2026-08-01. La recherche essaie donc le titre principal ET
+        # `nyaa_candidate_titles` (deja plafonne a 5 cote tmdb.py), en
+        # parallele, dedupliques par infohash.
+        #
+        # ⚠️ Piege deja fait une fois : NE JAMAIS utiliser metadata["titles"]/
+        # ["original_titles"] ici — ces listes alimentent aussi le retitrage
+        # generique de get_streams pour TOUTES les sources (Wawacity, Torznab,
+        # etc.), et `alternative_titles` peut contenir des dizaines d'entrees
+        # par pays. Melange constate en reel : rate-limit Nyaa/C411 (429 en
+        # rafale) + verrous Wawacity satures, recherche entiere effondree.
+        # `nyaa_candidate_titles` est une liste dediee et courte, safe.
         if (
             "nyaa" in supported_sources
             and content_name in ("movie", "series")
@@ -1289,13 +1304,38 @@ class StreamService:
             and metadata.get("original_language") == "ja"
             and self._is_source_allowed_for_content("nyaa", content_name, config)
         ):
+            candidate_titles = [title]
+            for extra_title in (metadata.get("nyaa_candidate_titles") or [])[:5]:
+                if extra_title and extra_title not in candidate_titles:
+                    candidate_titles.append(extra_title)
+
+            async def _search_nyaa_multi_title():
+                results_lists = await asyncio.gather(
+                    *(nyaa_scraper.search(t, year, metadata, season, episode, config, category="4_0")
+                      for t in candidate_titles),
+                    return_exceptions=True
+                )
+                seen_hashes = set()
+                merged = []
+                for r in results_lists:
+                    if not isinstance(r, list):
+                        continue
+                    for item in r:
+                        infohash = item.get("infohash")
+                        if infohash and infohash in seen_hashes:
+                            continue
+                        if infohash:
+                            seen_hashes.add(infohash)
+                        merged.append(item)
+                return merged
+
             if use_episode_cache:
                 coro = self._search_source_with_cache(
-                    "nyaa", content_type, lambda: nyaa_scraper.search(title, year, metadata, season, episode, config, category="4_0"),
+                    "nyaa", content_type, _search_nyaa_multi_title,
                     title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
             else:
                 coro = self._search_source_with_cache(
-                    "nyaa", content_type, lambda: nyaa_scraper.search(title, year, metadata, config=config, category="4_0"),
+                    "nyaa", content_type, _search_nyaa_multi_title,
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("nyaa", coro))
 

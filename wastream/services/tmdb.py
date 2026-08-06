@@ -38,7 +38,7 @@ class TMDBService:
                 movie = data["movie_results"][0]
                 movie_id = movie["id"]
 
-                details_url = f"{self.BASE_URL}/movie/{movie_id}?append_to_response=translations"
+                details_url = f"{self.BASE_URL}/movie/{movie_id}?append_to_response=translations,alternative_titles"
                 details_response = await http_client.get(details_url, headers=headers, timeout=settings.METADATA_TIMEOUT)
 
                 if details_response.status_code != 200:
@@ -72,6 +72,21 @@ class TMDBService:
                                 cz_title = trans["data"]["title"]
                                 metadata_logger.debug(f"[TMDB] Found Czech title: {cz_title}")
 
+                    # cf. commentaire equivalent cote serie : liste separee et
+                    # plafonnee, consommee uniquement par le bloc Nyaa Live
+                    # Action — ne jamais fusionner dans titles/original_titles
+                    # (utilises par TOUTES les sources + le retitrage generique
+                    # de get_streams, risque de rate-limit en cascade).
+                    seen_lower = set(titles)
+                    nyaa_candidate_titles = []
+                    for alt in details.get("alternative_titles", {}).get("titles", []):
+                        alt_title = alt.get("title")
+                        if alt_title and alt_title.lower() not in seen_lower:
+                            seen_lower.add(alt_title.lower())
+                            nyaa_candidate_titles.append(alt_title)
+                            if len(nyaa_candidate_titles) >= 5:
+                                break
+
                     year = movie.get("release_date", "").split("-")[0]
 
                     metadata_logger.debug(f"[TMDB] Movie: {len(titles)} titles")
@@ -84,7 +99,8 @@ class TMDBService:
                         "year": year,
                         "type": "movie",
                         "content_type": "movies",
-                        "original_language": details.get("original_language")
+                        "original_language": details.get("original_language"),
+                        "nyaa_candidate_titles": nyaa_candidate_titles
                     }
 
             elif data.get("tv_results"):
@@ -92,7 +108,7 @@ class TMDBService:
                 tv_show = data["tv_results"][0]
                 tv_id = tv_show["id"]
 
-                details_url = f"{self.BASE_URL}/tv/{tv_id}?append_to_response=translations,keywords"
+                details_url = f"{self.BASE_URL}/tv/{tv_id}?append_to_response=translations,keywords,alternative_titles"
                 details_response = await http_client.get(details_url, headers=headers, timeout=settings.METADATA_TIMEOUT)
 
                 if details_response.status_code != 200:
@@ -125,6 +141,32 @@ class TMDBService:
                             if trans.get("iso_639_1") == "cs" and trans.get("data", {}).get("name"):
                                 cz_title = trans["data"]["name"]
                                 metadata_logger.debug(f"[TMDB] Found Czech title: {cz_title}")
+
+                    # `translations` ne couvre que les traductions d'interface UI
+                    # (langues installees sur TMDB) — le titre international
+                    # "officiel" utilise par les groupes de release/fansub (ex.
+                    # "Old Enough" pour une fiche JP nommee differemment en
+                    # name/original_name) vit dans un endpoint distinct,
+                    # `alternative_titles`, jamais interroge jusqu'ici.
+                    #
+                    # ⚠️ Stocke a PART de `titles`/`original_titles` : ces deux
+                    # listes alimentent a la fois le retitrage generique de
+                    # get_streams (toutes sources : Wawacity, Torznab, etc.) ET
+                    # potentiellement des dizaines d'entrees par pays. Melange
+                    # constate en reel le 2026-08-01 : rate-limit Nyaa/C411 (429
+                    # en rafale) + verrous Wawacity satures — la recherche
+                    # entiere s'est effondree. `nyaa_candidate_titles` est donc
+                    # une liste separee, plafonnee, consommee uniquement par le
+                    # bloc Nyaa Live Action dans stream.py.
+                    seen_lower = set(titles)
+                    nyaa_candidate_titles = []
+                    for alt in details.get("alternative_titles", {}).get("results", []):
+                        alt_title = alt.get("title")
+                        if alt_title and alt_title.lower() not in seen_lower:
+                            seen_lower.add(alt_title.lower())
+                            nyaa_candidate_titles.append(alt_title)
+                            if len(nyaa_candidate_titles) >= 5:
+                                break
 
                     year = tv_show.get("first_air_date", "").split("-")[0]
 
@@ -159,7 +201,8 @@ class TMDBService:
                         "type": "series",
                         "content_type": content_type,
                         "seasons": seasons_data,
-                        "original_language": details.get("original_language")
+                        "original_language": details.get("original_language"),
+                        "nyaa_candidate_titles": nyaa_candidate_titles
                     }
 
             metadata_logger.debug(f"[TMDB] No metadata: {imdb_id}")
