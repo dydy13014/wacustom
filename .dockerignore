@@ -1,0 +1,17 @@
+# Environnement virtuel local (tests) — ne doit jamais entrer dans l'image :
+# le Dockerfile fait `COPY . .` et .venv pese ~110 Mo.
+.venv/
+
+# Historique git et artefacts de dev
+.git/
+.gitignore
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+
+# Secrets et sauvegardes locales — jamais dans l'image
+*.env
+!.env.example
+*.env.bak*
+*.bak
