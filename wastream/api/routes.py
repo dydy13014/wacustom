@@ -137,6 +137,61 @@ async def configure():
 
 
 # ===========================
+# User Login Rate Limiter
+# ===========================
+# Meme philosophie que la jail fail2ban traefik-401 deja en place sur l'infra
+# (10 echecs / 10 min) : genereux pour ne pas bannir un mot de passe colle
+# qui rate une fois, mais bloque un bruteforce script.
+LOGIN_RATE_LIMIT_WINDOW = 10 * 60  # 10 minutes
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 10
+
+
+class LoginRateLimiter:
+    def __init__(self):
+        self._attempts: Dict[str, List[float]] = {}
+
+    def is_blocked(self, key: str) -> bool:
+        self._cleanup(key)
+        return len(self._attempts.get(key, [])) >= LOGIN_RATE_LIMIT_MAX_ATTEMPTS
+
+    def record_failure(self, key: str):
+        self._cleanup(key)
+        self._attempts.setdefault(key, []).append(time.time())
+
+    def record_success(self, key: str):
+        self._attempts.pop(key, None)
+
+    def _cleanup(self, key: str):
+        cutoff = time.time() - LOGIN_RATE_LIMIT_WINDOW
+        attempts = self._attempts.get(key)
+        if attempts is None:
+            return
+        filtered = [t for t in attempts if t > cutoff]
+        if filtered:
+            self._attempts[key] = filtered
+        else:
+            del self._attempts[key]
+
+
+login_rate_limiter = LoginRateLimiter()
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _rate_limit_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content={"error": "too_many_attempts", "message": "Too many failed attempts, try again later"},
+        headers={"Retry-After": str(LOGIN_RATE_LIMIT_WINDOW)}
+    )
+
+
+# ===========================
 # User Endpoints
 # ===========================
 @router.post("/user",
@@ -175,13 +230,21 @@ async def create_user_route(
              summary="Get User Config",
              description="Retrieves decrypted user configuration")
 async def get_user_route(
+    request: Request,
     user_uuid: str = Path(..., description="User UUID"),
     password: str = Body(..., embed=True, description="User password")
 ):
+    client_ip = _client_ip(request)
+    if login_rate_limiter.is_blocked(client_ip):
+        return _rate_limit_response()
+
     result = await get_user_config_detailed(user_uuid, password)
 
     if not result["success"]:
         error_code = result["error"]
+        if error_code == "invalid_password":
+            login_rate_limiter.record_failure(client_ip)
+
         if error_code == "user_not_found":
             return JSONResponse(
                 status_code=404,
@@ -198,6 +261,7 @@ async def get_user_route(
                 content={"error": "server_error", "message": "Server error"}
             )
 
+    login_rate_limiter.record_success(client_ip)
     return JSONResponse(content={"config": result["config"]})
 
 
@@ -211,6 +275,10 @@ async def update_user_route(
     password: str = Body(..., embed=True, description="User password"),
     config: Dict[str, Any] = Body(..., embed=True, description="New configuration")
 ):
+    client_ip = _client_ip(request)
+    if login_rate_limiter.is_blocked(client_ip):
+        return _rate_limit_response()
+
     if not config.get("debrid_services"):
         return JSONResponse(
             status_code=400,
@@ -219,11 +287,13 @@ async def update_user_route(
 
     success = await update_user_config(user_uuid, password, config)
     if not success:
+        login_rate_limiter.record_failure(client_ip)
         return JSONResponse(
             status_code=401,
             content={"error": "Invalid credentials or user not found"}
         )
 
+    login_rate_limiter.record_success(client_ip)
     encrypted_password = encrypt_password_for_url(password)
     addon_url = f"{get_base_url(request)}/{user_uuid}/{encrypted_password}/manifest.json"
 
@@ -238,13 +308,21 @@ async def update_user_route(
              summary="Delete User",
              description="Deletes user account")
 async def delete_user_route(
+    request: Request,
     user_uuid: str = Path(..., description="User UUID"),
     password: str = Body(..., embed=True, description="User password")
 ):
+    client_ip = _client_ip(request)
+    if login_rate_limiter.is_blocked(client_ip):
+        return _rate_limit_response()
+
     result = await delete_user_detailed(user_uuid, password)
 
     if not result["success"]:
         error_code = result["error"]
+        if error_code == "invalid_password":
+            login_rate_limiter.record_failure(client_ip)
+
         if error_code == "user_not_found":
             return JSONResponse(
                 status_code=404,
@@ -261,6 +339,7 @@ async def delete_user_route(
                 content={"error": "server_error", "message": "Server error"}
             )
 
+    login_rate_limiter.record_success(client_ip)
     return JSONResponse(content={"success": True})
 
 
@@ -269,10 +348,21 @@ async def delete_user_route(
              summary="Verify Credentials",
              description="Verifies user credentials")
 async def verify_user_route(
+    request: Request,
     user_uuid: str = Body(..., embed=True, description="User UUID"),
     password: str = Body(..., embed=True, description="User password")
 ):
+    client_ip = _client_ip(request)
+    if login_rate_limiter.is_blocked(client_ip):
+        return _rate_limit_response()
+
     valid = await verify_user(user_uuid, password)
+
+    if valid:
+        login_rate_limiter.record_success(client_ip)
+    else:
+        login_rate_limiter.record_failure(client_ip)
+
     return JSONResponse(content={"valid": valid})
 
 
