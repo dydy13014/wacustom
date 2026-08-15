@@ -6,7 +6,7 @@
     <title>{{ADDON_NAME}} - Configuration</title>
     <meta property="og:title" content="{{ADDON_NAME}}" />
     <meta property="og:description" content="Stremio addon to convert DDL to streams via debrid services" />
-    <meta name="theme-color" content="#f97316">
+    <meta name="theme-color" content="#ff7a1c">
     <link rel="icon" href="/static/wastream-logo.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/themes/dark.css" />
     <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/shoelace-autoloader.js"></script>
@@ -23,11 +23,11 @@
         }
 
         :root {
-            --bg-primary: #09090b;
-            --bg-secondary: #0f0f12;
-            --bg-tertiary: #18181b;
-            --bg-elevated: #1f1f23;
-            --bg-hover: #27272a;
+            --bg-primary: #0a0c11;
+            --bg-secondary: #12151e;
+            --bg-tertiary: #171b27;
+            --bg-elevated: #1c2231;
+            --bg-hover: #252b3b;
 
             --border-subtle: rgba(255, 255, 255, 0.06);
             --border-default: rgba(255, 255, 255, 0.1);
@@ -37,10 +37,10 @@
             --text-secondary: #a1a1aa;
             --text-muted: #71717a;
 
-            --accent-primary: #f97316;
-            --accent-primary-hover: #ea580c;
-            --accent-primary-subtle: rgba(249, 115, 22, 0.1);
-            --accent-primary-glow: rgba(249, 115, 22, 0.15);
+            --accent-primary: #ff7a1c;
+            --accent-primary-hover: #e86a10;
+            --accent-primary-subtle: rgba(255, 122, 28, 0.14);
+            --accent-primary-glow: rgba(255, 122, 28, 0.18);
 
             --accent-success: #10b981;
             --accent-success-hover: #059669;
@@ -51,7 +51,7 @@
 
             --radius-sm: 6px;
             --radius-md: 10px;
-            --radius-lg: 14px;
+            --radius-lg: 16px;
             --radius-xl: 18px;
             --radius-full: 9999px;
 
@@ -94,7 +94,13 @@
 
         body {
             font-family: var(--font-sans);
-            background: var(--bg-primary);
+            /* Halos discrets (orange en haut a droite, vert en haut a gauche) :
+               cassent l'aplat sombre sans nuire a la lisibilite. */
+            background:
+                radial-gradient(1100px 480px at 85% -10%, rgba(255, 122, 28, .08), transparent 60%),
+                radial-gradient(900px 480px at -10% 10%, rgba(16, 185, 129, .05), transparent 60%),
+                var(--bg-primary);
+            background-attachment: fixed;
             color: var(--text-primary);
             min-height: 100vh;
             line-height: 1.6;
@@ -139,7 +145,7 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            background: rgba(9, 9, 11, 0.8);
+            background: rgba(10, 12, 17, 0.82);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border-subtle);
         }
@@ -181,6 +187,83 @@
             background: var(--bg-tertiary);
             padding: 2px 8px;
             border-radius: var(--radius-full);
+            border: 1px solid transparent;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+
+        .logo-version:hover {
+            color: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        /* ===========================
+           Fenetre des nouveautes
+           =========================== */
+        .changelog-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            display: none;
+            place-items: center;
+            padding: 20px;
+            background: rgba(5, 8, 14, .72);
+            backdrop-filter: blur(6px);
+        }
+
+        .changelog-overlay.show { display: grid; }
+
+        .changelog-box {
+            width: min(620px, 100%);
+            max-height: 82vh;
+            overflow-y: auto;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-xl);
+            padding: 26px;
+        }
+
+        .changelog-box h3 { font-size: 18px; margin-bottom: 2px; }
+
+        .changelog-sub {
+            color: var(--text-muted);
+            font-size: 12.5px;
+            margin-bottom: 18px;
+        }
+
+        .changelog-entry { margin-bottom: 20px; }
+        .changelog-entry:last-child { margin-bottom: 0; }
+
+        .changelog-entry-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 9px;
+        }
+
+        .changelog-entry-head b { font-size: 15px; color: var(--accent-primary); }
+        .changelog-entry-head span { font-size: 12px; color: var(--text-muted); }
+
+        .changelog-entry ul { list-style: none; display: grid; gap: 7px; }
+
+        .changelog-entry li {
+            display: flex;
+            gap: 9px;
+            font-size: 13.5px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .changelog-entry li::before {
+            content: "";
+            flex: none;
+            width: 5px;
+            height: 5px;
+            margin-top: 8px;
+            border-radius: 50%;
+            background: var(--accent-primary);
         }
 
         .header-actions {
@@ -193,6 +276,69 @@
             flex: 1;
             padding: 32px 0 80px;
         }
+
+        /* ===========================
+           Onglets de section
+           ===========================
+           Reprend le style du tableau de bord admin (onglets soulignes) pour
+           que les deux interfaces se ressemblent. */
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            width: 100%;
+            margin: 0 0 28px;
+            padding-bottom: 2px;
+            border-bottom: 1px solid var(--border-subtle);
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        /* Le centrage par justify-content ne tient pas quand la barre deborde
+           (petits ecrans) : le debut de la liste devient inatteignable au
+           defilement. `margin: auto` sur les enfants centre sans ce defaut. */
+        .nav-tabs > * { margin-inline: auto; }
+
+        .nav-tabs::-webkit-scrollbar { display: none; }
+
+        .nav-tab {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all var(--transition-fast);
+            margin-bottom: -1px;
+        }
+
+        .nav-tab:hover { color: var(--text-secondary); }
+
+        .nav-tab.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+        }
+
+        /* ===========================
+           Mode onglets
+           ===========================
+           Une seule section affichee a la fois. La regle ne force QUE le
+           masquage : une section que l'application a elle-meme masquee en
+           style inline (Securite tant qu'aucun mot de passe n'est requis,
+           Compte hors connexion) reste masquee meme si elle est l'onglet
+           actif — le comportement de l'appli reste prioritaire.
+           Sans le mode onglets (JS indisponible), tout s'affiche a la
+           suite comme avant. */
+        body.tabs-mode .section:not(.tab-active) {
+            display: none !important;
+        }
+
 
         .main-content {
             max-width: 1400px;
@@ -1595,7 +1741,7 @@
                 <div class="logo">
                     <img src="/static/wastream-logo.png" alt="WAStream" class="logo-icon">
                     <span class="logo-text">{{ADDON_NAME}}</span>
-                    <span class="logo-version">v{{VERSION}}</span>
+                    <button type="button" class="logo-version" id="versionBadge" title="Fork de WAStream {{BASE_VERSION}} — voir les nouveautes">v{{VERSION}}</button>
                 </div>
                 <div class="header-actions">
                     <button type="button" class="login-btn" id="loginBtn">
@@ -1623,11 +1769,17 @@
                     <p class="hero-desc">Stremio addon to convert DDL to streams via debrid services</p>
                     <div class="custom-html-container">{{CUSTOM_HTML}}</div>
                     <div class="hero-links">
-                        <a href="https://gitlab.com/10ho/wastream" target="_blank" rel="noopener" class="hero-link">
+                        <a href="https://github.com/dydy13014/wacustom" target="_blank" rel="noopener" class="hero-link">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+                            </svg>
+                            GitHub
+                        </a>
+                        <a href="https://gitlab.com/10ho/wastream" target="_blank" rel="noopener" class="hero-link" title="Projet d'origine dont Wacustom est un fork">
                             <svg viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M23.955 13.587l-1.342-4.135-2.664-8.189a.455.455 0 00-.867 0L16.418 9.45H7.582L4.919 1.263a.455.455 0 00-.867 0L1.386 9.452.044 13.587a.924.924 0 00.331 1.023L12 23.054l11.625-8.443a.92.92 0 00.33-1.024"/>
                             </svg>
-                            GitLab
+                            WAStream (upstream)
                         </a>
                         <a href="https://discord.gg/CnbVS6G4MV" target="_blank" rel="noopener" class="hero-link">
                             <svg viewBox="0 0 24 24" fill="currentColor">
@@ -1638,8 +1790,11 @@
                     </div>
                 </div>
 
+                <!-- Onglets de section, meme principe que le tableau de bord admin -->
+                <nav class="nav-tabs" id="sectionTabs" role="tablist"></nav>
+
                 <!-- LANGUAGES SECTION -->
-                <section class="section">
+                <section class="section" id="sec-languages">
                     <div class="section-header">
                         <div class="section-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1659,7 +1814,7 @@
                 </section>
 
                 <!-- QUALITY SECTION -->
-                <section class="section">
+                <section class="section" id="sec-quality">
                     <div class="section-header">
                         <div class="section-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1686,7 +1841,7 @@
                 </section>
 
                 <!-- SERVICES SECTION -->
-                <section class="section">
+                <section class="section" id="sec-service">
                     <div class="section-header">
                         <div class="section-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1789,7 +1944,7 @@
                 </section>
 
                 <!-- SORT ORDER SECTION -->
-                <section class="section">
+                <section class="section" id="sec-sort">
                     <div class="section-header">
                         <div class="section-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1812,7 +1967,7 @@
                 </section>
 
                 <!-- ADVANCED SECTION -->
-                <section class="section">
+                <section class="section" id="sec-advanced">
                     <div class="section-header">
                         <div class="section-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2123,7 +2278,7 @@
                 </section>
 
                 <!-- SECURITY SECTION -->
-                <section class="section" id="passwordSection" style="display: none;">
+                <section class="section" data-nav="sec-security" id="passwordSection" style="display: none;">
                     <div class="section-header">
                         <div class="section-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2142,7 +2297,7 @@
                 </section>
 
                 <!-- ACCOUNT SECTION -->
-                <section class="section" id="userAccountSection">
+                <section class="section" data-nav="sec-account" id="userAccountSection">
                     <div class="section-header">
                         <div class="section-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -4392,6 +4547,136 @@
         } else {
             init();
         }
+
+        // ===========================
+        // Navigation par onglets
+        // ===========================
+        // Meme principe que le tableau de bord admin : une seule section
+        // affichee, onglets soulignes dans l'en-tete. Le mode n'est active
+        // qu'ici, en JS : sans lui la page reste une page longue classique,
+        // entierement utilisable.
+        (function initTabs() {
+            const bar = document.getElementById('sectionTabs');
+            if (!bar) return;
+
+            const SECTIONS = [
+                ['sec-languages',      'sections.languages', 'Languages'],
+                ['sec-quality',        'sections.quality',   'Quality'],
+                ['sec-service',        'sections.service',   'Service'],
+                ['sec-sort',           'sections.sortOrder', 'Sort Order'],
+                ['sec-advanced',       'sections.advanced',  'Advanced'],
+                ['passwordSection',    'sections.security',  'Security'],
+                ['userAccountSection', 'sections.account',   'Account'],
+            ];
+
+            const panels = SECTIONS
+                .map(([id, i18n, label]) => ({ id, el: document.getElementById(id), i18n, label }))
+                .filter(p => p.el);
+            if (!panels.length) return;
+
+            document.body.classList.add('tabs-mode');
+
+            panels.forEach(p => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'nav-tab';
+                b.dataset.target = p.id;
+                // data-i18n pour que l'onglet suive la langue choisie, comme
+                // le reste de la page.
+                b.innerHTML = `<span data-i18n="${p.i18n}">${p.label}</span>`;
+                b.addEventListener('click', () => activate(p.id));
+                bar.appendChild(b);
+                p.tab = b;
+            });
+
+            // Masquee par l'application (Securite tant qu'aucun mot de passe
+            // n'est requis, Compte hors connexion) : style inline pose par le
+            // code existant, qu'on ne surcharge jamais.
+            const appHidden = el => el.style.display === 'none';
+            let current = null;
+
+            function activate(id, scroll = true) {
+                const target = panels.find(p => p.id === id && !appHidden(p.el))
+                            || panels.find(p => !appHidden(p.el));
+                if (!target) return;
+                current = target.id;
+                panels.forEach(p => {
+                    const on = p === target;
+                    p.el.classList.toggle('tab-active', on);
+                    p.tab.classList.toggle('active', on);
+                });
+                if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            // Les sections apparaissent/disparaissent selon l'etat de
+            // connexion, sans rechargement : le menu suit, et on bascule
+            // d'onglet si celui affiche vient d'etre masque.
+            function sync() {
+                panels.forEach(p => { p.tab.style.display = appHidden(p.el) ? 'none' : ''; });
+                const cur = panels.find(p => p.id === current);
+                if (!cur || appHidden(cur.el)) activate(current, false);
+            }
+
+            new MutationObserver(sync).observe(document.body, {
+                attributes: true, subtree: true, attributeFilter: ['style']
+            });
+
+            activate(panels[0].id, false);
+            sync();
+        })();
+
+        // ===========================
+        // Nouveautes (clic sur le numero de version)
+        // ===========================
+        (function initChangelog() {
+            const badge = document.getElementById('versionBadge');
+            const overlay = document.getElementById('changelogOverlay');
+            if (!badge || !overlay) return;
+
+            const body = document.getElementById('changelogBody');
+            const sub = document.getElementById('changelogSub');
+            const esc = t => String(t ?? '').replace(/[&<>"']/g,
+                c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            let loaded = false;
+
+            const close = () => overlay.classList.remove('show');
+
+            async function open() {
+                overlay.classList.add('show');
+                if (loaded) return;
+                try {
+                    const r = await fetch('/changelog');
+                    if (!r.ok) throw new Error(r.status);
+                    const d = await r.json();
+                    sub.textContent = `Wacustom v${d.version} — base WAStream ${d.base_version}`;
+                    body.innerHTML = (d.entries || []).map(e => `
+                        <div class="changelog-entry">
+                            <div class="changelog-entry-head">
+                                <b>v${esc(e.version)}</b><span>${esc(e.date)}</span>
+                            </div>
+                            <ul>${(e.changes || []).map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+                        </div>`).join('');
+                    loaded = true;
+                } catch (err) {
+                    body.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Historique indisponible.</p>';
+                }
+            }
+
+            badge.addEventListener('click', open);
+            document.getElementById('changelogClose').addEventListener('click', close);
+            overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+            addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+        })();
     </script>
+<div class="changelog-overlay" id="changelogOverlay" role="dialog" aria-modal="true" aria-labelledby="changelogTitle">
+    <div class="changelog-box">
+        <h3 id="changelogTitle">Nouveautes</h3>
+        <p class="changelog-sub" id="changelogSub"></p>
+        <div id="changelogBody"></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+            <button type="button" class="btn-secondary" id="changelogClose">Fermer</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>

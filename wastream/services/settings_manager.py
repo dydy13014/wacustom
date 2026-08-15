@@ -25,7 +25,13 @@ EXCLUDED_SETTINGS = frozenset({
 })
 
 # Shown masked, write-only from the UI (PROXY_URL can embed user:pass credentials).
-SENSITIVE_SETTINGS = frozenset({"DARKI_API_KEY", "TMDB_API_KEY", "PROXY_URL"})
+SENSITIVE_SETTINGS = frozenset({
+    "DARKI_API_KEY", "TMDB_API_KEY", "PROXY_URL",
+    # Clés des trackers propres au fork : même traitement que les
+    # autres secrets (affichées masquées, écriture seule, chiffrées).
+    "YGGREBORN_API_KEY", "TR4KER_API_KEY", "TORR9_API_KEY", "C411_API_KEY",
+    "GEMINI_API_KEY", "GENERATIONFREE_API_KEY",
+})
 
 # Excluded from export/import: raw HTML -> importing from an untrusted file would be stored XSS.
 UNSHAREABLE_SETTINGS = frozenset({"CUSTOM_HTML"})
@@ -167,6 +173,15 @@ SETTINGS_LAYOUT = [
     ("Addon", ["ADDON_NAME"]),
     ("Sources", ["WAWACITY_URL", "FREE_TELECHARGER_URL", "DARKI_API_URL", "DARKI_API_KEY", "MOVIX_URL", "WEBSHARE_URL", "ZONE_TELECHARGEMENT_URL"]),
     ("TMDB", ["TMDB_API_KEY"]),
+    # Sources propres au fork, absentes d'upstream : configurables ici plutôt
+    # que par le seul fichier .env.
+    ("Trackers Torznab", ["YGGREBORN_URL", "YGGREBORN_API_KEY",
+                          "TR4KER_URL", "TR4KER_API_KEY",
+                          "TORR9_URL", "TORR9_API_KEY",
+                          "C411_URL", "C411_API_KEY"]),
+    ("Trackers UNIT3D", ["GEMINI_URL", "GEMINI_API_KEY",
+                         "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY"]),
+    ("Zilean / Nyaa", ["ZILEAN_URL", "NYAA_URL"]),
     ("Database resilience", ["DATABASE_RETRY_MAX_ATTEMPTS", "DATABASE_RETRY_DELAY_SECONDS"]),
     ("Kitsu / Anime", ["DARKIMOVIX_KITSU_TMDB_MAPPING", "KITSU_IMDB_OVERRIDE"]),
     ("Pagination", ["WAWACITY_MAX_SEARCH_PAGES", "FREE_TELECHARGER_MAX_SEARCH_PAGES", "WEBSHARE_MAX_SEARCH_PAGES",
