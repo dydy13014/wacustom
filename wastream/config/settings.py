@@ -133,21 +133,21 @@ class Settings(BaseSettings):
     ALLDEBRID_API_URL: str = "https://api.alldebrid.com/v4"
     ALLDEBRID_BATCH_SIZE: int = 12
     ALLDEBRID_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "vidoza", "alldebrid", "torrent"]
-    ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa"]
+    ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio"]
 
     # ===========================
     # TorBox Configuration
     # ===========================
     TORBOX_API_URL: str = "https://api.torbox.app/v1/api"
     TORBOX_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "sendcm", "send.now", "darkibox", "webshare"]
-    TORBOX_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "webshare", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa"]
+    TORBOX_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "webshare", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio"]
 
     # ===========================
     # Premiumize Configuration
     # ===========================
     PREMIUMIZE_API_URL: str = "https://www.premiumize.me/api"
     PREMIUMIZE_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator"]
-    PREMIUMIZE_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa"]
+    PREMIUMIZE_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio"]
 
     # ===========================
     # 1fichier Configuration
@@ -200,6 +200,18 @@ class Settings(BaseSettings):
     # Zilean Configuration (index DMM, pas d'API key)
     # ===========================
     ZILEAN_URL: Optional[str] = None
+
+    # ===========================
+    # Lumio Configuration
+    # ===========================
+    # Identifiant de manifest Lumio (mylumio.tv), propre a chaque hebergeur.
+    # Vide = source desactivee. Ne fournit que des torrents deja verifies en
+    # cache debrid, donc lisibles immediatement.
+    LUMIO_MANIFEST_ID: Optional[str] = None
+    # Pause apres un refus de quota (429). Le blocage de Lumio est global et
+    # chaque appel emis pendant le blocage le prolonge : une pause courte est
+    # pire que rien.
+    LUMIO_RATE_LIMIT_PAUSE: int = 86400
 
     # ===========================
     # Nyaa Configuration (tracker public anime, pas d'API key)
@@ -408,5 +420,5 @@ SOURCE_DISPLAY_NAMES = {
     "generation-free": "Generation-Free",
     "zilean": "Zilean",
     "nyaa": "Nyaa",
-    "extra": "Extra"
+    "lumio": "Lumio"
 }

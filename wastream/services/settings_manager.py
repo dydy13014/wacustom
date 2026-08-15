@@ -30,7 +30,7 @@ SENSITIVE_SETTINGS = frozenset({
     # Clés des trackers propres au fork : même traitement que les
     # autres secrets (affichées masquées, écriture seule, chiffrées).
     "YGGREBORN_API_KEY", "TR4KER_API_KEY", "TORR9_API_KEY", "C411_API_KEY",
-    "GEMINI_API_KEY", "GENERATIONFREE_API_KEY", "V3X_API_KEY",
+    "GEMINI_API_KEY", "GENERATIONFREE_API_KEY", "V3X_API_KEY", "LUMIO_MANIFEST_ID",
 })
 
 # Excluded from export/import: raw HTML -> importing from an untrusted file would be stored XSS.
@@ -54,6 +54,7 @@ ADVANCED_SETTINGS = frozenset({
     "IDRIX_SCRAPER_REQUEST_DELAY_SECONDS",
     "IDRIX_SCRAPER_MAX_RETRY_DELAY_SECONDS",
     "DOMAIN_SYNC_INTERVAL", "DOMAIN_SYNC_HEALTH_ERROR_RECHECK_DELAY_SECONDS",
+    "LUMIO_RATE_LIMIT_PAUSE",
     "PROXY_URL",
 })
 
@@ -183,6 +184,7 @@ SETTINGS_LAYOUT = [
     ("Trackers UNIT3D", ["GEMINI_URL", "GEMINI_API_KEY",
                          "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY"]),
     ("Zilean / Nyaa", ["ZILEAN_URL", "NYAA_URL"]),
+    ("Lumio", ["LUMIO_MANIFEST_ID", "LUMIO_RATE_LIMIT_PAUSE"]),
     ("Database resilience", ["DATABASE_RETRY_MAX_ATTEMPTS", "DATABASE_RETRY_DELAY_SECONDS"]),
     ("Kitsu / Anime", ["DARKIMOVIX_KITSU_TMDB_MAPPING", "KITSU_IMDB_OVERRIDE"]),
     ("Pagination", ["WAWACITY_MAX_SEARCH_PAGES", "FREE_TELECHARGER_MAX_SEARCH_PAGES", "WEBSHARE_MAX_SEARCH_PAGES",
