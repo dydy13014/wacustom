@@ -530,6 +530,36 @@ _EP_SEASON_RE = re.compile(
     r'[Ss](\d{1,2})(?![.\s_-]?[Ee]\d)|saison[\s._-]?(\d{1,2})|season[\s._-]?(\d{1,2})',
     re.IGNORECASE
 )
+# Numéro d'épisode « nu » des releases d'animé : « Titre - 05 », « EP05 », « #12 ».
+# Ce format domine sur Nyaa et n'était couvert par aucun motif ci-dessus, si bien
+# que episode_matches() répondait « rien détecté » et que l'appelant conservait
+# TOUTES les releases — d'où des épisodes de la mauvaise saison dans les résultats.
+#
+# Deux garde-fous, indispensables pour ne pas capturer les chiffres du titre
+# (« 86 EIGHTY-SIX », « Mob Psycho 100 », « Gundam 00 ») :
+#   - un séparateur fort AVANT le numéro : tiret, tilde, ou préfixe EP/#
+#   - une assertion de suite APRÈS : tag, résolution, codec, extension, ou fin
+_ANIME_BARE_EP_RE = re.compile(
+    r'(?:'
+    r'(?:^|[\s\-_~.]+)(?:EP?\.?\s*|#)(\d{1,4})(?:v\d+)?'   # EP05, E05, #12
+    r'|'
+    r'[\s_]*[-~][\s_]*(\d{1,4})(?:v\d+)?'                   # « - 05 », « ~ 12 »
+    r')'
+    r'(?=[\s\-_~.]*'
+    r'(?:\(|\[|1080p|720p|480p|2160p|x264|x265|h264|h265|hevc|avc'
+    r'|multi|vostfr|sub|dub|end|fin|batch|complete|\d+bit|\.mkv|\.mp4)'
+    r'|$)',
+    re.IGNORECASE
+)
+
+# Marqueur de saison explicite dans le nom : interdit alors de comparer au
+# numéro absolu (« S02 - 13 » veut dire l'épisode 13 DE la saison 2, pas le 13e
+# de la série).
+_EXPLICIT_SEASON_RE = re.compile(
+    r'\b(?:S\d{1,2}|Season\s*\d|Saison\s*\d|\d+(?:st|nd|rd|th)\s*Season)\b',
+    re.IGNORECASE
+)
+
 _SAMPLE_RE = re.compile(r'(?:^|[^a-z])sample(?:[^a-z]|$)', re.IGNORECASE)
 
 
@@ -538,18 +568,32 @@ def is_sample_file(filename: str) -> bool:
     return bool(_SAMPLE_RE.search(filename or ""))
 
 
-def episode_matches(release_name: str, season, episode) -> Optional[bool]:
+def episode_matches(release_name: str, season, episode,
+                    absolute_episode=None, strict: bool = False) -> Optional[bool]:
     """Vérifie si un nom de release/fichier correspond à S{season}E{episode}.
 
     Retourne :
       True  → épisode exact ou season pack de la bonne saison
       False → saison ou épisode différent
       None  → aucune info d'épisode détectée (à l'appelant de décider)
+
+    Paramètres optionnels, sans effet s'ils ne sont pas fournis — le
+    comportement par défaut est donc STRICTEMENT identique à l'existant,
+    pour ne rien changer aux autres sources ni aux instances tierces :
+
+      absolute_episode → numérotation continue toutes saisons confondues.
+          Les releases d'animé numérotent souvent ainsi (S02E01 = « 13 »).
+          Comparé en plus du numéro relatif, mais seulement quand le nom ne
+          porte aucun marqueur de saison explicite.
+      strict → quand aucune information d'épisode n'est détectée, renvoyer
+          False (écarter) au lieu de None (laisser l'appelant décider).
+          Réservé aux sources dont la recherche est laxiste, comme Nyaa.
     """
     if not release_name or season is None or episode is None:
         return None
     try:
         req_s, req_e = int(season), int(episode)
+        req_abs = int(absolute_episode) if absolute_episode is not None else None
     except (ValueError, TypeError):
         return None
 
@@ -587,8 +631,25 @@ def episode_matches(release_name: str, season, episode) -> Optional[bool]:
     if seasons:
         return req_s in seasons
 
-    # 5. Aucune info détectée
-    return None
+    # 5. Numéro « nu » des releases d'animé (« Titre - 05 », « EP05 », « #12 »).
+    #    Ne s'applique qu'aux noms sans aucun marqueur de saison — ceux-ci sont
+    #    déjà traités au point 4 (et un « S02 » interdirait la comparaison au
+    #    numéro absolu).
+    bare = []
+    for m in _ANIME_BARE_EP_RE.finditer(release_name):
+        g = next((x for x in m.groups() if x is not None), None)
+        if g is not None:
+            bare.append(int(g))
+    if bare:
+        attendus = {req_e}
+        if req_abs is not None and not _EXPLICIT_SEASON_RE.search(release_name):
+            attendus.add(req_abs)
+        if attendus & set(bare):
+            return True
+        return False  # un numéro est bien présent, mais ce n'est pas le nôtre
+
+    # 6. Aucune info détectée
+    return False if strict else None
 
 
 def select_episode_file(files: List[Dict], season, episode,

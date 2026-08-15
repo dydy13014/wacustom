@@ -57,6 +57,70 @@ def test_episode_matches_invalid_season_episode_types():
 
 
 # ===========================
+# episode_matches - format animé "numéro nu" (Nyaa)
+# ===========================
+def test_episode_matches_anime_bare_dash():
+    assert episode_matches("[Group] Show - 05 [1080p].mkv", 1, 5) is True
+    assert episode_matches("[Group] Show - 05 [1080p].mkv", 1, 6) is False
+
+
+def test_episode_matches_anime_bare_ep_prefix():
+    assert episode_matches("[Group] Show EP05 [1080p].mkv", 1, 5) is True
+    assert episode_matches("[Group] Show E05 [1080p].mkv", 1, 5) is True
+
+
+def test_episode_matches_anime_bare_hash_prefix():
+    assert episode_matches("[Group] Show #12 [1080p].mkv", 1, 12) is True
+
+
+def test_episode_matches_anime_bare_avoids_title_numbers():
+    # Faux positifs classiques : des chiffres qui font partie du TITRE, pas
+    # d'un numero d'episode (pas de separateur fort avant, ou pas d'assertion
+    # de suite technique apres).
+    assert episode_matches("86 EIGHTY-SIX - 05 [1080p].mkv", 1, 86) is False
+    assert episode_matches("Mob Psycho 100 - 05 [1080p].mkv", 1, 100) is False
+    assert episode_matches("Gundam 00 - 05 [1080p].mkv", 1, 0) is False
+
+
+def test_episode_matches_anime_bare_no_match_returns_false_not_none():
+    # Un numero EST present mais ce n'est pas le bon -> False (pas None),
+    # meme sans strict=True (point 5 de la fonction, distinct du point 6).
+    assert episode_matches("[Group] Show - 05 [1080p].mkv", 1, 6) is False
+
+
+# ===========================
+# episode_matches - strict=True (aucune info detectee)
+# ===========================
+def test_episode_matches_strict_false_when_nothing_detected():
+    assert episode_matches("Show.Title.1080p.BluRay.mkv", 1, 5, strict=True) is False
+
+
+def test_episode_matches_non_strict_none_when_nothing_detected():
+    # Comportement par defaut inchange (non strict) : None, pas False.
+    assert episode_matches("Show.Title.1080p.BluRay.mkv", 1, 5, strict=False) is None
+    assert episode_matches("Show.Title.1080p.BluRay.mkv", 1, 5) is None
+
+
+# ===========================
+# episode_matches - absolute_episode (numerotation continue animé)
+# ===========================
+def test_episode_matches_absolute_episode_without_season_marker():
+    # "Titre - 13" demande en S02E01, avec absolute_episode=13 (numerotation
+    # continue) -> accepte car pas de marqueur de saison explicite dans le nom.
+    assert episode_matches("[Group] Show - 13 [1080p].mkv", 2, 1, absolute_episode=13) is True
+
+
+def test_episode_matches_absolute_episode_ignored_with_explicit_season():
+    # "S02 - 13" : le "13" est relatif a la saison 2 explicitement marquee ->
+    # ne doit PAS matcher un absolute_episode=13 pour une demande S01E13.
+    assert episode_matches("[Group] Show S02 - 13 [1080p].mkv", 1, 13, absolute_episode=13) is False
+
+
+def test_episode_matches_absolute_episode_none_has_no_effect():
+    assert episode_matches("[Group] Show - 05 [1080p].mkv", 1, 5, absolute_episode=None) is True
+
+
+# ===========================
 # is_sample_file
 # ===========================
 def test_is_sample_file_detects_dotted_sample():

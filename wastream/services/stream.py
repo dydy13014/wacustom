@@ -1735,8 +1735,13 @@ class StreamService:
 
             if "nyaa" in supported_sources and self._is_source_allowed_for_content("nyaa", "anime", config):
                 _s, _e = str(actual_season), str(actual_episode)
+                # Les releases Nyaa numerotent souvent en continu (S02E01 = « 13 »).
+                # Le numero absolu est deja calcule par le mapping Kitsu, il n'etait
+                # simplement jamais transmis : sans lui, une saison 2 ne pouvait pas
+                # etre filtree correctement.
+                _abs = str(season_mapping.get("absolute_episode")) if season_mapping and season_mapping.get("absolute_episode") else None
                 tasks.append(self._search_source_with_cache(
-                    "nyaa", "anime", lambda: nyaa_scraper.search(search_title, search_year, enhanced_kitsu_metadata, _s, _e, config),
+                    "nyaa", "anime", lambda: nyaa_scraper.search(search_title, search_year, enhanced_kitsu_metadata, _s, _e, config, absolute_episode=_abs),
                     search_title, search_year, _s, _e,
                     enhanced_kitsu_metadata, use_episode_key=True, filter_episodes=False
                 ))
