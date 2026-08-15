@@ -37,11 +37,7 @@ from wastream.scrapers.zone_telechargement.series import series_scraper as zone_
 from wastream.scrapers.torznab.trackers import yggreborn_scraper, tr4ker_scraper, torr9_scraper, c411_scraper, v3x_scraper, gemini_scraper, generationfree_scraper
 from wastream.scrapers.zilean.base import zilean_scraper
 from wastream.scrapers.nyaa.base import nyaa_scraper
-try:
-    from wastream.scrapers._private.extra import extra_source_scraper, SOURCE_LABEL as EXTRA_SOURCE_LABEL
-except ImportError:
-    extra_source_scraper = None
-    EXTRA_SOURCE_LABEL = None
+from wastream.scrapers.lumio.base import lumio_scraper, SOURCE_LABEL as LUMIO_LABEL
 from wastream.services.kitsu import kitsu_service
 from wastream.services.tmdb import tmdb_service
 from wastream.utils.cache import get_cache, get_cache_with_status, get_cache_parallel, set_cache, set_cache_if_not_exists
@@ -216,14 +212,14 @@ class StreamService:
 
             supported_sources = self._get_sources_for_service(service_name, service_entry)
             allowed_sources = [source_mapping.get(s, s) for s in supported_sources]
-            # La source d'appoint optionnelle n'est pas proposee dans l'interface
-            # de configuration : elle n'apparait donc JAMAIS dans les sources
-            # declarees par l'utilisateur, et se faisait rejeter ici alors
-            # qu'elle avait bien ete interrogee, filtree et mise en cache. Ses
-            # resultats sont les seuls garantis deja en cache debrid, donc
-            # lisibles immediatement — precisement ceux qu'il ne faut pas perdre.
-            if EXTRA_SOURCE_LABEL:
-                allowed_sources.append(EXTRA_SOURCE_LABEL)
+            # Compatibilite : Lumio n'etait pas proposee dans l'interface avant
+            # sa publication, elle est donc absente des listes de sources
+            # enregistrees a cette epoque. Sans ce repli, ses resultats — les
+            # seuls garantis deja en cache debrid — seraient rejetes ici alors
+            # qu'ils ont bien ete recuperes. A retirer une fois les configs
+            # existantes re-enregistrees depuis la nouvelle interface.
+            if settings.LUMIO_MANIFEST_ID and LUMIO_LABEL not in allowed_sources:
+                allowed_sources.append(LUMIO_LABEL)
 
             filtered_results = [
                 r.copy() for r in results
@@ -1380,18 +1376,18 @@ class StreamService:
         # une erreur : le nombre ne dit rien de leur jouabilite.
         # Sa protection contre le quota n'est pas ici mais dans le module lui-
         # meme : pause de 24h persistee sur disque apres un refus (429).
-        if extra_source_scraper is not None:
+        if "lumio" in supported_sources and self._is_source_allowed_for_content("lumio", content_name, config):
             if use_episode_cache:
                 coro = self._search_source_with_cache(
-                    "extra", content_type,
-                    lambda: extra_source_scraper.search(title, year, metadata, season, episode, config),
+                    "lumio", content_type,
+                    lambda: lumio_scraper.search(title, year, metadata, season, episode, config),
                     title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
             else:
                 coro = self._search_source_with_cache(
-                    "extra", content_type,
-                    lambda: extra_source_scraper.search(title, year, metadata, config=config),
+                    "lumio", content_type,
+                    lambda: lumio_scraper.search(title, year, metadata, config=config),
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
-            tasks_with_sources.append(("extra", coro))
+            tasks_with_sources.append(("lumio", coro))
 
         if not tasks_with_sources:
             return []

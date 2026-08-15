@@ -106,6 +106,8 @@ scratch/
 wastream/scratch/
 
 # Extensions locales (jamais publiées)
+# Lumio en est sorti le 2026-08-16 : le connecteur est desormais public,
+# chaque hebergeur fournissant son propre identifiant de manifest.
 wastream/scrapers/_private/
 
 # Notes de revue de code (analyse interne, pas de la doc projet)
