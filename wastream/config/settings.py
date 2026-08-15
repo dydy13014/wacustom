@@ -3,6 +3,20 @@ from pydantic import AliasChoices, Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# ===========================
+# Versions
+# ===========================
+# Version du fork, indépendante de celle d'upstream : c'est elle qui identifie
+# ce qui tourne réellement (nos sources, nos correctifs), et elle avance à un
+# rythme qui n'est pas celui de WAStream.
+WACUSTOM_VERSION = "1.0.0"
+
+# Version WAStream servant de base au fork. Mise à jour uniquement lors d'un
+# rebase sur une nouvelle version upstream — sert à savoir d'où l'on part quand
+# on compare un comportement avec le projet d'origine.
+WASTREAM_BASE_VERSION = "3.8.2"
+
+
 class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
@@ -336,7 +350,7 @@ class Settings(BaseSettings):
         return {
             "id": self.ADDON_ID,
             "name": self.ADDON_NAME,
-            "version": "3.8.2",
+            "version": WACUSTOM_VERSION,
             "description": "Stremio addon to convert DDL to streams via debrid services",
             "catalogs": [],
             "resources": ["stream"],

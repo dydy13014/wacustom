@@ -11,7 +11,8 @@ from fastapi import APIRouter, Request, Query, Path, Body, Cookie, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse, RedirectResponse, FileResponse, HTMLResponse, StreamingResponse
 
-from wastream.config.settings import settings, DEBRID_ABBREVIATIONS
+from wastream.config.settings import settings, DEBRID_ABBREVIATIONS, WASTREAM_BASE_VERSION, WACUSTOM_VERSION
+from wastream.config.changelog import CHANGELOG
 from wastream.utils.crypto import encrypt_password_for_url
 from wastream.utils.validators import validate_config
 from wastream.services.stream import stream_service
@@ -139,6 +140,7 @@ async def configure():
     html_content = html_content.replace("{{CUSTOM_HTML}}", settings.CUSTOM_HTML)
     html_content = html_content.replace("{{ADDON_NAME}}", settings.ADDON_NAME)
     html_content = html_content.replace("{{VERSION}}", settings.ADDON_MANIFEST["version"])
+    html_content = html_content.replace("{{BASE_VERSION}}", WASTREAM_BASE_VERSION)
 
     response = HTMLResponse(content=html_content)
 
@@ -499,6 +501,7 @@ async def configure_secure_addon(
     html_content = html_content.replace("{{CUSTOM_HTML}}", settings.CUSTOM_HTML)
     html_content = html_content.replace("{{ADDON_NAME}}", settings.ADDON_NAME)
     html_content = html_content.replace("{{VERSION}}", settings.ADDON_MANIFEST["version"])
+    html_content = html_content.replace("{{BASE_VERSION}}", WASTREAM_BASE_VERSION)
 
     response = HTMLResponse(content=html_content)
 
@@ -647,6 +650,20 @@ async def get_available_services():
                 "hosts": settings.WASOURCE_SUPPORTED_HOSTS
             }
         }
+    })
+
+
+@router.get("/changelog",
+            tags=["General"],
+            summary="Changelog",
+            description="Version history of this fork")
+async def get_changelog():
+    """Public (pas d'authentification) : rien de sensible ici, et la page de
+    configuration doit pouvoir l'afficher avant toute connexion."""
+    return JSONResponse(content={
+        "version": WACUSTOM_VERSION,
+        "base_version": WASTREAM_BASE_VERSION,
+        "entries": CHANGELOG,
     })
 
 
@@ -1191,6 +1208,7 @@ async def admin_login_page(admin_token: Optional[str] = Cookie(None)):
 
     html_content = html_content.replace("{{ADDON_NAME}}", settings.ADDON_NAME)
     html_content = html_content.replace("{{VERSION}}", settings.ADDON_MANIFEST["version"])
+    html_content = html_content.replace("{{BASE_VERSION}}", WASTREAM_BASE_VERSION)
 
     return HTMLResponse(content=html_content)
 
@@ -1211,6 +1229,7 @@ async def admin_dashboard(admin_token: Optional[str] = Cookie(None)):
 
     html_content = html_content.replace("{{ADDON_NAME}}", settings.ADDON_NAME)
     html_content = html_content.replace("{{VERSION}}", settings.ADDON_MANIFEST["version"])
+    html_content = html_content.replace("{{BASE_VERSION}}", WASTREAM_BASE_VERSION)
     html_content = html_content.replace("{{TMDB_CONFIGURED}}", "true" if settings.TMDB_API_KEY else "false")
     html_content = html_content.replace("{{LANGUAGE_PATTERNS}}", json.dumps(LANGUAGES))
     html_content = html_content.replace("{{AVAILABLE_RESOLUTIONS}}", json.dumps(AVAILABLE_RESOLUTIONS))

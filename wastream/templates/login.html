@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ADDON_NAME}} - Admin Login</title>
-    <meta name="theme-color" content="#f97316">
+    <meta name="theme-color" content="#ff7a1c">
     <link rel="icon" href="/static/wastream-logo.png">
 
     <style>
@@ -17,11 +17,11 @@
         }
 
         :root {
-            --bg-primary: #09090b;
-            --bg-secondary: #0f0f12;
-            --bg-tertiary: #18181b;
-            --bg-elevated: #1f1f23;
-            --bg-hover: #27272a;
+            --bg-primary: #0a0c11;
+            --bg-secondary: #12151e;
+            --bg-tertiary: #171b27;
+            --bg-elevated: #1c2231;
+            --bg-hover: #252b3b;
 
             --border-subtle: rgba(255, 255, 255, 0.06);
             --border-default: rgba(255, 255, 255, 0.1);
@@ -31,15 +31,15 @@
             --text-secondary: #a1a1aa;
             --text-muted: #71717a;
 
-            --accent-primary: #f97316;
-            --accent-primary-hover: #ea580c;
-            --accent-primary-subtle: rgba(249, 115, 22, 0.1);
+            --accent-primary: #ff7a1c;
+            --accent-primary-hover: #e86a10;
+            --accent-primary-subtle: rgba(255, 122, 28, 0.14);
 
             --accent-success: #10b981;
             --accent-danger: #ef4444;
 
             --radius-md: 10px;
-            --radius-lg: 14px;
+            --radius-lg: 16px;
             --radius-xl: 18px;
 
             --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -57,7 +57,12 @@
 
         body {
             font-family: var(--font-sans);
-            background: var(--bg-primary);
+            /* Memes halos que /configure et le tableau de bord. */
+            background:
+                radial-gradient(1100px 480px at 85% -10%, rgba(255, 122, 28, .08), transparent 60%),
+                radial-gradient(900px 480px at -10% 10%, rgba(16, 185, 129, .05), transparent 60%),
+                var(--bg-primary);
+            background-attachment: fixed;
             color: var(--text-primary);
             min-height: 100vh;
             display: flex;
