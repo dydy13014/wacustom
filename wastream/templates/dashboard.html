@@ -768,6 +768,21 @@
             color: var(--accent-success);
         }
 
+        .status-badge.type-movie {
+            background: var(--accent-info-subtle);
+            color: var(--accent-info);
+        }
+
+        .status-badge.type-series {
+            background: var(--accent-success-subtle);
+            color: var(--accent-success);
+        }
+
+        .status-badge.type-anime {
+            background: var(--accent-primary-subtle);
+            color: var(--accent-primary);
+        }
+
         .perm-badge {
             display: inline-block;
             padding: 2px 6px;
@@ -955,6 +970,15 @@
             background: rgba(249, 115, 22, 0.25);
         }
 
+        .btn-info {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent-info);
+        }
+
+        .btn-info:hover {
+            background: rgba(59, 130, 246, 0.25);
+        }
+
         .btn-icon {
             display: inline-flex;
             align-items: center;
@@ -1053,6 +1077,60 @@
         }
 
         .custom-checkbox input:checked ~ .checkmark::after {
+            display: block;
+        }
+
+        .custom-radio {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+
+        .custom-radio input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .custom-radio .checkmark {
+            width: 18px;
+            height: 18px;
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-strong);
+            border-radius: 50%;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .custom-radio:hover .checkmark {
+            border-color: var(--accent-primary);
+            background: rgba(249, 115, 22, 0.1);
+        }
+
+        .custom-radio input:checked ~ .checkmark {
+            border-color: var(--accent-primary);
+        }
+
+        .custom-radio .checkmark::after {
+            content: '';
+            display: none;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+        }
+
+        .custom-radio input:checked ~ .checkmark::after {
             display: block;
         }
 
@@ -1748,6 +1826,11 @@
             border-radius: var(--radius-sm);
         }
 
+        .custom-dropdown.dropdown-disabled {
+            opacity: 0.55;
+            pointer-events: none;
+        }
+
         .logs-btn {
             display: flex;
             align-items: center;
@@ -2133,7 +2216,7 @@
             .section-actions { width: 100%; flex-direction: column; align-items: flex-start; gap: 8px; }
             .section-count { order: -1; }
             .section-buttons { width: 100%; }
-            /* WASource: avec dropdown - 3 lignes */
+            /* WASource: with dropdown - 3 rows */
             .search-box:has(.custom-dropdown) {
                 display: grid;
                 grid-template-columns: 1fr auto;
@@ -2163,7 +2246,7 @@
                 padding: 10px 12px;
             }
 
-            /* Dead Links: sans dropdown - 2 lignes */
+            /* Dead Links: without dropdown - 2 rows */
             .search-box:not(:has(.custom-dropdown)):not(.search-box--inline) {
                 display: grid;
                 grid-template-columns: 1fr auto;
@@ -2570,6 +2653,224 @@
             border-color: var(--accent-primary);
         }
 
+        .form-input:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        textarea.form-input {
+            resize: vertical;
+            min-height: 76px;
+            line-height: 1.5;
+        }
+
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .settings-category-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            margin: 26px 0 2px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .settings-category-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            padding: 0;
+            white-space: nowrap;
+        }
+
+        .settings-category-toggle:hover {
+            color: var(--accent-primary);
+        }
+
+        .settings-category-chevron {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+            transition: transform var(--transition-fast);
+        }
+
+        .settings-category.category-open .settings-category-chevron {
+            transform: rotate(180deg);
+        }
+
+        .settings-row {
+            display: flex;
+            gap: 28px;
+            padding: 16px 2px;
+            border-bottom: 1px solid var(--border-subtle);
+            align-items: flex-start;
+        }
+
+        .settings-row:last-child { border-bottom: none; }
+
+        .settings-row-info { flex: 0 0 36%; min-width: 0; }
+
+        .settings-row-key {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+            word-break: break-word;
+        }
+
+        .settings-row-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 5px;
+            line-height: 1.5;
+        }
+
+        .settings-row:not(.wide) .settings-row-control > .form-input,
+        .settings-row:not(.wide) .settings-row-control > .custom-dropdown {
+            max-width: 480px;
+        }
+
+        /* Align settings dropdowns to text inputs (same height, font, radius) */
+        .settings-row-control .dropdown-toggle {
+            padding: 10px 12px;
+            font-size: 14px;
+            border-radius: var(--radius-md);
+        }
+
+        /* Settings editor action buttons: same larger size in every editor (matches input height) */
+        .settings-row-control .chip-add button,
+        .settings-row-control .kitsu-editor-actions button {
+            min-height: 39px;
+            padding-left: 14px;
+            padding-right: 14px;
+            font-size: 13px;
+        }
+
+        .form-input.settings-invalid,
+        .custom-dropdown.settings-invalid .dropdown-toggle {
+            border-color: #ef4444;
+        }
+
+        .btn-small:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        .dropdown-item:focus-visible {
+            outline: 2px solid var(--accent-primary);
+            outline-offset: -2px;
+        }
+
+        .settings-row-control { flex: 1; min-width: 0; }
+
+        .settings-row.wide { flex-direction: column; gap: 12px; }
+        .settings-row.wide .settings-row-info,
+        .settings-row.wide .settings-row-control { flex: 1 1 auto; width: 100%; }
+
+        @media (max-width: 768px) {
+            .settings-row { flex-direction: column; gap: 8px; }
+            .settings-row-info { flex-basis: auto; }
+            .settings-row:not(.wide) .settings-row-control > .form-input,
+            .settings-row:not(.wide) .settings-row-control > .custom-dropdown { max-width: none; }
+        }
+
+        .settings-control-foot { margin-top: 8px; }
+
+        .settings-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+
+        .settings-badge.env { background: rgba(148, 163, 184, 0.16); color: var(--text-muted); }
+        .settings-badge.override { background: rgba(59, 130, 246, 0.16); color: var(--accent-info); }
+        .settings-badge.advanced { background: rgba(245, 158, 11, 0.16); color: var(--accent-warning); }
+
+        .settings-row.settings-advanced { display: none; }
+        #settingsContainer.show-advanced .settings-row.settings-advanced,
+        .settings-category.category-open .settings-row.settings-advanced { display: flex; }
+        #settingsContainer.show-advanced .settings-category-toggle { display: none; }
+
+        .settings-hint {
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .settings-reset {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0;
+            text-decoration: underline;
+        }
+
+        .settings-reset:hover { color: var(--accent-primary); }
+
+        .chip-editor { display: flex; flex-direction: column; gap: 10px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chips-empty { font-size: 12px; color: var(--text-muted); }
+        .chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--bg-tertiary); border: 1px solid var(--border-default);
+            border-radius: 6px; padding: 5px 9px; font-size: 13px; color: var(--text-primary);
+        }
+        .chip button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0; }
+        .chip button:hover { color: #ef4444; }
+        .chip-add { display: flex; gap: 8px; align-items: center; }
+        .chip-add .form-input { flex: 1; max-width: 240px; }
+        .chip-editor[data-editor="url-list"] .form-input { max-width: none; }
+
+        .kitsu-group {
+            border: 1px solid var(--border-default); border-radius: var(--radius-md);
+            padding: 14px; margin-bottom: 12px; background: var(--bg-tertiary);
+        }
+        .kitsu-group-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .kitsu-group-head label { margin: 0; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+        .kitsu-group-head .form-input { max-width: 200px; }
+        .kitsu-rows { display: flex; flex-direction: column; gap: 8px; }
+        .kitsu-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .kitsu-row .form-input { width: auto; }
+        .kitsu-row .kitsu-id { width: 130px; }
+        .kitsu-row .kitsu-season { width: 78px; }
+        .kitsu-row .kitsu-part { width: 78px; }
+        .kitsu-sep { color: var(--text-muted); font-size: 13px; }
+        .kitsu-group-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+        .kitsu-editor-actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+
         .checkbox-group {
             display: flex;
             flex-direction: column;
@@ -2673,9 +2974,9 @@
                     <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                     Dead Links
                 </button>
-                <button class="nav-tab" data-page="remote" onclick="switchPage('remote')">
-                    <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 0h4v2h-4V8zm0 3h4v2h-4v-2zm0 3h4v2h-4v-2z"/></svg>
-                    Remote
+                <button class="nav-tab" data-page="cache" onclick="switchPage('cache')">
+                    <svg viewBox="0 0 24 24"><path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zm0 5v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/></svg>
+                    Cache
                 </button>
                 <button class="nav-tab" data-page="health" onclick="switchPage('health')">
                     <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z"/></svg>
@@ -2685,8 +2986,16 @@
                     <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 10H6v-2h8v2zm4-4H6v-2h12v2z"/></svg>
                     Logs
                 </button>
+                <button class="nav-tab" data-page="remote" onclick="switchPage('remote')">
+                    <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 0h4v2h-4V8zm0 3h4v2h-4v-2zm0 3h4v2h-4v-2z"/></svg>
+                    Remote
+                </button>
+                <button class="nav-tab" data-page="backup" onclick="switchPage('backup')">
+                    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 15l-5-5h3V9h4v4h3l-5 5z"/></svg>
+                    Backup
+                </button>
                 <button class="nav-tab" data-page="settings" onclick="switchPage('settings')">
-                    <svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
                     Settings
                 </button>
             </nav>
@@ -2719,9 +3028,9 @@
                     <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                     Dead Links
                 </button>
-                <button class="mobile-nav-item" data-page="remote" onclick="switchPageMobile('remote')">
-                    <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 0h4v2h-4V8zm0 3h4v2h-4v-2zm0 3h4v2h-4v-2z"/></svg>
-                    Remote
+                <button class="mobile-nav-item" data-page="cache" onclick="switchPageMobile('cache')">
+                    <svg viewBox="0 0 24 24"><path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zm0 5v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/></svg>
+                    Cache
                 </button>
                 <button class="mobile-nav-item" data-page="health" onclick="switchPageMobile('health')">
                     <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z"/></svg>
@@ -2731,8 +3040,16 @@
                     <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 10H6v-2h8v2zm4-4H6v-2h12v2z"/></svg>
                     Logs
                 </button>
+                <button class="mobile-nav-item" data-page="remote" onclick="switchPageMobile('remote')">
+                    <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 0h4v2h-4V8zm0 3h4v2h-4v-2zm0 3h4v2h-4v-2z"/></svg>
+                    Remote
+                </button>
+                <button class="mobile-nav-item" data-page="backup" onclick="switchPageMobile('backup')">
+                    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 15l-5-5h3V9h4v4h3l-5 5z"/></svg>
+                    Backup
+                </button>
                 <button class="mobile-nav-item" data-page="settings" onclick="switchPageMobile('settings')">
-                    <svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
                     Settings
                 </button>
             </nav>
@@ -2875,14 +3192,6 @@
                             <div class="section-title">
                                 <svg viewBox="0 0 24 24"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>
                                 Streams Total (in cache)
-                            </div>
-                            <div class="section-actions">
-                                <div class="section-buttons">
-                                    <button class="btn-small btn-danger" onclick="purgeCachedLinks()">
-                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                                        Purge cache
-                                    </button>
-                                </div>
                             </div>
                         </div>
                         <div class="section-body">
@@ -3240,10 +3549,6 @@
                                         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                                         Add
                                     </button>
-                                    <button class="btn-small btn-danger" onclick="purgeCachedLinks()">
-                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                                        Purge cache
-                                    </button>
                                     <button class="btn-small btn-danger" id="deleteSelectedDeadLinks" onclick="deleteSelectedDeadLinks()" style="display: none;">
                                         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                                         Delete selected
@@ -3283,132 +3588,161 @@
                     </div>
                 </div>
 
-                <!-- Settings Page -->
+                <div id="page-cache" class="page">
+                    <div class="section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <svg viewBox="0 0 24 24"><path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zm0 5v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/></svg>
+                                Content Cache
+                            </div>
+                            <div class="section-actions">
+                                <span id="cacheCount" class="section-count">0 total</span>
+                                <div class="section-buttons">
+                                    <button class="btn-small btn-danger" id="deleteSelectedCache" onclick="deleteSelectedCache()" style="display: none;">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                        Delete selected
+                                    </button>
+                                    <button class="btn-small btn-danger" id="deleteAllCache" onclick="deleteAllCache()" style="display: none;">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                        Delete all
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="section-body" style="padding: 0;">
+                            <div class="search-box">
+                                <input type="text" id="cacheSearchQuery" placeholder="Search by title..." style="flex: 1;" onkeypress="if(event.key==='Enter')searchCache()">
+                                <button onclick="searchCache()">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                                    Search
+                                </button>
+                                <button onclick="clearCacheSearch()">Clear</button>
+                            </div>
+                            <div class="table-container" id="cacheTable">
+                                <div class="loading">
+                                    <div class="loading-spinner"></div>
+                                    Loading...
+                                </div>
+                            </div>
+                            <div id="cachePagination" class="pagination" style="display: none;">
+                                <button class="pagination-btn" id="cachePrev" onclick="loadCachePage('prev')" disabled>
+                                    <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                                </button>
+                                <span class="pagination-info" id="cachePageInfo">Page 1 / 1</span>
+                                <button class="pagination-btn" id="cacheNext" onclick="loadCachePage('next')" disabled>
+                                    <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="page-backup" class="page">
+                    <div class="section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                                Export
+                            </div>
+                        </div>
+                        <div class="section-body" style="padding: 24px;">
+                            <p style="opacity: 0.7; margin-bottom: 16px; font-size: 13px;">Download your data as a JSON file. Users are never included.</p>
+                            <div class="checkbox-item">
+                                <label class="custom-checkbox"><input type="checkbox" id="exportWasource" checked><span class="checkmark"></span></label>
+                                <label class="checkbox-text" for="exportWasource">WASource links</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <label class="custom-checkbox"><input type="checkbox" id="exportDeadLinks" checked><span class="checkmark"></span></label>
+                                <label class="checkbox-text" for="exportDeadLinks">Dead links</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <label class="custom-checkbox"><input type="checkbox" id="exportContentCache" checked><span class="checkmark"></span></label>
+                                <label class="checkbox-text" for="exportContentCache">Content cache (searches &amp; streams)</label>
+                            </div>
+                            <button class="btn-small btn-primary" style="margin-top: 18px;" onclick="exportData()">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                                Export
+                            </button>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+                                Import
+                            </div>
+                        </div>
+                        <div class="section-body" style="padding: 24px;">
+                            <p style="opacity: 0.7; margin-bottom: 16px; font-size: 13px;">Restore from a backup file. <strong>Merge</strong> adds and updates without deleting; <strong>Replace</strong> wipes the selected data first.</p>
+                            <input type="file" id="importFile" accept=".gz,.ndjson,.json,application/gzip,application/json" style="display: none;" onchange="document.getElementById('importFileName').textContent = this.files.length ? this.files[0].name : 'No file selected';">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px;">
+                                <button id="importChooseBtn" type="button" class="btn-small" style="background: var(--bg-tertiary); border: 1px solid var(--border-strong); color: var(--text-secondary);" onclick="document.getElementById('importFile').click()">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
+                                    Choose file
+                                </button>
+                                <span id="importFileName" style="opacity: 0.7; font-size: 13px;">No file selected</span>
+                            </div>
+                            <div style="display: flex; gap: 24px; margin-bottom: 14px;">
+                                <div class="checkbox-item">
+                                    <label class="custom-radio"><input type="radio" name="importMode" id="importModeMerge" value="merge" checked><span class="checkmark"></span></label>
+                                    <label class="checkbox-text" for="importModeMerge">Merge</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <label class="custom-radio"><input type="radio" name="importMode" id="importModeReplace" value="replace"><span class="checkmark"></span></label>
+                                    <label class="checkbox-text" for="importModeReplace">Replace</label>
+                                </div>
+                            </div>
+                            <div class="checkbox-item">
+                                <label class="custom-checkbox"><input type="checkbox" id="importWasource" checked><span class="checkmark"></span></label>
+                                <label class="checkbox-text" for="importWasource">WASource links</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <label class="custom-checkbox"><input type="checkbox" id="importDeadLinks" checked><span class="checkmark"></span></label>
+                                <label class="checkbox-text" for="importDeadLinks">Dead links</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <label class="custom-checkbox"><input type="checkbox" id="importContentCache" checked><span class="checkmark"></span></label>
+                                <label class="checkbox-text" for="importContentCache">Content cache (searches &amp; streams)</label>
+                            </div>
+                            <button id="importBtn" class="btn-small btn-primary" style="margin-top: 18px;" onclick="importData()">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+                                Import
+                            </button>
+                            <span id="importStatus" role="status" aria-live="polite" style="display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; opacity: 0.75; font-size: 13px;"></span>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="page-settings" class="page">
                     <div class="section">
                         <div class="section-header">
                             <div class="section-title">
-                                <svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
-                                System Settings
+                                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                                Settings
                             </div>
-                            <div class="section-actions">
+                            <div style="display: flex; align-items: center; gap: 18px; flex-wrap: wrap;">
+                                <div class="checkbox-item" style="margin: 0;">
+                                    <label class="custom-checkbox"><input type="checkbox" id="showAdvancedSettings" onchange="toggleAdvancedSettings(this.checked)"><span class="checkmark"></span></label>
+                                    <label class="checkbox-text" for="showAdvancedSettings">Show advanced</label>
+                                </div>
+                                <button class="btn-small btn-primary" onclick="exportSettings()">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                                    Export
+                                </button>
+                                <button class="btn-small btn-primary" onclick="document.getElementById('importSettingsFile').click()">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+                                    Import
+                                </button>
+                                <input type="file" id="importSettingsFile" accept=".json,application/json" style="display: none;" onchange="importSettings()">
                                 <button class="btn-small btn-primary" onclick="saveSettings()">
-                                    Save Settings
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                                    Save
                                 </button>
                             </div>
                         </div>
                         <div class="section-body" style="padding: 24px;">
-                            <div class="settings-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                                <!-- DDL Settings -->
-                                <div style="display: flex; flex-direction: column; gap: 16px;">
-                                    <h4 style="color: var(--accent-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; margin: 0;">DDL Sources URLs</h4>
-                                    <div class="form-group">
-                                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Wawacity URL</label>
-                                        <input type="text" id="setting-WAWACITY_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://www.wawacity.red">
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Free-Telecharger URL</label>
-                                        <input type="text" id="setting-FREE_TELECHARGER_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://free-telecharger.cf">
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Darki-API URL</label>
-                                        <input type="text" id="setting-DARKI_API_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://api.darki.com">
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Movix URL</label>
-                                        <input type="text" id="setting-MOVIX_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://movix.click">
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Webshare URL</label>
-                                        <input type="text" id="setting-WEBSHARE_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://webshare.cz">
-                                    </div>
-                                </div>
-
-                                <!-- Torznab Settings -->
-                                <div style="display: flex; flex-direction: column; gap: 16px;">
-                                    <h4 style="color: var(--accent-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; margin: 0;">Torznab Trackers</h4>
-                                    
-                                    <div style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: 8px; background: var(--bg-tertiary);">
-                                        <h5 style="color: var(--text-secondary); margin: 0 0 8px 0; font-size: 14px;">YggReborn (Query Auth)</h5>
-                                        <div class="form-group" style="margin-bottom: 8px;">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">URL</label>
-                                            <input type="text" id="setting-YGGREBORN_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://www.yggreborn.org/api">
-                                        </div>
-                                        <div class="form-group">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">API Key</label>
-                                            <input type="password" id="setting-YGGREBORN_API_KEY" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="apikey">
-                                        </div>
-                                    </div>
-
-                                    <div style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: 8px; background: var(--bg-tertiary);">
-                                        <h5 style="color: var(--text-secondary); margin: 0 0 8px 0; font-size: 14px;">TR4KER (Query Auth)</h5>
-                                        <div class="form-group" style="margin-bottom: 8px;">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">URL</label>
-                                            <input type="text" id="setting-TR4KER_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://tr4ker.net/api">
-                                        </div>
-                                        <div class="form-group">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">API Key</label>
-                                            <input type="password" id="setting-TR4KER_API_KEY" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="apikey">
-                                        </div>
-                                    </div>
-
-                                    <div style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: 8px; background: var(--bg-tertiary);">
-                                        <h5 style="color: var(--text-secondary); margin: 0 0 8px 0; font-size: 14px;">Torr9 (Query Auth)</h5>
-                                        <div class="form-group" style="margin-bottom: 8px;">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">URL</label>
-                                            <input type="text" id="setting-TORR9_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://api.torr9.net/api/v1/torznab">
-                                        </div>
-                                        <div class="form-group">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">API Key</label>
-                                            <input type="password" id="setting-TORR9_API_KEY" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="apikey">
-                                        </div>
-                                    </div>
-
-                                    <div style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: 8px; background: var(--bg-tertiary);">
-                                        <h5 style="color: var(--text-secondary); margin: 0 0 8px 0; font-size: 14px;">C411 (Header Auth)</h5>
-                                        <div class="form-group" style="margin-bottom: 8px;">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">URL</label>
-                                            <input type="text" id="setting-C411_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://c411.org/api">
-                                        </div>
-                                        <div class="form-group">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">API Key</label>
-                                            <input type="password" id="setting-C411_API_KEY" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="Bearer token">
-                                        </div>
-                                    </div>
-
-                                    <div style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: 8px; background: var(--bg-tertiary);">
-                                        <h5 style="color: var(--text-secondary); margin: 0 0 8px 0; font-size: 14px;">Gemini (UNIT3D API)</h5>
-                                        <div class="form-group" style="margin-bottom: 8px;">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">URL</label>
-                                            <input type="text" id="setting-GEMINI_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://tracker.example (racine du site)">
-                                        </div>
-                                        <div class="form-group">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">API Token</label>
-                                            <input type="password" id="setting-GEMINI_API_KEY" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="api_token UNIT3D">
-                                        </div>
-                                    </div>
-
-                                    <div style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: 8px; background: var(--bg-tertiary);">
-                                        <h5 style="color: var(--text-secondary); margin: 0 0 8px 0; font-size: 14px;">Generation-Free (UNIT3D API)</h5>
-                                        <div class="form-group" style="margin-bottom: 8px;">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">URL</label>
-                                            <input type="text" id="setting-GENERATIONFREE_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://generation-free.example (racine du site)">
-                                        </div>
-                                        <div class="form-group">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">API Token</label>
-                                            <input type="password" id="setting-GENERATIONFREE_API_KEY" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="api_token UNIT3D">
-                                        </div>
-                                    </div>
-
-                                    <div style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: 8px; background: var(--bg-tertiary);">
-                                        <h5 style="color: var(--text-secondary); margin: 0 0 8px 0; font-size: 14px;">Zilean (index DMM — pas de clé)</h5>
-                                        <div class="form-group">
-                                            <label style="display: block; margin-bottom: 4px; font-size: 12px;">URL</label>
-                                            <input type="text" id="setting-ZILEAN_URL" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="https://zilean.example (instance Zilean)">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <p style="opacity: 0.7; margin-bottom: 20px; font-size: 13px;">Configure WAStream without editing <code>.env</code>. Values set in <code>.env</code> stay locked and read-only. Secrets are excluded here for safety. Enable <strong>Show advanced</strong> for technical tuning.</p>
+                            <div id="settingsContainer">Loading…</div>
                         </div>
                     </div>
                 </div>
@@ -3773,12 +4107,19 @@
         let deadLinksTotal = 0;
         const DEAD_LINKS_PER_PAGE = 25;
 
+        let cacheCurrentPage = 1;
+        let cacheTotalPages = 1;
+        let cacheTotal = 0;
+        const CACHE_PER_PAGE = 25;
+
         // ===========================
         // Initialization
         // ===========================
         let wasourceInitialized = false;
         let deadLinksInitialized = false;
+        let cacheInitialized = false;
         let remoteInitialized = false;
+        let settingsInitialized = false;
 
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
@@ -3806,9 +4147,21 @@
                 releaseNameInput.addEventListener('input', onReleaseNameInput);
             }
 
+            const closeAllDropdowns = () => document.querySelectorAll('.custom-dropdown.open').forEach(d => {
+                d.classList.remove('open');
+                const t = d.querySelector('.dropdown-toggle');
+                if (t) t.setAttribute('aria-expanded', 'false');
+            });
             document.addEventListener('click', (e) => {
-                if (!e.target.closest('.custom-dropdown')) {
-                    document.querySelectorAll('.custom-dropdown.open').forEach(d => d.classList.remove('open'));
+                if (!e.target.closest('.custom-dropdown')) closeAllDropdowns();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== 'Escape') return;
+                const open = document.querySelector('.custom-dropdown.open');
+                if (open) {
+                    const t = open.querySelector('.dropdown-toggle');
+                    closeAllDropdowns();
+                    if (t) t.focus();
                 }
             });
         });
@@ -3824,7 +4177,7 @@
             'sendcm': /^https?:\/\/(www\.)?send\.cm\/.+$/,
             'darkibox': /^https?:\/\/(www\.)?darkibox\.com\/.+$/,
             'rapidgator': /^https?:\/\/(www\.)?rapidgator\.net\/file\/.+$/,
-            'turbobit': /^https?:\/\/(www\.)?turbobit\.(net|cc)\/.+$/,
+            'turbobit': /^https?:\/\/(www\.)?(turbobit\.(net|cc)|trbt\.cc)\/.+$/,
             'alldebrid': /^https?:\/\/(www\.)?alldebrid\.com\/.+$/
         };
 
@@ -3847,7 +4200,7 @@
                 'https://send.cm/xxx',
                 'https://darkibox.com/xxx',
                 'https://rapidgator.net/file/xxx',
-                'https://turbobit.cc/xxx',
+                'https://turbobit.net/xxx',
                 'https://alldebrid.com/f/xxx'
             ];
         }
@@ -4026,7 +4379,7 @@
                 if (servicesResponse.ok) {
                     const servicesData = await servicesResponse.json();
                     const hostsSet = new Set();
-                    Object.values(servicesData).forEach(service => {
+                    Object.values(servicesData.services || {}).forEach(service => {
                         if (service.hosts && Array.isArray(service.hosts)) {
                             service.hosts.forEach(host => hostsSet.add(host));
                         }
@@ -4085,10 +4438,18 @@
             const dropdown = document.getElementById(dropdownId);
             const wasOpen = dropdown.classList.contains('open');
 
-            document.querySelectorAll('.custom-dropdown.open').forEach(d => d.classList.remove('open'));
+            document.querySelectorAll('.custom-dropdown.open').forEach(d => {
+                d.classList.remove('open');
+                const t = d.querySelector('.dropdown-toggle');
+                if (t) t.setAttribute('aria-expanded', 'false');
+            });
 
             if (!wasOpen) {
                 dropdown.classList.add('open');
+                const tg = dropdown.querySelector('.dropdown-toggle');
+                if (tg) tg.setAttribute('aria-expanded', 'true');
+                const focusTarget = dropdown.querySelector('.dropdown-item.selected[tabindex], .dropdown-item[tabindex]');
+                if (focusTarget) focusTarget.focus();
 
                 if (dropdown.closest('.search-box') && window.innerWidth > 768) {
                     const toggle = dropdown.querySelector('.dropdown-toggle');
@@ -4110,14 +4471,18 @@
             dropdown.querySelector('.dropdown-text').textContent = text;
 
             dropdown.querySelectorAll('.dropdown-item').forEach(item => {
-                item.classList.toggle('selected', item.dataset.value === value);
+                const sel = item.dataset.value === value;
+                item.classList.toggle('selected', sel);
+                if (item.hasAttribute('role')) item.setAttribute('aria-selected', String(sel));
             });
 
             dropdown.classList.remove('open');
+            const tg = dropdown.querySelector('.dropdown-toggle');
+            if (tg) { tg.setAttribute('aria-expanded', 'false'); tg.focus(); }
 
             if (isRefresh) {
                 updateRefreshInterval();
-            } else {
+            } else if (dropdown.closest('#page-logs')) {
                 applyLogFilters();
             }
         }
@@ -4130,6 +4495,21 @@
         // Navigation
         // ===========================
         function switchPage(pageName) {
+            const current = document.querySelector('.page.active');
+            if (current && current.id === 'page-settings' && pageName !== 'settings'
+                && typeof settingsHasUnsavedChanges === 'function' && settingsHasUnsavedChanges()) {
+                showConfirmModal(
+                    'Unsaved changes',
+                    'You have unsaved settings changes. Leave without saving?',
+                    () => _doSwitchPage(pageName),
+                    { confirmLabel: 'Leave', icon: 'warning' }
+                );
+                return;
+            }
+            _doSwitchPage(pageName);
+        }
+
+        function _doSwitchPage(pageName) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.mobile-nav-item').forEach(t => t.classList.remove('active'));
@@ -4161,9 +4541,19 @@
                 deadLinksInitialized = true;
             }
 
+            if (pageName === 'cache' && !cacheInitialized) {
+                loadCache();
+                cacheInitialized = true;
+            }
+
             if (pageName === 'remote' && !remoteInitialized) {
                 loadRemoteData();
                 remoteInitialized = true;
+            }
+
+            if (pageName === 'settings' && !settingsInitialized) {
+                loadSettings();
+                settingsInitialized = true;
             }
         }
 
@@ -4193,6 +4583,833 @@
         function switchPageMobile(pageName) {
             closeMobileMenu();
             switchPage(pageName);
+        }
+
+        // ===========================
+        // Backup
+        // ===========================
+        function exportData() {
+            const params = new URLSearchParams({
+                wasource: document.getElementById('exportWasource').checked,
+                dead_links: document.getElementById('exportDeadLinks').checked,
+                content_cache: document.getElementById('exportContentCache').checked
+            });
+            // Direct navigation so the browser streams to disk (files can be multi-GB).
+            const link = document.createElement('a');
+            link.href = `/admin/api/backup/export?${params.toString()}`;
+            link.download = `wastream-backup-${Date.now()}.ndjson.gz`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            showToast('success', 'Export', 'Backup download started');
+        }
+
+        async function importData() {
+            if (importInProgress) return;
+
+            const fileInput = document.getElementById('importFile');
+            if (!fileInput.files.length) {
+                showToast('error', 'No file', 'Choose a backup file first');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const mode = document.querySelector('input[name="importMode"]:checked').value;
+
+            if (mode === 'replace') {
+                showConfirmModal(
+                    'Replace data',
+                    'This will wipe the selected data and replace it with the backup. This action cannot be undone.',
+                    () => sendImport(file, mode)
+                );
+            } else {
+                sendImport(file, mode);
+            }
+        }
+
+        let importInProgress = false;
+
+        function setImportInProgress(inProgress) {
+            const button = document.getElementById('importBtn');
+            const chooseButton = document.getElementById('importChooseBtn');
+            const fileInput = document.getElementById('importFile');
+            const status = document.getElementById('importStatus');
+            const modeInputs = document.querySelectorAll('input[name="importMode"]');
+            const contentInputs = [
+                document.getElementById('importWasource'),
+                document.getElementById('importDeadLinks'),
+                document.getElementById('importContentCache')
+            ];
+
+            importInProgress = inProgress;
+            if (!button || !fileInput || !status) return;
+
+            if (inProgress) {
+                button.dataset.idleHtml = button.innerHTML;
+                button.disabled = true;
+                button.setAttribute('aria-busy', 'true');
+                if (chooseButton) chooseButton.disabled = true;
+                fileInput.disabled = true;
+                modeInputs.forEach(input => { input.disabled = true; });
+                contentInputs.forEach(input => { if (input) input.disabled = true; });
+                button.innerHTML = '<span class="loading-spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;display:inline-block;vertical-align:-2px;"></span>Importing…';
+                status.innerHTML = '<span class="loading-spinner" style="width:14px;height:14px;border-width:2px;margin:0;"></span><span>Import in progress…</span>';
+            } else {
+                button.disabled = false;
+                button.setAttribute('aria-busy', 'false');
+                if (chooseButton) chooseButton.disabled = false;
+                fileInput.disabled = false;
+                modeInputs.forEach(input => { input.disabled = false; });
+                contentInputs.forEach(input => { if (input) input.disabled = false; });
+                button.innerHTML = button.dataset.idleHtml || button.innerHTML;
+                status.textContent = '';
+            }
+        }
+
+        async function sendImport(file, mode) {
+            if (importInProgress) return;
+            setImportInProgress(true);
+            try {
+                const params = new URLSearchParams({
+                    mode: mode,
+                    wasource: document.getElementById('importWasource').checked,
+                    dead_links: document.getElementById('importDeadLinks').checked,
+                    content_cache: document.getElementById('importContentCache').checked
+                });
+                // Raw file body -> the browser streams it (files can be multi-GB).
+                const response = await fetch(`/admin/api/backup/import?${params.toString()}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream' },
+                    body: file
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    showToast('error', 'Error', data.error || 'Import failed');
+                    return;
+                }
+
+                const imp = data.imported || {};
+                showToast('success', 'Import complete', `WASource: ${imp.wasource || 0} · Dead links: ${imp.dead_links || 0} · Cache: ${imp.content_cache || 0}`);
+                document.getElementById('importFile').value = '';
+                document.getElementById('importFileName').textContent = 'No file selected';
+            } catch (error) {
+                console.error('Failed to import:', error);
+                showToast('error', 'Error', 'Import failed');
+            } finally {
+                setImportInProgress(false);
+            }
+        }
+
+        // ===========================
+        // Settings
+        // ===========================
+        let settingsOriginals = {};
+
+        function escapeAttr(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        async function loadSettings() {
+            const container = document.getElementById('settingsContainer');
+            try {
+                const response = await fetch('/admin/api/settings');
+                if (!response.ok) { container.textContent = 'Failed to load settings'; return; }
+                const data = await response.json();
+                settingsOriginals = {};
+                container.innerHTML = data.categories.map(renderSettingsCategory).join('');
+                applyAdvancedState();
+                refreshPastebinControl();
+                ensurePastebinPoll();
+                refreshIdrixControl();
+                ensureIdrixPoll();
+                refreshDomainSyncControl();
+                ensureDomainSyncPoll();
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+                container.textContent = 'Failed to load settings';
+            }
+        }
+
+        async function exportSettings() {
+            try {
+                const response = await fetch('/admin/api/settings/export');
+                if (!response.ok) { showToast('error', 'Error', 'Export failed'); return; }
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `wastream-settings-${Date.now()}.json`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+                showToast('success', 'Export', 'Settings downloaded');
+            } catch (error) {
+                console.error('Failed to export settings:', error);
+                showToast('error', 'Error', 'Export failed');
+            }
+        }
+
+        async function importSettings() {
+            const fileInput = document.getElementById('importSettingsFile');
+            if (!fileInput.files.length) return;
+            let payload;
+            try {
+                payload = JSON.parse(await fileInput.files[0].text());
+            } catch (error) {
+                console.error('Invalid settings file:', error);
+                showToast('error', 'Invalid file', 'Not a valid JSON settings file');
+                fileInput.value = '';
+                return;
+            }
+            fileInput.value = '';
+            showConfirmModal(
+                'Import settings',
+                'This applies the settings from the file over your current configuration. Your API keys and .env-locked values are kept. Continue?',
+                () => sendSettingsImport(payload)
+            );
+        }
+
+        async function sendSettingsImport(payload) {
+            try {
+                const response = await fetch('/admin/api/settings/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ payload: payload })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    showToast('error', 'Error', data.error || 'Import failed');
+                    return;
+                }
+                showToast('success', 'Import complete', `${data.imported || 0} applied · ${data.skipped || 0} skipped`);
+                await loadSettings();
+            } catch (error) {
+                console.error('Failed to import settings:', error);
+                showToast('error', 'Error', 'Import failed');
+            }
+        }
+
+        function applyAdvancedState() {
+            let show = false;
+            try { show = localStorage.getItem('wastreamShowAdvanced') === '1'; } catch (e) {}
+            const cb = document.getElementById('showAdvancedSettings');
+            if (cb) cb.checked = show;
+            document.getElementById('settingsContainer').classList.toggle('show-advanced', show);
+        }
+
+        function toggleAdvancedSettings(show) {
+            document.getElementById('settingsContainer').classList.toggle('show-advanced', show);
+            try { localStorage.setItem('wastreamShowAdvanced', show ? '1' : '0'); } catch (e) {}
+        }
+
+        function toggleCategoryAdvanced(btn) {
+            btn.closest('.settings-category').classList.toggle('category-open');
+        }
+
+        window.addEventListener('beforeunload', (e) => {
+            if (typeof settingsHasUnsavedChanges === 'function' && settingsHasUnsavedChanges()) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
+        function renderSettingsCategory(cat) {
+            const advCount = cat.fields.filter(f => f.advanced).length;
+            const toggle = advCount > 0
+                ? `<button type="button" class="settings-category-toggle" onclick="toggleCategoryAdvanced(this)">${advCount} advanced<svg class="settings-category-chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg></button>`
+                : '';
+            const extra = cat.category === 'Pastebin'
+                ? renderPastebinControl()
+                : (cat.category === 'Idrix'
+                    ? renderIdrixControl()
+                    : (cat.category === 'Domain synchronization' ? renderDomainSyncControl() : ''));
+            return `<div class="settings-category">
+                <div class="settings-category-title"><span>${escapeHtml(cat.category)}</span>${toggle}</div>
+                ${extra}
+                <div class="settings-rows">${cat.fields.map(renderSettingsField).join('')}</div>
+            </div>`;
+        }
+
+        function renderPastebinControl() {
+            return `<div class="pastebin-control" style="display:flex; align-items:center; gap:10px; margin:2px 0 14px;">
+                <button type="button" class="btn-small btn-primary" id="pastebinRunBtn" onclick="runPastebinScraperNow()">Run now</button>
+                <button type="button" class="btn-small btn-danger" id="pastebinStopBtn" onclick="stopPastebinScraperNow()">Stop</button>
+                <span id="pastebinControlStatus" style="font-size:12px; color:var(--text-muted);">—</span>
+            </div>`;
+        }
+
+        async function refreshPastebinControl() {
+            const runBtn = document.getElementById('pastebinRunBtn');
+            if (!runBtn) return;
+            const stopBtn = document.getElementById('pastebinStopBtn');
+            const status = document.getElementById('pastebinControlStatus');
+            try {
+                const res = await fetch('/admin/api/pastebin-scraper');
+                if (!res.ok) return;
+                const ps = await res.json();
+                if (ps.running) {
+                    runBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    status.textContent = ps.stop_requested ? 'stopping…' : `running (${ps.progress}/${ps.progress_total})`;
+                } else {
+                    runBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    status.textContent = 'idle';
+                }
+            } catch (e) {}
+        }
+
+        async function runPastebinScraperNow() {
+            try {
+                const res = await fetch('/admin/api/pastebin-scraper/run', { method: 'POST' });
+                const data = await res.json();
+                const map = { started: 'Scrape started', already_running: 'Already running', no_urls: 'No pastebin URLs configured', no_tmdb_key: 'TMDB API key required' };
+                showToast(data.result === 'started' ? 'success' : 'error', 'Pastebin', map[data.result] || data.result);
+            } catch (e) { showToast('error', 'Pastebin', 'Request failed'); }
+            refreshPastebinControl();
+        }
+
+        async function stopPastebinScraperNow() {
+            try {
+                const res = await fetch('/admin/api/pastebin-scraper/stop', { method: 'POST' });
+                const data = await res.json();
+                const map = { stopping: 'Stop requested', not_running: 'Not running' };
+                showToast(data.result === 'stopping' ? 'success' : 'error', 'Pastebin', map[data.result] || data.result);
+            } catch (e) { showToast('error', 'Pastebin', 'Request failed'); }
+            refreshPastebinControl();
+        }
+
+        function renderIdrixControl() {
+            return `<div class="pastebin-control" style="display:flex; align-items:center; gap:10px; margin:2px 0 14px;">
+                <button type="button" class="btn-small btn-primary" id="idrixRunBtn" onclick="runIdrixScraperNow()">Run now</button>
+                <button type="button" class="btn-small btn-danger" id="idrixStopBtn" onclick="stopIdrixScraperNow()">Stop</button>
+                <span id="idrixControlStatus" style="font-size:12px; color:var(--text-muted);">—</span>
+            </div>`;
+        }
+
+        async function refreshIdrixControl() {
+            const runBtn = document.getElementById('idrixRunBtn');
+            if (!runBtn) return;
+            const stopBtn = document.getElementById('idrixStopBtn');
+            const status = document.getElementById('idrixControlStatus');
+            try {
+                const res = await fetch('/admin/api/idrix-scraper');
+                if (!res.ok) return;
+                const state = await res.json();
+                if (state.running) {
+                    runBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    status.textContent = state.stop_requested ? 'stopping…' : `running (${state.progress}/${state.progress_total})`;
+                } else {
+                    runBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    status.textContent = 'idle';
+                }
+            } catch (e) {}
+        }
+
+        async function runIdrixScraperNow() {
+            try {
+                const res = await fetch('/admin/api/idrix-scraper/run', { method: 'POST' });
+                const data = await res.json();
+                const map = { started: 'Scrape started', already_running: 'Already running', no_urls: 'No Idrix URLs configured', no_tmdb_key: 'TMDB API key required' };
+                showToast(data.result === 'started' ? 'success' : 'error', 'Idrix', map[data.result] || data.result);
+            } catch (e) { showToast('error', 'Idrix', 'Request failed'); }
+            refreshIdrixControl();
+        }
+
+        async function stopIdrixScraperNow() {
+            try {
+                const res = await fetch('/admin/api/idrix-scraper/stop', { method: 'POST' });
+                const data = await res.json();
+                const map = { stopping: 'Stop requested', not_running: 'Not running' };
+                showToast(data.result === 'stopping' ? 'success' : 'error', 'Idrix', map[data.result] || data.result);
+            } catch (e) { showToast('error', 'Idrix', 'Request failed'); }
+            refreshIdrixControl();
+        }
+
+        function renderDomainSyncControl() {
+            return `<div class="pastebin-control" style="display:flex; align-items:center; gap:10px; margin:2px 0 14px;">
+                <button type="button" class="btn-small btn-primary" id="domainSyncRunBtn" onclick="runDomainSyncNow()">Run now</button>
+                <button type="button" class="btn-small btn-danger" id="domainSyncStopBtn" onclick="stopDomainSyncNow()">Stop</button>
+                <span id="domainSyncControlStatus" style="font-size:12px; color:var(--text-muted);">â€”</span>
+            </div>`;
+        }
+
+        async function refreshDomainSyncControl() {
+            const runBtn = document.getElementById('domainSyncRunBtn');
+            if (!runBtn) return;
+            const stopBtn = document.getElementById('domainSyncStopBtn');
+            const status = document.getElementById('domainSyncControlStatus');
+            try {
+                const res = await fetch('/admin/api/domain-sync');
+                if (!res.ok) return;
+                const sync = await res.json();
+                if (sync.running) {
+                    runBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    status.textContent = sync.stop_requested ? 'stoppingâ€¦' : 'running';
+                } else {
+                    runBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    if (!sync.enabled) {
+                        status.textContent = 'automatic sync disabled';
+                    } else if (sync.last_run) {
+                        status.textContent = `idle Â· last run ${new Date(sync.last_run * 1000).toLocaleString()}`;
+                    } else {
+                        status.textContent = 'idle';
+                    }
+                }
+            } catch (e) {}
+        }
+
+        async function runDomainSyncNow() {
+            try {
+                const res = await fetch('/admin/api/domain-sync/run', { method: 'POST' });
+                const data = await res.json();
+                const map = {
+                    started: 'Synchronization started',
+                    already_running: 'Already running',
+                    no_channels: 'No Telegram channels configured'
+                };
+                showToast(data.result === 'started' ? 'success' : 'error', 'Domain sync', map[data.result] || data.result);
+            } catch (e) { showToast('error', 'Domain sync', 'Request failed'); }
+            refreshDomainSyncControl();
+        }
+
+        async function stopDomainSyncNow() {
+            try {
+                const res = await fetch('/admin/api/domain-sync/stop', { method: 'POST' });
+                const data = await res.json();
+                const map = { stopping: 'Stop requested', not_running: 'Not running' };
+                showToast(data.result === 'stopping' ? 'success' : 'error', 'Domain sync', map[data.result] || data.result);
+            } catch (e) { showToast('error', 'Domain sync', 'Request failed'); }
+            refreshDomainSyncControl();
+        }
+
+        let _pastebinPoll = null;
+        function ensurePastebinPoll() {
+            if (_pastebinPoll) return;
+            _pastebinPoll = setInterval(() => {
+                const btn = document.getElementById('pastebinRunBtn');
+                // offsetParent is null when the Settings page is hidden (display:none) -> pause polling
+                if (btn && btn.offsetParent !== null) refreshPastebinControl();
+            }, 3000);
+        }
+
+        let _idrixPoll = null;
+        function ensureIdrixPoll() {
+            if (_idrixPoll) return;
+            _idrixPoll = setInterval(() => {
+                const btn = document.getElementById('idrixRunBtn');
+                if (btn && btn.offsetParent !== null) refreshIdrixControl();
+            }, 3000);
+        }
+
+        let _domainSyncPoll = null;
+        function ensureDomainSyncPoll() {
+            if (_domainSyncPoll) return;
+            _domainSyncPoll = setInterval(() => {
+                const btn = document.getElementById('domainSyncRunBtn');
+                if (btn && btn.offsetParent !== null) refreshDomainSyncControl();
+            }, 3000);
+        }
+
+        function renderSettingsField(f) {
+            if (!f.sensitive) settingsOriginals[f.key] = f.value;
+
+            const keyId = `skey-${f.key}`;
+            const descId = `sdesc-${f.key}`;
+            const badges = (f.source === 'env' ? '<span class="settings-badge env">.env</span>' : '')
+                + (f.source === 'override' ? '<span class="settings-badge override">override</span>' : '')
+                + (f.advanced ? '<span class="settings-badge advanced">advanced</span>' : '')
+                + (f.effect === 'next_cycle' ? '<span class="settings-hint">next cycle</span>' : '');
+            const reset = f.source === 'override'
+                ? `<button class="settings-reset" onclick="resetSetting('${f.key}')">Reset default</button>` : '';
+            const desc = f.description ? `<div class="settings-row-desc" id="${descId}">${escapeHtml(f.description)}</div>` : '';
+            const wide = (f.editor || f.multiline) ? ' wide' : '';
+            const adv = f.advanced ? ' settings-advanced' : '';
+
+            return `<div class="settings-row${wide}${adv}">
+                <div class="settings-row-info">
+                    <div class="settings-row-key"><span id="${keyId}">${escapeHtml(f.key)}</span> ${badges}</div>
+                    ${desc}
+                </div>
+                <div class="settings-row-control">
+                    ${renderSettingsControl(f, keyId, f.description ? descId : '')}
+                    <div class="settings-control-foot">${reset}</div>
+                </div>
+            </div>`;
+        }
+
+        function renderSettingsControl(f, keyId, descId) {
+            const dis = f.editable ? '' : 'disabled';
+            const a11y = `aria-labelledby="${keyId}"` + (descId ? ` aria-describedby="${descId}"` : '');
+            const attrs = `data-key="${f.key}" data-kind="${f.kind}" ${a11y}`;
+
+            if (f.editor === 'imdb-list') return renderImdbList(f);
+            if (f.editor === 'url-list') return renderUrlList(f);
+            if (f.editor === 'kitsu-override') return renderKitsuOverride(f);
+
+            if (f.sensitive) {
+                const ph = f.is_set ? 'set — leave empty to keep' : 'not set';
+                return `<input type="password" class="form-input" ${attrs} data-sensitive="1" placeholder="${escapeAttr(ph)}" ${dis}>`;
+            }
+            if (f.kind === 'bool') {
+                return `<label class="custom-checkbox"><input type="checkbox" ${attrs} ${f.value ? 'checked' : ''} ${dis}><span class="checkmark"></span></label>`;
+            }
+            if (f.choices) {
+                const id = `settings-dd-${f.key}`;
+                const cur = f.value == null ? '' : String(f.value);
+                const items = f.choices.map(c => {
+                    const sel = c === cur;
+                    const pick = `selectDropdownItem('${id}', '${escapeAttr(c)}', '${escapeAttr(c)}')`;
+                    return `<div class="dropdown-item${sel ? ' selected' : ''}" role="option" aria-selected="${sel}" tabindex="0" data-value="${escapeAttr(c)}" onclick="${pick}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${pick};}">${escapeHtml(c)}</div>`;
+                }).join('');
+                return `<div class="custom-dropdown${f.editable ? '' : ' dropdown-disabled'}" id="${id}" ${attrs} data-value="${escapeAttr(cur)}">
+                    <button type="button" class="dropdown-toggle" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="${keyId}" ${f.editable ? `onclick="toggleDropdown('${id}')"` : 'disabled'}>
+                        <span class="dropdown-text">${escapeHtml(cur)}</span>
+                        <svg class="dropdown-arrow" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+                    </button>
+                    <div class="dropdown-menu" role="listbox" aria-labelledby="${keyId}">${items}</div>
+                </div>`;
+            }
+            if (f.kind === 'list' || f.multiline) {
+                const text = f.kind === 'list' ? (f.value || []).join('\n') : (f.value || '');
+                return `<textarea class="form-input" ${attrs} rows="3" ${dis}>\n${escapeHtml(text)}</textarea>`;
+            }
+            const type = f.kind === 'int' ? 'number' : 'text';
+            const val = (f.value === null || f.value === undefined) ? '' : f.value;
+            return `<input type="${type}" class="form-input" ${attrs} value="${escapeAttr(val)}" ${dis}>`;
+        }
+
+        function renderImdbList(f) {
+            const chips = (f.value || []).map(id => imdbChipHtml(id, !f.editable)).join('');
+            const missing = (f.recommended || []).filter(id => !(f.value || []).includes(id));
+            const reco = (f.editable && f.recommended && f.recommended.length)
+                ? `<button type="button" class="btn-small btn-info recommended-btn" onclick="applyRecommended(this)" style="${missing.length ? '' : 'display: none;'}">+ Recommended (${missing.length})</button>` : '';
+            const add = f.editable ? `<div class="chip-add">
+                    <input type="text" class="form-input" placeholder="tt1234567" onkeydown="if(event.key==='Enter'){event.preventDefault();addImdbChip(this);}">
+                    <button type="button" class="btn-small btn-primary" onclick="addImdbChip(this.previousElementSibling)">Add</button>
+                    ${reco}
+                </div>` : '';
+            const recoAttr = f.recommended ? ` data-recommended="${escapeAttr(JSON.stringify(f.recommended))}"` : '';
+            return `<div class="chip-editor" data-editor="imdb-list" data-key="${f.key}"${recoAttr}>
+                ${add}
+                <div class="chips">${chips || '<span class="chips-empty">No IMDB IDs</span>'}</div>
+            </div>`;
+        }
+
+        function imdbChipHtml(id, ro) {
+            const del = ro ? '' : `<button type="button" onclick="removeImdbChip(this)">×</button>`;
+            return `<span class="chip" data-val="${escapeAttr(id)}">${escapeHtml(id)}${del}</span>`;
+        }
+
+        function removeImdbChip(btn) {
+            const editor = btn.closest('.chip-editor');
+            btn.closest('.chip').remove();
+            refreshRecommendedBadge(editor);
+        }
+
+        function addImdbChip(input) {
+            const id = input.value.trim();
+            if (!id) return;
+            if (!id.startsWith('tt')) { showToast('error', 'Invalid IMDB ID', 'Must start with "tt"'); return; }
+            const editor = input.closest('.chip-editor');
+            if ([...editor.querySelectorAll('.chip')].some(c => c.dataset.val === id)) { input.value = ''; return; }
+            const chips = editor.querySelector('.chips');
+            const empty = chips.querySelector('.chips-empty');
+            if (empty) empty.remove();
+            chips.insertAdjacentHTML('beforeend', imdbChipHtml(id));
+            input.value = '';
+            refreshRecommendedBadge(editor);
+        }
+
+        function renderUrlList(f) {
+            const chips = (f.value || []).map(u => imdbChipHtml(u, !f.editable)).join('');
+            const add = f.editable ? `<div class="chip-add">
+                    <input type="text" class="form-input" placeholder="https://…  (paste one or many, one per line)" onkeydown="if(event.key==='Enter'){event.preventDefault();addUrlChip(this);}">
+                    <button type="button" class="btn-small btn-primary" onclick="addUrlChip(this.previousElementSibling)">Add</button>
+                </div>` : '';
+            return `<div class="chip-editor" data-editor="url-list" data-key="${f.key}">
+                ${add}
+                <div class="chips">${chips || '<span class="chips-empty">No URLs</span>'}</div>
+            </div>`;
+        }
+
+        function addUrlChip(input) {
+            const editor = input.closest('.chip-editor');
+            const chips = editor.querySelector('.chips');
+            const existing = new Set([...editor.querySelectorAll('.chip')].map(c => c.dataset.val));
+            let added = 0, invalid = 0;
+            // Accepts one or many, separated by newlines / spaces / commas, with optional surrounding quotes
+            // (so pasting the .env-style `"url1","url2"` works, as well as one URL per line).
+            input.value.split(/[\s,]+/).map(s => s.trim().replace(/^["']+|["']+$/g, '').trim()).filter(Boolean).forEach(url => {
+                if (!/^https?:\/\//i.test(url)) { invalid++; return; }
+                if (existing.has(url)) return;
+                existing.add(url);
+                const empty = chips.querySelector('.chips-empty');
+                if (empty) empty.remove();
+                chips.insertAdjacentHTML('beforeend', imdbChipHtml(url));
+                added++;
+            });
+            if (invalid) showToast('error', 'Invalid URL(s)', `${invalid} ignored — each must start with http:// or https://`);
+            if (added) input.value = '';
+        }
+
+        function parseKitsuGroup(str) {
+            const idx = str.lastIndexOf(':');
+            const mappingsPart = idx >= 0 ? str.slice(0, idx) : str;
+            const imdb = idx >= 0 ? str.slice(idx + 1).trim() : '';
+            const rows = mappingsPart.split(',').map(e => e.trim()).filter(Boolean).map(e => {
+                const eq = e.indexOf('=');
+                const kitsu = eq >= 0 ? e.slice(0, eq).trim() : e.trim();
+                let sp = eq >= 0 ? e.slice(eq + 1).trim() : '';
+                let season = sp, part = '';
+                if (sp.includes('-')) { const d = sp.indexOf('-'); season = sp.slice(0, d).trim(); part = sp.slice(d + 1).trim(); }
+                return { kitsu, season, part };
+            });
+            return { imdb, rows };
+        }
+
+        function renderKitsuOverride(f) {
+            const groups = (f.value || []).map(parseKitsuGroup).map(g => kitsuGroupHtml(g, !f.editable)).join('');
+            const missing = (f.recommended || []).filter(str =>
+                !(f.value || []).some(v => parseKitsuGroup(v).imdb === parseKitsuGroup(str).imdb));
+            const reco = (f.editable && f.recommended && f.recommended.length)
+                ? `<button type="button" class="btn-small btn-info recommended-btn" onclick="applyRecommended(this)" style="${missing.length ? '' : 'display: none;'}">+ Recommended (${missing.length})</button>` : '';
+            const add = f.editable ? `<button type="button" class="btn-small btn-primary" onclick="addKitsuGroup(this)">+ Add IMDB group</button>` : '';
+            const recoAttr = f.recommended ? ` data-recommended="${escapeAttr(JSON.stringify(f.recommended))}"` : '';
+            return `<div class="kitsu-editor" data-editor="kitsu-override" data-key="${f.key}"${recoAttr}>
+                <div class="kitsu-groups">${groups}</div>
+                <div class="kitsu-editor-actions">${add}${reco}</div>
+            </div>`;
+        }
+
+        function kitsuGroupHtml(g, ro) {
+            const dis = ro ? 'disabled' : '';
+            const rows = (g.rows.length ? g.rows : [{ kitsu: '', season: '', part: '' }]).map(r => kitsuRowHtml(r, ro)).join('');
+            const remove = ro ? '' : `<button type="button" class="btn-small btn-danger" style="margin-left: auto;" onclick="removeKitsuGroup(this)">Remove group</button>`;
+            const foot = ro ? '' : `<div class="kitsu-group-foot">
+                    <button type="button" class="btn-small btn-primary" onclick="addKitsuRow(this)">+ Kitsu ID</button>
+                </div>`;
+            return `<div class="kitsu-group">
+                <div class="kitsu-group-head">
+                    <label>IMDB</label>
+                    <input type="text" class="form-input kitsu-imdb" placeholder="tt1234567" aria-label="IMDB ID" value="${escapeAttr(g.imdb)}" ${dis}>
+                    ${remove}
+                </div>
+                <div class="kitsu-rows">${rows}</div>
+                ${foot}
+            </div>`;
+        }
+
+        function kitsuRowHtml(r, ro) {
+            const dis = ro ? 'disabled' : '';
+            const del = ro ? '' : `<button type="button" class="btn-icon btn-icon-danger" onclick="this.closest('.kitsu-row').remove()" title="Remove"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>`;
+            return `<div class="kitsu-row">
+                <input type="text" class="form-input kitsu-id" placeholder="Kitsu ID" aria-label="Kitsu ID" value="${escapeAttr(r.kitsu)}" ${dis}>
+                <span class="kitsu-sep">→ season</span>
+                <input type="number" class="form-input kitsu-season" placeholder="1" aria-label="IMDB season" value="${escapeAttr(r.season)}" ${dis}>
+                <span class="kitsu-sep">part</span>
+                <input type="number" class="form-input kitsu-part" placeholder="opt." aria-label="Part (cour), optional" value="${escapeAttr(r.part)}" ${dis}>
+                ${del}
+            </div>`;
+        }
+
+        function addKitsuGroup(btn) {
+            const editor = btn.closest('.kitsu-editor');
+            editor.querySelector('.kitsu-groups').insertAdjacentHTML('beforeend', kitsuGroupHtml({ imdb: '', rows: [{ kitsu: '', season: '', part: '' }] }, false));
+            refreshRecommendedBadge(editor);
+        }
+
+        function removeKitsuGroup(btn) {
+            const editor = btn.closest('.kitsu-editor');
+            btn.closest('.kitsu-group').remove();
+            refreshRecommendedBadge(editor);
+        }
+
+        function refreshRecommendedBadge(editor) {
+            if (!editor) return;
+            const btn = editor.querySelector('.recommended-btn');
+            if (!btn) return;
+            let rec;
+            try { rec = JSON.parse(editor.dataset.recommended || '[]'); } catch (e) { rec = []; }
+            let missing;
+            if (editor.dataset.editor === 'imdb-list') {
+                const have = [...editor.querySelectorAll('.chip')].map(c => c.dataset.val);
+                missing = rec.filter(id => !have.includes(id));
+            } else {
+                const have = [...editor.querySelectorAll('.kitsu-imdb')].map(i => i.value.trim());
+                missing = rec.filter(str => !have.includes(parseKitsuGroup(str).imdb));
+            }
+            btn.textContent = `+ Recommended (${missing.length})`;
+            btn.style.display = missing.length ? '' : 'none';
+        }
+
+        function applyRecommended(btn) {
+            const editor = btn.closest('[data-editor]');
+            let rec;
+            try { rec = JSON.parse(editor.dataset.recommended || '[]'); } catch (e) { rec = []; }
+            let added = 0;
+            if (editor.dataset.editor === 'imdb-list') {
+                const chips = editor.querySelector('.chips');
+                const have = [...editor.querySelectorAll('.chip')].map(c => c.dataset.val);
+                rec.forEach(id => {
+                    if (!have.includes(id)) {
+                        const empty = chips.querySelector('.chips-empty');
+                        if (empty) empty.remove();
+                        chips.insertAdjacentHTML('beforeend', imdbChipHtml(id));
+                        have.push(id);
+                        added++;
+                    }
+                });
+            } else {
+                const groups = editor.querySelector('.kitsu-groups');
+                const have = [...editor.querySelectorAll('.kitsu-imdb')].map(i => i.value.trim());
+                rec.forEach(str => {
+                    const g = parseKitsuGroup(str);
+                    if (!have.includes(g.imdb)) {
+                        groups.insertAdjacentHTML('beforeend', kitsuGroupHtml(g, false));
+                        have.push(g.imdb);
+                        added++;
+                    }
+                });
+            }
+            refreshRecommendedBadge(editor);
+            showToast('success', 'Recommended applied', added ? `${added} added` : 'Already up to date');
+        }
+
+        function addKitsuRow(btn) {
+            btn.closest('.kitsu-group').querySelector('.kitsu-rows').insertAdjacentHTML('beforeend', kitsuRowHtml({ kitsu: '', season: '', part: '' }, false));
+        }
+
+        function serializeKitsuGroup(g) {
+            const maps = g.rows.filter(r => r.kitsu && r.season).map(r => `${r.kitsu}=${r.season}${r.part ? '-' + r.part : ''}`);
+            return maps.length && g.imdb ? maps.join(',') + ':' + g.imdb : '';
+        }
+
+        function readSettingsEditor(container) {
+            if (container.dataset.editor === 'imdb-list' || container.dataset.editor === 'url-list') {
+                return Array.from(container.querySelectorAll('.chip')).map(c => c.dataset.val);
+            }
+            return Array.from(container.querySelectorAll('.kitsu-group')).map(gEl => {
+                const imdb = gEl.querySelector('.kitsu-imdb').value.trim();
+                const rows = Array.from(gEl.querySelectorAll('.kitsu-row')).map(r => ({
+                    kitsu: r.querySelector('.kitsu-id').value.trim(),
+                    season: r.querySelector('.kitsu-season').value.trim(),
+                    part: r.querySelector('.kitsu-part').value.trim()
+                }));
+                return serializeKitsuGroup({ imdb, rows });
+            }).filter(Boolean);
+        }
+
+        function collectSettingsUpdates() {
+            const updates = {};
+            document.querySelectorAll('#settingsContainer input[data-key], #settingsContainer select[data-key], #settingsContainer textarea[data-key], #settingsContainer .custom-dropdown[data-key]').forEach(el => {
+                if (el.disabled || el.classList.contains('dropdown-disabled')) return;
+                const key = el.dataset.key;
+                const kind = el.dataset.kind;
+
+                if (el.dataset.sensitive) {
+                    if (el.value !== '') updates[key] = el.value;
+                    return;
+                }
+
+                const original = settingsOriginals[key];
+                let value, changed;
+                if (el.classList.contains('custom-dropdown')) {
+                    value = el.dataset.value;
+                    changed = String(value) !== String(original == null ? '' : original);
+                } else if (el.type === 'checkbox') {
+                    value = el.checked;
+                    changed = value !== original;
+                } else if (kind === 'int') {
+                    value = el.value === '' ? null : Number(el.value);
+                    changed = value !== (original == null ? null : original);
+                } else if (kind === 'list') {
+                    value = el.value.split('\n').map(s => s.trim()).filter(s => s.length);
+                    changed = JSON.stringify(value) !== JSON.stringify(original || []);
+                } else {
+                    value = el.value;
+                    changed = String(value) !== String(original == null ? '' : original);
+                }
+                if (changed) updates[key] = value;
+            });
+
+            document.querySelectorAll('#settingsContainer [data-editor]').forEach(container => {
+                const key = container.dataset.key;
+                const value = readSettingsEditor(container);
+                if (JSON.stringify(value) !== JSON.stringify(settingsOriginals[key] || [])) updates[key] = value;
+            });
+            return updates;
+        }
+
+        function settingsHasUnsavedChanges() {
+            return !!document.getElementById('settingsContainer') && Object.keys(collectSettingsUpdates()).length > 0;
+        }
+
+        const SETTINGS_STATUS_LABELS = {
+            invalid_value: 'invalid value',
+            env_locked: 'locked by .env',
+            not_editable: 'not editable',
+            error: 'server error'
+        };
+
+        async function saveSettings() {
+            document.querySelectorAll('#settingsContainer .settings-invalid').forEach(e => e.classList.remove('settings-invalid'));
+            const updates = collectSettingsUpdates();
+            if (Object.keys(updates).length === 0) {
+                showToast('info', 'No changes', 'Nothing to save');
+                return;
+            }
+
+            const saveBtn = document.querySelector('#page-settings .section-header button.btn-primary');
+            if (saveBtn) saveBtn.disabled = true;
+            try {
+                const response = await fetch('/admin/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ updates })
+                });
+                const data = await response.json();
+                const failed = Object.entries(data.results || {}).filter(([, s]) => s !== 'ok' && s !== 'skipped');
+                if (failed.length) {
+                    failed.forEach(([k]) => {
+                        const el = document.querySelector(`#settingsContainer [data-key="${k}"]`);
+                        if (el) el.classList.add('settings-invalid');
+                    });
+                    showToast('error', 'Some settings were rejected', failed.map(([k, s]) => `${k}: ${SETTINGS_STATUS_LABELS[s] || s}`).join(' · '));
+                } else {
+                    showToast('success', 'Saved', `${Object.keys(updates).length} setting(s) updated`);
+                    loadSettings();
+                }
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+                showToast('error', 'Error', 'Failed to save settings');
+            } finally {
+                if (saveBtn) saveBtn.disabled = false;
+            }
+        }
+
+        async function resetSetting(key) {
+            try {
+                const response = await fetch(`/admin/api/settings/${key}`, { method: 'DELETE' });
+                if (response.ok) {
+                    showToast('success', 'Reset', `${key} restored to default`);
+                    loadSettings();
+                } else {
+                    const data = await response.json();
+                    showToast('error', 'Error', data.error || 'Reset failed');
+                }
+            } catch (error) {
+                console.error('Failed to reset setting:', error);
+                showToast('error', 'Error', 'Reset failed');
+            }
         }
 
         // ===========================
@@ -4388,7 +5605,7 @@
             entry.className = 'log-entry';
 
             const userIdBadge = log.user_id
-                ? `<span class="log-user-id" title="${escapeHtml(log.user_id)}">👤 ${escapeHtml(log.user_id.substring(0, 8))}</span>`
+                ? `<span class="log-user-id" title="${escapeAttr(log.user_id)}">👤 ${escapeHtml(log.user_id.substring(0, 8))}</span>`
                 : '';
 
             entry.innerHTML = `
@@ -4486,32 +5703,6 @@
             } catch (error) {
                 console.error('Failed to load stats:', error);
             }
-        }
-
-        function purgeCachedLinks() {
-            showConfirmModal(
-                'Purge cached links',
-                'Are you sure you want to purge all cached links from the database? This action cannot be undone.',
-                async () => {
-                    try {
-                        const response = await fetch('/admin/api/cache', { method: 'DELETE' });
-                        if (!response.ok) {
-                            if (response.status === 401) {
-                                window.location.href = '/admin';
-                                return;
-                            }
-                            throw new Error('Failed to purge cached links');
-                        }
-
-                        const data = await response.json();
-                        await loadStats();
-                        showToast('success', 'Cache purged', `${formatNumber(data.deleted || 0)} cached entr${(data.deleted || 0) === 1 ? 'y' : 'ies'} removed`);
-                    } catch (error) {
-                        console.error('Failed to purge cached links:', error);
-                        showToast('error', 'Error', 'Failed to purge cached links');
-                    }
-                }
-            );
         }
 
         async function loadDashboardExtras() {
@@ -4620,11 +5811,11 @@
                         <tr class="clickable-row" onclick="toggleDeadLinkRow(${index})">
                             <td style="width: 50px; text-align: center;">
                                 <label class="custom-checkbox" onclick="event.stopPropagation()">
-                                    <input type="checkbox" class="dead-link-item" id="deadLink${index}" data-url="${escapeHtml(link.url)}" onchange="updateDeleteSelectedBtn()">
+                                    <input type="checkbox" class="dead-link-item" id="deadLink${index}" data-url="${escapeAttr(link.url)}" onchange="updateDeleteSelectedBtn()">
                                     <span class="checkmark"></span>
                                 </label>
                             </td>
-                            <td class="url-cell" title="${escapeHtml(link.url)}">${escapeHtml(link.url)}</td>
+                            <td class="url-cell" title="${escapeAttr(link.url)}">${escapeHtml(link.url)}</td>
                             <td class="status-cell">${status}</td>
                         </tr>
                     `;
@@ -4637,7 +5828,7 @@
 
             } catch (error) {
                 console.error('Failed to load dead links:', error);
-                document.getElementById('deadLinksTable').innerHTML = '<div class="empty-state">Failed to load</div>';
+                document.getElementById('deadLinksTable').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg><p>Failed to load</p></div>';
                 document.getElementById('deadLinksPagination').style.display = 'none';
             }
         }
@@ -4727,7 +5918,7 @@
                     return;
                 }
 
-                document.getElementById('deleteAllDeadLinks').style.display = 'inline-flex';
+                document.getElementById('deleteAllDeadLinks').style.display = 'none';
 
                 let html = `
                     <table>
@@ -4755,11 +5946,11 @@
                         <tr class="clickable-row" onclick="toggleDeadLinkRow(${index})">
                             <td style="width: 50px; text-align: center;">
                                 <label class="custom-checkbox" onclick="event.stopPropagation()">
-                                    <input type="checkbox" class="dead-link-item" id="deadLink${index}" data-url="${escapeHtml(link.url)}" onchange="updateDeleteSelectedBtn()">
+                                    <input type="checkbox" class="dead-link-item" id="deadLink${index}" data-url="${escapeAttr(link.url)}" onchange="updateDeleteSelectedBtn()">
                                     <span class="checkmark"></span>
                                 </label>
                             </td>
-                            <td class="url-cell" title="${escapeHtml(link.url)}">${escapeHtml(link.url)}</td>
+                            <td class="url-cell" title="${escapeAttr(link.url)}">${escapeHtml(link.url)}</td>
                             <td class="status-cell">${status}</td>
                         </tr>
                     `;
@@ -4772,7 +5963,7 @@
 
             } catch (error) {
                 console.error('Failed to search dead links:', error);
-                document.getElementById('deadLinksTable').innerHTML = '<div class="empty-state">Search failed</div>';
+                document.getElementById('deadLinksTable').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg><p>Search failed</p></div>';
                 document.getElementById('deadLinksPagination').style.display = 'none';
             }
         }
@@ -4830,9 +6021,16 @@
 
         let confirmCallback = null;
 
-        function showConfirmModal(title, message, callback) {
+        const CONFIRM_ICONS = {
+            trash: '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
+            warning: '<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>'
+        };
+
+        function showConfirmModal(title, message, callback, opts = {}) {
             document.getElementById('confirmModalTitle').textContent = title;
             document.getElementById('confirmModalMessage').textContent = message;
+            document.getElementById('confirmModalBtn').textContent = opts.confirmLabel || 'Delete';
+            document.getElementById('confirmModalIcon').innerHTML = CONFIRM_ICONS[opts.icon] || CONFIRM_ICONS.trash;
             confirmCallback = callback;
             document.getElementById('confirmModal').classList.add('show');
         }
@@ -4969,6 +6167,397 @@
         }
 
         // ===========================
+        // Content Cache
+        // ===========================
+        let cacheSearchQuery = '';
+        let cacheEntries = [];
+
+        function cacheTableHtml(entries) {
+            cacheEntries = entries;
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 50px; text-align: center;">
+                                <label class="custom-checkbox">
+                                    <input type="checkbox" id="selectAllCache" onchange="toggleAllCache(this.checked)">
+                                    <span class="checkmark"></span>
+                                </label>
+                            </th>
+                            <th style="width: 40%;">Title</th>
+                            <th style="width: 9%;">S/E</th>
+                            <th style="width: 11%;">Type</th>
+                            <th style="width: 12%;">Source</th>
+                            <th style="width: 11%;">URLs</th>
+                            <th style="width: 10%;">Status</th>
+                            <th style="width: 7%; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            entries.forEach((entry, index) => {
+                const typeLabel = entry.content_type.charAt(0).toUpperCase() + entry.content_type.slice(1);
+                const typeClass = entry.content_type === 'movie' ? 'type-movie'
+                    : entry.content_type === 'series' ? 'type-series'
+                    : entry.content_type === 'anime' ? 'type-anime' : '';
+                const yearStr = entry.year ? ` (${escapeHtml(entry.year)})` : '';
+                const seLabel = entry.content_type === 'movie'
+                    ? 'Movie'
+                    : (entry.season != null && entry.episode != null ? `S${entry.season}E${entry.episode}` : '-');
+                const status = entry.permanent
+                    ? '<span class="status-badge permanent">Permanent</span>'
+                    : '<span class="status-badge temporary">Temporary</span>';
+
+                html += `
+                    <tr class="clickable-row" onclick="toggleCacheRow(${index})">
+                        <td style="width: 50px; text-align: center;">
+                            <label class="custom-checkbox" onclick="event.stopPropagation()">
+                                <input type="checkbox" class="cache-item" id="cacheItem${index}" data-key="${escapeAttr(entry.cache_key)}" onchange="updateCacheDeleteBtn()">
+                                <span class="checkmark"></span>
+                            </label>
+                        </td>
+                        <td title="${escapeAttr(entry.title)}">${escapeHtml(entry.title)}${yearStr}</td>
+                        <td>${seLabel}</td>
+                        <td><span class="status-badge ${typeClass}">${typeLabel}</span></td>
+                        <td>${escapeHtml(entry.source)}</td>
+                        <td>${entry.stream_count}</td>
+                        <td>${status}</td>
+                        <td style="text-align: center;" onclick="event.stopPropagation()">
+                            <button class="btn-icon" onclick="openCacheStreamsModal(${index})" title="View links">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            return html;
+        }
+
+        async function loadCache(page = 1) {
+            document.getElementById('deleteSelectedCache').style.display = 'none';
+
+            try {
+                const offset = (page - 1) * CACHE_PER_PAGE;
+                const response = await fetch(`/admin/api/content-cache?limit=${CACHE_PER_PAGE}&offset=${offset}`);
+                if (!response.ok) throw new Error('Failed to load content cache');
+
+                const data = await response.json();
+
+                cacheTotal = data.total;
+                cacheCurrentPage = page;
+                cacheTotalPages = Math.ceil(data.total / CACHE_PER_PAGE);
+
+                document.getElementById('cacheCount').textContent = `${data.total} total`;
+
+                if (data.total === 0) {
+                    document.getElementById('cacheTable').innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24"><path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zm0 5v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/></svg>
+                            <p>No cached content</p>
+                        </div>
+                    `;
+                    document.getElementById('cachePagination').style.display = 'none';
+                    document.getElementById('deleteAllCache').style.display = 'none';
+                    document.getElementById('deleteSelectedCache').style.display = 'none';
+                    return;
+                }
+
+                document.getElementById('deleteAllCache').style.display = 'inline-flex';
+                document.getElementById('cacheTable').innerHTML = cacheTableHtml(data.entries);
+
+                updateCachePagination();
+
+            } catch (error) {
+                console.error('Failed to load content cache:', error);
+                document.getElementById('cacheTable').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg><p>Failed to load</p></div>';
+                document.getElementById('cachePagination').style.display = 'none';
+            }
+        }
+
+        function updateCachePagination() {
+            const pagination = document.getElementById('cachePagination');
+            const pageInfo = document.getElementById('cachePageInfo');
+            const prevBtn = document.getElementById('cachePrev');
+            const nextBtn = document.getElementById('cacheNext');
+
+            if (cacheTotalPages <= 1) {
+                pagination.style.display = 'none';
+                return;
+            }
+
+            pagination.style.display = 'flex';
+            pageInfo.innerHTML = `Page <strong>${cacheCurrentPage}</strong> / <strong>${cacheTotalPages}</strong>`;
+
+            prevBtn.disabled = cacheCurrentPage <= 1;
+            nextBtn.disabled = cacheCurrentPage >= cacheTotalPages;
+        }
+
+        function loadCachePage(direction) {
+            document.getElementById('deleteSelectedCache').style.display = 'none';
+
+            if (direction === 'prev' && cacheCurrentPage > 1) {
+                loadCache(cacheCurrentPage - 1);
+            } else if (direction === 'next' && cacheCurrentPage < cacheTotalPages) {
+                loadCache(cacheCurrentPage + 1);
+            }
+        }
+
+        function searchCache() {
+            const query = document.getElementById('cacheSearchQuery').value.trim();
+
+            if (!query) {
+                showToast('warning', 'Warning', 'Please enter a search query');
+                return;
+            }
+
+            cacheSearchQuery = query;
+            document.getElementById('deleteSelectedCache').style.display = 'none';
+            loadCacheWithSearch(1);
+        }
+
+        function clearCacheSearch() {
+            document.getElementById('cacheSearchQuery').value = '';
+            cacheSearchQuery = '';
+            document.getElementById('deleteSelectedCache').style.display = 'none';
+            loadCache(1);
+        }
+
+        async function loadCacheWithSearch(page = 1) {
+            try {
+                const offset = (page - 1) * CACHE_PER_PAGE;
+                let url = `/admin/api/content-cache?limit=${CACHE_PER_PAGE}&offset=${offset}`;
+                if (cacheSearchQuery) {
+                    url += `&search=${encodeURIComponent(cacheSearchQuery)}`;
+                }
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to search content cache');
+
+                const data = await response.json();
+
+                cacheTotal = data.total;
+                cacheCurrentPage = page;
+                cacheTotalPages = Math.ceil(data.total / CACHE_PER_PAGE);
+
+                document.getElementById('cacheCount').textContent = `${data.total} total`;
+
+                if (data.total === 0) {
+                    document.getElementById('cacheTable').innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                            <p>No results found</p>
+                        </div>
+                    `;
+                    document.getElementById('cachePagination').style.display = 'none';
+                    document.getElementById('deleteAllCache').style.display = 'none';
+                    document.getElementById('deleteSelectedCache').style.display = 'none';
+                    return;
+                }
+
+                document.getElementById('deleteAllCache').style.display = 'none';
+                document.getElementById('cacheTable').innerHTML = cacheTableHtml(data.entries);
+
+                updateCacheSearchPagination();
+
+            } catch (error) {
+                console.error('Failed to search content cache:', error);
+                document.getElementById('cacheTable').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg><p>Search failed</p></div>';
+                document.getElementById('cachePagination').style.display = 'none';
+            }
+        }
+
+        function updateCacheSearchPagination() {
+            const pagination = document.getElementById('cachePagination');
+            const pageInfo = document.getElementById('cachePageInfo');
+            const prevBtn = document.getElementById('cachePrev');
+            const nextBtn = document.getElementById('cacheNext');
+
+            if (cacheTotalPages <= 1) {
+                pagination.style.display = 'none';
+                return;
+            }
+
+            pagination.style.display = 'flex';
+            pageInfo.innerHTML = `Page <strong>${cacheCurrentPage}</strong> / <strong>${cacheTotalPages}</strong>`;
+
+            prevBtn.disabled = cacheCurrentPage <= 1;
+            nextBtn.disabled = cacheCurrentPage >= cacheTotalPages;
+
+            if (cacheSearchQuery) {
+                prevBtn.onclick = () => { if (cacheCurrentPage > 1) loadCacheWithSearch(cacheCurrentPage - 1); };
+                nextBtn.onclick = () => { if (cacheCurrentPage < cacheTotalPages) loadCacheWithSearch(cacheCurrentPage + 1); };
+            } else {
+                prevBtn.onclick = () => loadCachePage('prev');
+                nextBtn.onclick = () => loadCachePage('next');
+            }
+        }
+
+        function toggleAllCache(checked) {
+            const checkboxes = document.querySelectorAll('.cache-item');
+            checkboxes.forEach(cb => cb.checked = checked);
+            updateCacheDeleteBtn();
+        }
+
+        function toggleCacheRow(index) {
+            const checkbox = document.getElementById(`cacheItem${index}`);
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                updateCacheDeleteBtn();
+            }
+        }
+
+        function updateCacheDeleteBtn() {
+            const checked = document.querySelectorAll('.cache-item:checked');
+            const btn = document.getElementById('deleteSelectedCache');
+            if (checked.length > 0) {
+                btn.style.display = 'inline-flex';
+                btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> Delete (${checked.length})`;
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+
+        function reloadCacheView(page = 1) {
+            if (cacheSearchQuery) {
+                loadCacheWithSearch(page);
+            } else {
+                loadCache(page);
+            }
+        }
+
+        function deleteSelectedCache() {
+            const checked = document.querySelectorAll('.cache-item:checked');
+            if (checked.length === 0) return;
+
+            const cacheKeys = Array.from(checked).map(cb => cb.dataset.key);
+
+            showConfirmModal(
+                'Delete selected entries',
+                `Are you sure you want to delete ${checked.length} cache entr${checked.length !== 1 ? 'ies' : 'y'}? This action cannot be undone.`,
+                async () => {
+                    try {
+                        const response = await fetch('/admin/api/content-cache', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ cache_keys: cacheKeys })
+                        });
+
+                        if (response.ok) {
+                            reloadCacheView(1);
+                            loadStats();
+                            showToast('success', 'Deleted', `${cacheKeys.length} cache entr${cacheKeys.length !== 1 ? 'ies' : 'y'} removed`);
+                        } else {
+                            showToast('error', 'Error', 'Failed to delete cache entries');
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete cache entries:', error);
+                        showToast('error', 'Error', 'Failed to delete cache entries');
+                    }
+                }
+            );
+        }
+
+        function deleteAllCache() {
+            showConfirmModal(
+                'Delete all cache',
+                `Are you sure you want to delete ALL ${cacheTotal} cache entries? This action cannot be undone.`,
+                async () => {
+                    try {
+                        const response = await fetch('/admin/api/content-cache?delete_all=true', {
+                            method: 'DELETE'
+                        });
+
+                        if (response.ok) {
+                            clearCacheSearch();
+                            loadStats();
+                            showToast('success', 'Deleted', 'All cache entries removed');
+                        } else {
+                            showToast('error', 'Error', 'Failed to delete cache');
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete all cache:', error);
+                        showToast('error', 'Error', 'Failed to delete cache');
+                    }
+                }
+            );
+        }
+
+        async function openCacheStreamsModal(index) {
+            const entry = cacheEntries[index];
+            if (!entry) return;
+
+            const titleParts = [entry.title];
+            if (entry.year) titleParts.push(`(${entry.year})`);
+            if (entry.season != null && entry.episode != null) titleParts.push(`S${entry.season}E${entry.episode}`);
+            document.getElementById('cacheStreamsTitle').textContent = titleParts.join(' ');
+
+            const body = document.getElementById('cacheStreamsBody');
+            body.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading...</div>';
+            document.getElementById('cacheStreamsModal').style.display = 'flex';
+
+            try {
+                const response = await fetch(`/admin/api/content-cache/entry?cache_key=${encodeURIComponent(entry.cache_key)}`);
+                if (!response.ok) throw new Error('Failed to load cache entry');
+
+                const data = await response.json();
+                const streams = data.streams || [];
+
+                if (streams.length === 0) {
+                    body.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24"><path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zm0 5v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/></svg>
+                            <p>No links in this entry</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = `<div style="margin-bottom: 12px; opacity: 0.7; font-size: 13px;">${streams.length} link${streams.length !== 1 ? 's' : ''} · source: ${escapeHtml(data.source || entry.source)}</div>`;
+                html += `
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Hoster</th>
+                                    <th>Quality</th>
+                                    <th>Lang</th>
+                                    <th>Size</th>
+                                    <th>Link</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                streams.forEach(s => {
+                    const size = (typeof s.size === 'number') ? formatSize(s.size) : (s.size || '-');
+                    const link = s.link || '';
+                    html += `
+                        <tr>
+                            <td>${escapeHtml(s.hoster || '-')}</td>
+                            <td>${escapeHtml(s.quality || '-')}</td>
+                            <td>${escapeHtml(s.language || '-')}</td>
+                            <td>${escapeHtml(String(size))}</td>
+                            <td class="url-cell" title="${escapeAttr(link)}">${link ? escapeHtml(link) : '-'}</td>
+                        </tr>
+                    `;
+                });
+                html += '</tbody></table></div>';
+                body.innerHTML = html;
+
+            } catch (error) {
+                console.error('Failed to load cache entry:', error);
+                body.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                        <p>Failed to load links</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ===========================
         // WASource Management
         // ===========================
         let wasourceCurrentPage = 1;
@@ -5034,7 +6623,7 @@
                                     </label>
                                 </td>
                                 <td><span class="badge badge-info">${escapeHtml(content.imdb_id)}</span></td>
-                                <td title="${escapeHtml(content.title || '')}">${escapeHtml(titleDisplay)}</td>
+                                <td title="${escapeAttr(content.title || '')}">${escapeHtml(titleDisplay)}</td>
                                 <td>-</td>
                                 <td>-</td>
                                 <td>-</td>
@@ -5061,9 +6650,9 @@
                                         </label>
                                     </td>
                                     <td><span class="badge badge-info">${escapeHtml(content.imdb_id)}</span></td>
-                                    <td title="${escapeHtml(content.title || '')}">${escapeHtml(titleDisplay)}</td>
-                                    <td>${release.quality || '-'}</td>
-                                    <td>${release.language || '-'}</td>
+                                    <td title="${escapeAttr(content.title || '')}">${escapeHtml(titleDisplay)}</td>
+                                    <td>${escapeHtml(release.quality || '-')}</td>
+                                    <td>${escapeHtml(release.language || '-')}</td>
                                     <td>${sizeDisplay}</td>
                                     <td>${seasonEpisode}</td>
                                     <td><span class="badge badge-success">${urlCount} URL${urlCount !== 1 ? 's' : ''}</span></td>
@@ -5084,7 +6673,12 @@
                     document.getElementById('wasourcePagination').style.display = 'flex';
                     document.getElementById('deleteAllWasource').style.display = wasourceTotal > 0 ? 'flex' : 'none';
                 } else {
-                    container.innerHTML = '<div class="empty-state">No WASource links found</div>';
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+                            <p>No WASource links found</p>
+                        </div>
+                    `;
                     document.getElementById('wasourcePagination').style.display = 'none';
                     document.getElementById('deleteAllWasource').style.display = 'none';
                 }
@@ -5092,7 +6686,7 @@
                 updateWasourceDeleteBtn();
             } catch (error) {
                 console.error('Failed to load WASource links:', error);
-                document.getElementById('wasourceTable').innerHTML = '<div class="empty-state">Failed to load WASource links</div>';
+                document.getElementById('wasourceTable').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg><p>Failed to load WASource links</p></div>';
             }
         }
 
@@ -5209,7 +6803,7 @@
                                     </label>
                                 </td>
                                 <td><span class="badge badge-info">${escapeHtml(content.imdb_id)}</span></td>
-                                <td title="${escapeHtml(content.title || '')}">${escapeHtml(titleDisplay)}</td>
+                                <td title="${escapeAttr(content.title || '')}">${escapeHtml(titleDisplay)}</td>
                                 <td>-</td>
                                 <td>-</td>
                                 <td>-</td>
@@ -5236,9 +6830,9 @@
                                         </label>
                                     </td>
                                     <td><span class="badge badge-info">${escapeHtml(content.imdb_id)}</span></td>
-                                    <td title="${escapeHtml(content.title || '')}">${escapeHtml(titleDisplay)}</td>
-                                    <td>${release.quality || '-'}</td>
-                                    <td>${release.language || '-'}</td>
+                                    <td title="${escapeAttr(content.title || '')}">${escapeHtml(titleDisplay)}</td>
+                                    <td>${escapeHtml(release.quality || '-')}</td>
+                                    <td>${escapeHtml(release.language || '-')}</td>
                                     <td>${sizeDisplay}</td>
                                     <td>${seasonEpisode}</td>
                                     <td><span class="badge badge-success">${urlCount} URL${urlCount !== 1 ? 's' : ''}</span></td>
@@ -5259,7 +6853,12 @@
                     document.getElementById('wasourcePagination').style.display = 'flex';
                     document.getElementById('deleteAllWasource').style.display = wasourceTotal > 0 ? 'flex' : 'none';
                 } else {
-                    container.innerHTML = '<div class="empty-state">No results found</div>';
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                            <p>No results found</p>
+                        </div>
+                    `;
                     document.getElementById('wasourcePagination').style.display = 'none';
                     document.getElementById('deleteAllWasource').style.display = 'none';
                 }
@@ -5267,7 +6866,7 @@
                 updateWasourceDeleteBtn();
             } catch (error) {
                 console.error('Failed to search WASource links:', error);
-                document.getElementById('wasourceTable').innerHTML = '<div class="empty-state">Search failed</div>';
+                document.getElementById('wasourceTable').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg><p>Search failed</p></div>';
             }
         }
 
@@ -5411,8 +7010,8 @@
 
             document.getElementById('wasourceEditId').value = contentId;
             document.getElementById('wasourceImdbId').value = content.imdb_id;
-            document.getElementById('wasourceImdbId').readOnly = true;
-            document.getElementById('wasourceImdbId').style.opacity = '0.7';
+            document.getElementById('wasourceImdbId').readOnly = false;
+            document.getElementById('wasourceImdbId').style.opacity = '1';
             document.getElementById('wasourceTmdbId').value = content.tmdb_id || '';
             document.getElementById('wasourceYear').value = content.year || '';
             document.getElementById('wasourceTitle').value = content.title || '';
@@ -5435,8 +7034,8 @@
             const sizeGb = release.size ? (release.size / (1024 * 1024 * 1024)).toFixed(2) : '';
             document.getElementById('wasourceSize').value = sizeGb;
 
-            document.getElementById('wasourceSeason').value = content.season || '';
-            document.getElementById('wasourceEpisode').value = content.episode || '';
+            document.getElementById('wasourceSeason').value = content.season != null ? content.season : '';
+            document.getElementById('wasourceEpisode').value = content.episode != null ? content.episode : '';
 
             const urlsText = wasourceEditUrls.map(u => u.url).join('\n');
             document.getElementById('wasourceUrlsInput').value = urlsText;
@@ -5511,6 +7110,7 @@
 
         async function submitEditWasource() {
             const contentId = document.getElementById('wasourceEditId').value;
+            const imdbId = document.getElementById('wasourceImdbId').value.trim();
             const tmdbId = document.getElementById('wasourceTmdbId').value.trim() || null;
             const year = parseInt(document.getElementById('wasourceYear').value) || null;
             const title = document.getElementById('wasourceTitle').value.trim();
@@ -5519,10 +7119,18 @@
             const selectedLangs = getSelectedLanguages();
             const language = selectedLangs.length > 0 ? selectedLangs.join(', ') : null;
             const sizeGb = parseFloat(document.getElementById('wasourceSize').value) || 0;
-            const season = parseInt(document.getElementById('wasourceSeason').value) || null;
-            const episode = parseInt(document.getElementById('wasourceEpisode').value) || null;
+            const parseNum = (v) => { const n = parseInt(v, 10); return Number.isNaN(n) ? null : n; };
+            const season = parseNum(document.getElementById('wasourceSeason').value);
+            const episode = parseNum(document.getElementById('wasourceEpisode').value);
+            const isMovie = season === null && episode === null;
             const sizeBytes = sizeGb > 0 ? Math.round(sizeGb * 1024 * 1024 * 1024) : null;
             const urlsText = document.getElementById('wasourceUrlsInput').value.trim();
+
+            if (!imdbId || !imdbId.startsWith('tt')) {
+                showToast('error', 'Invalid IMDB ID', 'Please enter a valid IMDB ID (e.g., tt1234567)');
+                document.getElementById('wasourceImdbId').focus();
+                return;
+            }
 
             if (!urlsText) {
                 showToast('error', 'URLs required', 'At least one URL is required');
@@ -5551,6 +7159,7 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        imdb_id: imdbId,
                         tmdb_id: tmdbId,
                         year: year,
                         title: title || null,
@@ -5560,7 +7169,9 @@
                         size: sizeBytes,
                         season: season,
                         episode: episode,
-                        urls: allUrls
+                        urls: allUrls,
+                        release_idx: wasourceEditReleaseIdx,
+                        is_movie: isMovie
                     })
                 });
 
@@ -5863,7 +7474,7 @@
                         const response = await fetch('/admin/api/wasource', {
                             method: 'DELETE',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ ids: Array.from(wasourceSelectedIds) })
+                            body: JSON.stringify({ release_ids: Array.from(wasourceSelectedIds) })
                         });
 
                         if (response.ok) {
@@ -6331,14 +7942,14 @@
                             <td><strong>${escapeHtml(key.name)}</strong></td>
                             <td>
                                 <code>${escapeHtml(maskedKey)}</code>
-                                ${key.api_key ? `<button class="btn-icon" onclick="copyToClipboard('${escapeHtml(key.api_key)}')" title="Copy Key">
+                                ${key.api_key ? `<button class="btn-icon" data-copy="${escapeAttr(key.api_key)}" onclick="copyToClipboard(this.dataset.copy)" title="Copy Key">
                                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
                                 </button>` : ''}
                             </td>
                             <td><div class="perm-badges">${permBadges.join('') || '-'}</div></td>
                             <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                             <td>
-                                <button class="btn-icon" onclick="showEditApiKeyModal(${key.id}, '${escapeHtml(key.name).replace(/'/g, "\\'")}', ${key.permissions.dead_links_read}, ${key.permissions.cache_read}, ${key.permissions.wasource_read})" title="Edit">
+                                <button class="btn-icon" data-name="${escapeAttr(key.name)}" onclick="showEditApiKeyModal(${key.id}, this.dataset.name, ${key.permissions.dead_links_read}, ${key.permissions.cache_read}, ${key.permissions.wasource_read})" title="Edit">
                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                                 </button>
                                 <button class="btn-icon ${key.enabled ? '' : 'btn-icon-warning'}" onclick="toggleApiKey(${key.id}, ${!key.enabled})" title="${key.enabled ? 'Disable' : 'Enable'}">
@@ -6357,11 +7968,16 @@
                     html += '</tbody></table>';
                     container.innerHTML = html;
                 } else {
-                    container.innerHTML = '<div class="empty-state">No API keys found</div>';
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                            <p>No API keys found</p>
+                        </div>
+                    `;
                 }
             } catch (e) {
                 console.error('Error loading API keys:', e);
-                document.getElementById('apiKeysContainer').innerHTML = '<div class="empty-state">Failed to load API keys</div>';
+                document.getElementById('apiKeysContainer').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg><p>Failed to load API keys</p></div>';
             }
         }
 
@@ -6413,7 +8029,7 @@
                             <td><span class="status-badge ${statusClass}">${statusText}</span><br><small>${lastCheck}</small></td>
                             <td><div class="perm-badges">${permBadges.join('') || '-'}</div></td>
                             <td>
-                                <button class="btn-icon" onclick="showEditInstanceModal(${inst.id}, '${escapeHtml(inst.name).replace(/'/g, "\\'")}', '${escapeHtml(inst.url).replace(/'/g, "\\'")}', '${fetchPrefsJson}', '${storePrefsJson}')" title="Edit">
+                                <button class="btn-icon" data-name="${escapeAttr(inst.name)}" data-url="${escapeAttr(inst.url)}" onclick="showEditInstanceModal(${inst.id}, this.dataset.name, this.dataset.url, '${fetchPrefsJson}', '${storePrefsJson}')" title="Edit">
                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                                 </button>
                                 <button class="btn-icon" onclick="checkInstance(${inst.id})" title="Check">
@@ -6435,11 +8051,16 @@
                     html += '</tbody></table>';
                     container.innerHTML = html;
                 } else {
-                    container.innerHTML = '<div class="empty-state">No remote instances found</div>';
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 0h4v2h-4V8zm0 3h4v2h-4v-2zm0 3h4v2h-4v-2z"/></svg>
+                            <p>No remote instances found</p>
+                        </div>
+                    `;
                 }
             } catch (e) {
                 console.error('Error loading instances:', e);
-                document.getElementById('instancesContainer').innerHTML = '<div class="empty-state">Failed to load instances</div>';
+                document.getElementById('instancesContainer').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg><p>Failed to load instances</p></div>';
             }
         }
 
@@ -6806,77 +8427,11 @@
             }
         }
 
-        async function loadSettings() {
-            try {
-                const response = await fetch('/admin/api/settings');
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        window.location.href = '/admin';
-                        return;
-                    }
-                    throw new Error('Failed to load settings');
-                }
-                const data = await response.json();
-                
-                const keys = [
-                    'WAWACITY_URL', 'FREE_TELECHARGER_URL', 'DARKI_API_URL', 'MOVIX_URL', 'WEBSHARE_URL',
-                    'YGGREBORN_URL', 'YGGREBORN_API_KEY', 'TR4KER_URL', 'TR4KER_API_KEY',
-                    'TORR9_URL', 'TORR9_API_KEY', 'C411_URL', 'C411_API_KEY',
-                    'GEMINI_URL', 'GEMINI_API_KEY', 'GENERATIONFREE_URL', 'GENERATIONFREE_API_KEY',
-                    'ZILEAN_URL'
-                ];
-                keys.forEach(key => {
-                    const input = document.getElementById(`setting-${key}`);
-                    if (input) {
-                        input.value = data[key] || '';
-                    }
-                });
-            } catch (error) {
-                console.error('Error loading settings:', error);
-                showToast('error', 'Error', 'Failed to load settings');
-            }
-        }
-
-        async function saveSettings() {
-            const keys = [
-                'WAWACITY_URL', 'FREE_TELECHARGER_URL', 'DARKI_API_URL', 'MOVIX_URL', 'WEBSHARE_URL',
-                'YGGREBORN_URL', 'YGGREBORN_API_KEY', 'TR4KER_URL', 'TR4KER_API_KEY',
-                'TORR9_URL', 'TORR9_API_KEY', 'C411_URL', 'C411_API_KEY',
-                'GEMINI_URL', 'GEMINI_API_KEY', 'GENERATIONFREE_URL', 'GENERATIONFREE_API_KEY',
-                    'ZILEAN_URL'
-            ];
-            const updates = {};
-            keys.forEach(key => {
-                const input = document.getElementById(`setting-${key}`);
-                if (input) {
-                    updates[key] = input.value;
-                }
-            });
-
-            try {
-                const response = await fetch('/admin/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updates)
-                });
-                if (!response.ok) {
-                    const data = await response.json();
-                    throw new Error(data.error || 'Failed to save settings');
-                }
-                showToast('success', 'Success', 'Settings saved successfully');
-            } catch (error) {
-                console.error('Error saving settings:', error);
-                showToast('error', 'Error', error.message || 'Failed to save settings');
-            }
-        }
-
         const originalSwitchPage = switchPage;
         switchPage = function(pageName) {
             originalSwitchPage(pageName);
             if (pageName === 'remote') {
                 loadRemoteData();
-            } else if (pageName === 'settings') {
-                loadSettings();
             }
         };
     </script>
@@ -6884,7 +8439,7 @@
     <!-- Confirm Modal -->
     <div class="confirm-modal" id="confirmModal">
         <div class="confirm-modal-content">
-            <div class="confirm-modal-icon">
+            <div class="confirm-modal-icon" id="confirmModalIcon">
                 <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </div>
             <div class="confirm-modal-title" id="confirmModalTitle">Confirm deletion</div>
@@ -6903,12 +8458,26 @@
                 <svg viewBox="0 0 24 24" style="fill: var(--accent-primary);"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             </div>
             <div class="confirm-modal-title">Add dead links</div>
-            <textarea class="add-modal-textarea" id="addDeadLinksTextarea" placeholder="https://1fichier.com/xxx&#10;https://send.cm/xxx&#10;https://darkibox.com/xxx&#10;https://rapidgator.net/file/xxx&#10;https://turbobit.cc/xxx&#10;https://alldebrid.com/f/xxx"></textarea>
+            <textarea class="add-modal-textarea" id="addDeadLinksTextarea" placeholder="https://1fichier.com/xxx&#10;https://send.cm/xxx&#10;https://darkibox.com/xxx&#10;https://rapidgator.net/file/xxx&#10;https://turbobit.net/xxx&#10;https://alldebrid.com/f/xxx"></textarea>
             <div class="add-modal-hint">One URL per line. Accepted: 1fichier, send.cm, darkibox, rapidgator, turbobit, alldebrid</div>
             <div class="confirm-modal-actions">
                 <button class="confirm-modal-btn confirm-modal-btn-cancel" onclick="closeAddDeadLinksModal()">Cancel</button>
                 <button class="confirm-modal-btn confirm-modal-btn-primary" onclick="submitAddDeadLinks()">Add links</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Cache Links Viewer Modal (read-only) -->
+    <div id="cacheStreamsModal" class="modal" style="display: none;">
+        <div class="modal-backdrop" onclick="closeModal('cacheStreamsModal')"></div>
+        <div class="modal-content" style="max-width: 840px;">
+            <div class="modal-header">
+                <h3 id="cacheStreamsTitle">Cached links</h3>
+                <button class="modal-close" onclick="closeModal('cacheStreamsModal')">
+                    <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+            </div>
+            <div class="modal-body" id="cacheStreamsBody"></div>
         </div>
     </div>
 
@@ -6980,17 +8549,17 @@
                         <input type="number" id="wasourceSize" placeholder="0" step="0.1" min="0">
                     </div>
                     <div class="wasource-form-group">
-                        <label>Season</label>
-                        <input type="number" id="wasourceSeason" placeholder="" min="1">
+                        <label>Season <span style="color: var(--text-muted); font-weight: 400;">(both empty = movie)</span></label>
+                        <input type="number" id="wasourceSeason" placeholder="" min="0">
                     </div>
                     <div class="wasource-form-group">
                         <label>Episode</label>
-                        <input type="number" id="wasourceEpisode" placeholder="" min="1">
+                        <input type="number" id="wasourceEpisode" placeholder="" min="0">
                     </div>
                 </div>
                 <div class="wasource-form-group">
                     <label>URLs * <span style="color: var(--text-muted); font-weight: 400;">(host auto-detected)</span></label>
-                    <textarea class="add-modal-textarea" id="wasourceUrlsInput" placeholder="https://1fichier.com/xxx&#10;https://send.cm/xxx::2&#10;https://darkibox.com/xxx::3&#10;https://rapidgator.net/file/xxx&#10;https://turbobit.cc/xxx&#10;https://alldebrid.com/f/xxx" style="height: 120px;"></textarea>
+                    <textarea class="add-modal-textarea" id="wasourceUrlsInput" placeholder="https://1fichier.com/xxx&#10;https://send.cm/xxx::2&#10;https://darkibox.com/xxx::3&#10;https://rapidgator.net/file/xxx&#10;https://turbobit.net/xxx&#10;https://alldebrid.com/f/xxx" style="height: 120px;"></textarea>
                 </div>
             </div>
             <div class="add-modal-hint" id="wasourceModalHint">* Required fields. One URL per line. Accepted: 1fichier, send.cm, darkibox, rapidgator, turbobit, alldebrid<br><b>Batch mode:</b> Set Season, then use <code style="background: var(--bg-secondary); padding: 2px 5px; border-radius: 3px;">url::1</code>, <code style="background: var(--bg-secondary); padding: 2px 5px; border-radius: 3px;">url::2</code>, etc. to create multiple episodes.<br><b>Release name template:</b> Use <code style="background: var(--bg-secondary); padding: 2px 5px; border-radius: 3px;">{s}</code> for season and <code style="background: var(--bg-secondary); padding: 2px 5px; border-radius: 3px;">{e}</code> for episode (auto zero-padded). Example: <code style="background: var(--bg-secondary); padding: 2px 5px; border-radius: 3px;">Show.S{s}E{e}.1080p.mkv</code></div>

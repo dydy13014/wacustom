@@ -205,13 +205,18 @@ async def update_api_key(
 
 async def delete_api_key(key_id: int) -> bool:
     try:
-        result = await database.execute(
+        existing = await database.fetch_one(
+            "SELECT id FROM remote_api_keys WHERE id = :id",
+            {"id": key_id}
+        )
+        if not existing:
+            return False
+        await database.execute(
             "DELETE FROM remote_api_keys WHERE id = :id",
             {"id": key_id}
         )
-        if result > 0:
-            remote_logger.debug(f"[API-Key] Deleted: {key_id}")
-        return result > 0
+        remote_logger.debug(f"[API-Key] Deleted: {key_id}")
+        return True
 
     except Exception as e:
         remote_logger.error(f"[API-Key] Failed to delete: {type(e).__name__}: {e}")
@@ -433,7 +438,7 @@ async def update_remote_instance(
         if store_preferences is not None:
             new_store_prefs = json.dumps(store_preferences)
         else:
-            new_store_prefs = existing.get("store_preferences") or json.dumps({"dead_links": True, "cache": True, "wasource": True})
+            new_store_prefs = existing["store_preferences"] or json.dumps({"dead_links": True, "cache": True, "wasource": True})
 
         await database.execute(
             """UPDATE remote_instances SET
@@ -460,13 +465,18 @@ async def update_remote_instance(
 
 async def delete_remote_instance(instance_id: int) -> bool:
     try:
-        result = await database.execute(
+        existing = await database.fetch_one(
+            "SELECT id FROM remote_instances WHERE id = :id",
+            {"id": instance_id}
+        )
+        if not existing:
+            return False
+        await database.execute(
             "DELETE FROM remote_instances WHERE id = :id",
             {"id": instance_id}
         )
-        if result > 0:
-            remote_logger.debug(f"[Instance] Deleted: {instance_id}")
-        return result > 0
+        remote_logger.debug(f"[Instance] Deleted: {instance_id}")
+        return True
 
     except Exception as e:
         remote_logger.error(f"[Instance] Failed to delete: {type(e).__name__}: {e}")
@@ -741,7 +751,7 @@ async def get_remote_stats() -> Dict[str, Any]:
         }
 
     except Exception as e:
-        remote_logger.error(f"[Stats] Failed to get remote stats: {type(e).__name__}: {e}")
+        remote_logger.error(f"[Remote-Stats] Failed to get remote stats: {type(e).__name__}: {e}")
         return {
             "api_keys": {"total": 0, "active": 0},
             "instances": {"total": 0, "online": 0}

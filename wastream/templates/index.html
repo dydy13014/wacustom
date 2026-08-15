@@ -1808,28 +1808,6 @@
                             <span class="field-help" data-i18n="help.sortOrder">Reorder how streams are sorted in Stremio</span>
                             <div id="sortOrderList" class="sort-order-list"></div>
                         </div>
-                        <div class="form-field" style="margin-top: 15px;">
-                            <div class="toggle-wrapper" id="prioritizeVffMultiToggle">
-                                <div class="toggle" id="prioritizeVffMultiToggleBtn">
-                                    <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                                    </svg>
-                                    <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                                    </svg>
-                                </div>
-                                <span class="toggle-label" data-i18n="toggles.prioritizeVffMulti">Prioritize French Audio (VF/VFF/MULTi) over VOSTFR</span>
-                            </div>
-                            <input type="checkbox" id="prioritizeVffMulti" style="display: none;" />
-                        </div>
-                        <div class="form-field" style="margin-top: 15px;">
-                            <sl-select id="streamTypePreference" label="Stream Type Priority" data-i18n="[label]labels.streamTypePreference">
-                                <sl-option value="ddl_first" data-i18n="options.ddlFirst">DDL before Torrent</sl-option>
-                                <sl-option value="torrent_first" data-i18n="options.torrentFirst">Torrent before DDL</sl-option>
-                            </sl-select>
-                            <span class="field-help" data-i18n="help.streamTypePreference">Choose whether Direct Downloads (DDL) or Torrents should be listed first</span>
-                        </div>
                     </div>
                 </section>
 
@@ -1859,17 +1837,6 @@
                                 <div id="excludedTags" class="tags-list"></div>
                             </div>
                             <span class="field-help" data-i18n="help.excludedInfo">Streams with these words will be filtered</span>
-                        </div>
-                        <div class="form-field">
-                            <label class="field-label" data-i18n="labels.preferredKeywords">Preferred keywords</label>
-                            <div class="input-group">
-                                <input type="text" id="preferredInput" class="input" placeholder="Type a word to prefer" autocomplete="off" />
-                                <button type="button" class="btn-add" id="addPreferredBtn" aria-label="Add word">+</button>
-                            </div>
-                            <div class="tags-wrapper">
-                                <div id="preferredTags" class="tags-list"></div>
-                            </div>
-                            <span class="field-help" data-i18n="help.preferredInfo">Streams with these words are ranked first (e.g. MULTI, TRUEFRENCH)</span>
                         </div>
                         <div class="form-field">
                             <div class="toggle-wrapper" id="cachedToggle">
@@ -2193,6 +2160,13 @@
                     </div>
                 </section>
 
+                <!-- CONFIG SHARE (export / import) -->
+                <div style="display: flex; gap: 12px; margin-top: 32px;">
+                    <button type="button" class="btn-add-service" id="exportConfigBtn" style="flex: 1; margin-top: 0;" data-i18n="buttons.exportConfig">Export config</button>
+                    <button type="button" class="btn-add-service" id="importConfigBtn" style="flex: 1; margin-top: 0;" data-i18n="buttons.importConfig">Import config</button>
+                    <input type="file" id="importConfigFile" accept=".json,application/json" style="display: none;">
+                </div>
+
                 <!-- GENERATE BUTTON -->
                 <button class="btn" id="generateBtn" data-i18n="buttons.generate">Generate link</button>
 
@@ -2305,10 +2279,9 @@
         // ===========================
         const state = {
             excludedKeywords: [],
-            preferredKeywords: [],
             passwordRequired: false,
             loading: false,
-            currentLanguage: 'fr',
+            currentLanguage: 'en',
             serviceConfig: {},
             userUuid: null,
             encryptedPassword: null,
@@ -2331,9 +2304,6 @@
             excludedInput: null,
             excludedTags: null,
             addBtn: null,
-            preferredInput: null,
-            preferredTags: null,
-            addPreferredBtn: null,
             showOnlyCached: null,
             cachedToggle: null,
             cachedToggleBtn: null,
@@ -2394,12 +2364,11 @@
             sourceContentTypesOptions: null,
             sourceContentTypesList: null,
             sortOrderList: null,
-            prioritizeVffMulti: null,
-            prioritizeVffMultiToggle: null,
-            prioritizeVffMultiToggleBtn: null,
-            streamTypePreference: null,
             passwordSection: null,
             generateBtn: null,
+            exportConfigBtn: null,
+            importConfigBtn: null,
+            importConfigFile: null,
             result: null,
             addonLink: null,
             resultUuid: null,
@@ -2494,43 +2463,6 @@
         const removeTag = (word) => {
             state.excludedKeywords = state.excludedKeywords.filter(k => k !== word);
             renderTags();
-        };
-
-        // Symétrique à excluded_keywords : classe les streams correspondants
-        // en priorité au lieu de les exclure (ex. MULTI, TRUEFRENCH).
-        const renderPreferredTags = () => {
-            els.preferredTags.innerHTML = '';
-
-            state.preferredKeywords.forEach(word => {
-                const tag = document.createElement('div');
-                tag.className = 'tag';
-
-                const span = document.createElement('span');
-                span.textContent = word;
-
-                const button = document.createElement('button');
-                button.className = 'tag-remove';
-                button.textContent = '×';
-                button.setAttribute('aria-label', `Remove ${word}`);
-                button.addEventListener('click', () => removePreferredTag(word));
-
-                tag.appendChild(span);
-                tag.appendChild(button);
-                els.preferredTags.appendChild(tag);
-            });
-        };
-
-        const addPreferredTag = (word) => {
-            const sanitized = word.trim().toLowerCase();
-            if (!sanitized || state.preferredKeywords.includes(sanitized)) return;
-
-            state.preferredKeywords.push(sanitized);
-            renderPreferredTags();
-        };
-
-        const removePreferredTag = (word) => {
-            state.preferredKeywords = state.preferredKeywords.filter(k => k !== word);
-            renderPreferredTags();
         };
 
         // ===========================
@@ -2631,23 +2563,23 @@
 
             if (currentNzbToggle) {
                 currentNzbToggle.classList.toggle('active', targetNzbEnabled);
-                const currentNzbCheckbox = entry.querySelector('.enable-usenet-nzb');
+                const currentNzbCheckbox = entry.querySelector('.service-enable-nzb');
                 if (currentNzbCheckbox) currentNzbCheckbox.checked = targetNzbEnabled;
             }
             if (targetNzbToggle) {
                 targetNzbToggle.classList.toggle('active', currentNzbEnabled);
-                const targetNzbCheckbox = targetEntry.querySelector('.enable-usenet-nzb');
+                const targetNzbCheckbox = targetEntry.querySelector('.service-enable-nzb');
                 if (targetNzbCheckbox) targetNzbCheckbox.checked = currentNzbEnabled;
             }
 
             if (currentFullseasonToggle) {
                 currentFullseasonToggle.classList.toggle('active', targetFullseasonEnabled);
-                const currentFullseasonCheckbox = entry.querySelector('.enable-fullseason');
+                const currentFullseasonCheckbox = entry.querySelector('.service-enable-fullseason');
                 if (currentFullseasonCheckbox) currentFullseasonCheckbox.checked = targetFullseasonEnabled;
             }
             if (targetFullseasonToggle) {
                 targetFullseasonToggle.classList.toggle('active', currentFullseasonEnabled);
-                const targetFullseasonCheckbox = targetEntry.querySelector('.enable-fullseason');
+                const targetFullseasonCheckbox = targetEntry.querySelector('.service-enable-fullseason');
                 if (targetFullseasonCheckbox) targetFullseasonCheckbox.checked = currentFullseasonEnabled;
             }
 
@@ -2884,24 +2816,20 @@
 
         };
 
-        const DEFAULT_SORT_ORDER = ['cached', 'preferred', 'resolution', 'size', 'release_type', 'language', 'stream_type'];
+        const DEFAULT_SORT_ORDER = ['cached', 'resolution', 'size', 'release_type', 'language'];
         const SORT_ORDER_ICONS = {
             cached: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
-            preferred: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
             resolution: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
             size: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>',
             release_type: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>',
-            language: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
-            stream_type: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>'
+            language: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
         };
         const SORT_ORDER_LABELS = {
             cached: 'Cached',
-            preferred: 'Preferred keywords',
             resolution: 'Resolution',
             size: 'Size',
             release_type: 'Release Type',
-            language: 'Language',
-            stream_type: 'Stream Type'
+            language: 'Language'
         };
 
         const renderSortOrderList = (order) => {
@@ -3057,6 +2985,10 @@
             }
         };
 
+        const escapeAttr = (str) => String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
         const addDebridServiceEntry = (service = 'alldebrid', apiKey = '', hosts = [], sources = [], nzbdavUrl = '', enableNzb = false, enableFullSeason = false, webdavUser = '', webdavPassword = '') => {
             const index = getDebridServiceCount();
             const trans = translations[state.currentLanguage];
@@ -3078,7 +3010,7 @@
                     </div>
                 </div>
                 <div class="form-field">
-                    <sl-select class="debridServiceSelect" label="${trans.labels?.debridService || 'Debrid service'}" value="${service}">
+                    <sl-select class="debridServiceSelect" label="${trans.labels?.debridService || 'Debrid service'}" value="${escapeAttr(service)}">
                         <sl-option value="alldebrid">AllDebrid</sl-option>
                         <sl-option value="torbox">TorBox</sl-option>
                         <sl-option value="premiumize">Premiumize</sl-option>
@@ -3087,19 +3019,19 @@
                     </sl-select>
                 </div>
                 <div class="form-field nzbdav-url-field" style="display: ${service === 'nzbdav' ? 'block' : 'none'};">
-                    <sl-input class="nzbdavUrlInput" type="text" label="${trans.labels?.nzbdavUrl || 'NZBDav URL'}" placeholder="http://nzbdav:3000" value="${nzbdavUrl}"></sl-input>
+                    <sl-input class="nzbdavUrlInput" type="text" label="${trans.labels?.nzbdavUrl || 'NZBDav URL'}" placeholder="http://nzbdav:3000" value="${escapeAttr(nzbdavUrl)}"></sl-input>
                     <span class="field-help">${trans.help?.nzbdavUrlInfo || 'URL of your NZBDav server'}</span>
                 </div>
                 <div class="form-field nzbdav-webdav-user-field" style="display: ${service === 'nzbdav' ? 'block' : 'none'};">
-                    <sl-input class="nzbdavWebdavUserInput" type="text" label="${trans.labels?.webdavUser || 'WebDAV User'}" placeholder="admin" value="${webdavUser}"></sl-input>
+                    <sl-input class="nzbdavWebdavUserInput" type="text" label="${trans.labels?.webdavUser || 'WebDAV User'}" placeholder="admin" value="${escapeAttr(webdavUser)}"></sl-input>
                     <span class="field-help">${trans.help?.webdavUserInfo || 'Username for WebDAV authentication'}</span>
                 </div>
                 <div class="form-field nzbdav-webdav-pass-field" style="display: ${service === 'nzbdav' ? 'block' : 'none'};">
-                    <sl-input class="nzbdavWebdavPassInput" type="password" label="${trans.labels?.webdavPassword || 'WebDAV Password'}" placeholder="••••••••" value="${webdavPassword}"></sl-input>
+                    <sl-input class="nzbdavWebdavPassInput" type="password" label="${trans.labels?.webdavPassword || 'WebDAV Password'}" placeholder="••••••••" value="${escapeAttr(webdavPassword)}"></sl-input>
                     <span class="field-help">${trans.help?.webdavPasswordInfo || 'Password for WebDAV authentication'}</span>
                 </div>
                 <div class="form-field">
-                    <sl-input class="debridKeyInput" type="text" label="${trans.labels?.debridApiKey || 'Debrid API Key'}" placeholder="Your API key" value="${apiKey}"></sl-input>
+                    <sl-input class="debridKeyInput" type="text" label="${trans.labels?.debridApiKey || 'Debrid API Key'}" placeholder="Your API key" value="${escapeAttr(apiKey)}"></sl-input>
                     <span class="field-help"><span data-i18n="help.apiKeyLabel">${trans.help?.apiKeyLabel || 'API Key:'}</span> <a href="${linkInfo.href}" target="_blank" rel="noopener" class="debridLink">${linkInfo.text}</a></span>
                 </div>
                 <div class="form-field service-hosts-field">
@@ -3334,7 +3266,7 @@
                     svcRes.json()
                 ]);
 
-                state.serviceConfig = svcData;
+                state.serviceConfig = svcData.services || {};
 
                 langData.languages.forEach(lang => {
                     const opt = document.createElement('sl-option');
@@ -3363,7 +3295,7 @@
 
         const verifyApiKey = async (service, apiKey, nzbdavUrl = '', webdavUser = '', webdavPassword = '') => {
             try {
-                let url = `/config/verify-api-key?service=${encodeURIComponent(service)}&api_key=${encodeURIComponent(apiKey)}`;
+                let url = `/config/api-key/verify?service=${encodeURIComponent(service)}&api_key=${encodeURIComponent(apiKey)}`;
                 if (service === 'nzbdav') {
                     url += `&nzbdav_url=${encodeURIComponent(nzbdavUrl)}&webdav_user=${encodeURIComponent(webdavUser)}&webdav_password=${encodeURIComponent(webdavPassword)}`;
                 }
@@ -3374,6 +3306,113 @@
                 console.error('Error verifying API key:', error);
                 return false;
             }
+        };
+
+        const buildUserConfig = () => {
+            const debridServices = getDebridServices();
+            const nzbdavUrl = debridServices.nzbdav_url || '';
+            const webdavUser = debridServices.webdav_user || '';
+            const webdavPassword = debridServices.webdav_password || '';
+            const selectedLanguages = (els.languageSelect.value || []).map(lang => lang.replace(/_/g, ' '));
+            return {
+                debrid_services: debridServices.map(s => {
+                    const clean = { service: s.service, api_key: s.api_key };
+                    if (s.hosts) clean.hosts = s.hosts;
+                    if (s.sources) clean.sources = s.sources;
+                    if (s.enable_nzb !== undefined) clean.enable_nzb = s.enable_nzb;
+                    if (s.enable_full_season !== undefined) clean.enable_full_season = s.enable_full_season;
+                    return clean;
+                }),
+                tmdb_api_token: els.tmdbToken.value.trim(),
+                languages: selectedLanguages,
+                resolutions: els.resolutionSelect.value || [],
+                max_results_per_resolution: parseInt(els.maxResults.value) || 0,
+                max_size_gb: parseFloat(els.maxSize.value) || 0,
+                stream_request_timeout: parseInt(els.timeout.value) || 20,
+                show_only_cached: els.showOnlyCached.checked,
+                deduplicate_results: els.deduplicateResults.checked,
+                recheck_hoster_status: els.recheckHosterStatus.checked,
+                early_stop: els.earlyStop.checked,
+                early_stop_min_streams: parseInt(els.earlyStopMinStreams.value) || 0,
+                early_stop_min_hosts: parseInt(els.earlyStopMinHosts.value) || 0,
+                early_stop_sources: els.earlyStopSources.value || [],
+                early_stop_hosts: els.earlyStopHosts.value || [],
+                early_stop_resolutions: els.earlyStopResolutions.value || [],
+                early_stop_include_nzb: els.earlyStopIncludeNzb.checked,
+                resilient_enabled: els.resilientPlayback.checked,
+                resilient_mode: els.resilientMode.value || 'sequential',
+                resilient_max_fallbacks: parseInt(els.resilientMaxFallbacks.value) || 3,
+                resilient_max_delay: parseInt(els.resilientMaxDelay.value) || 0,
+                resilient_same_resolution: els.resilientSameResolution.checked,
+                resilient_same_language: els.resilientSameLanguage.checked,
+                resilient_same_quality: els.resilientSameQuality.checked,
+                resilient_same_host: els.resilientSameHost.checked,
+                resilient_same_source: els.resilientSameSource.checked,
+                resilient_same_debrid_only: els.resilientSameDebridOnly.checked,
+                resilient_allow_uncached: els.resilientAllowUncached.checked,
+                source_content_types: els.sourceContentTypes.checked,
+                source_content_types_config: (() => {
+                    const sctConfig = {};
+                    els.sourceContentTypesList.querySelectorAll('.source-content-type-row').forEach(row => {
+                        const sourceName = row.getAttribute('data-source');
+                        const types = [];
+                        row.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                            if (cb.checked) types.push(cb.getAttribute('data-content-type'));
+                        });
+                        sctConfig[sourceName] = types;
+                    });
+                    return sctConfig;
+                })(),
+                sort_order: [...els.sortOrderList.querySelectorAll('.sort-order-item')].map(item => item.getAttribute('data-sort-key')),
+                excluded_keywords: state.excludedKeywords,
+                nzbdav_url: nzbdavUrl,
+                webdav_user: webdavUser,
+                webdav_password: webdavPassword,
+                ...wacustomOnlyFields
+            };
+        };
+
+        const exportUserConfig = () => {
+            const config = buildUserConfig();
+            config.tmdb_api_token = '';
+            config.webdav_password = '';
+            if (Array.isArray(config.debrid_services)) {
+                config.debrid_services = config.debrid_services.map(s => ({ ...s, api_key: '' }));
+            }
+            const payload = { format_version: 1, config };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `wastream-config-${Date.now()}.json`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            showAlert(t('messages.configExported') || 'Config exported (credentials excluded)');
+        };
+
+        const importUserConfig = async (file) => {
+            if (!file) return;
+            let parsed;
+            try {
+                parsed = JSON.parse(await file.text());
+            } catch (error) {
+                showAlert(t('messages.invalidConfigFile') || 'Invalid config file');
+                return;
+            }
+            const config = (parsed && typeof parsed.config === 'object' && parsed.config) ? parsed.config : parsed;
+            if (!config || typeof config !== 'object' || Array.isArray(config)) {
+                showAlert(t('messages.invalidConfigFile') || 'Invalid config file');
+                return;
+            }
+            try {
+                applyConfigToForm(config);
+            } catch (error) {
+                showAlert(t('messages.invalidConfigFile') || 'Invalid config file');
+                return;
+            }
+            showAlert(t('messages.configImported') || 'Config imported — review and generate your link');
         };
 
         const generateLink = async () => {
@@ -3401,7 +3440,7 @@
 
             try {
                 if (state.passwordRequired) {
-                    const res = await fetch('/config/verify-password', {
+                    const res = await fetch('/config/password/verify', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ password: addonPassword })
@@ -3448,66 +3487,7 @@
                     return;
                 }
 
-                const selectedLanguages = (els.languageSelect.value || []).map(lang => lang.replace(/_/g, ' '));
-
-                const config = {
-                    debrid_services: debridServices.map(s => {
-                        const clean = { service: s.service, api_key: s.api_key };
-                        if (s.hosts) clean.hosts = s.hosts;
-                        if (s.sources) clean.sources = s.sources;
-                        if (s.enable_nzb !== undefined) clean.enable_nzb = s.enable_nzb;
-                        if (s.enable_full_season !== undefined) clean.enable_full_season = s.enable_full_season;
-                        return clean;
-                    }),
-                    tmdb_api_token: tmdbToken,
-                    languages: selectedLanguages,
-                    resolutions: els.resolutionSelect.value || [],
-                    max_results_per_resolution: parseInt(els.maxResults.value) || 0,
-                    max_size_gb: parseFloat(els.maxSize.value) || 0,
-                    stream_request_timeout: parseInt(els.timeout.value) || 20,
-                    show_only_cached: els.showOnlyCached.checked,
-                    deduplicate_results: els.deduplicateResults.checked,
-                    recheck_hoster_status: els.recheckHosterStatus.checked,
-                    early_stop: els.earlyStop.checked,
-                    early_stop_min_streams: parseInt(els.earlyStopMinStreams.value) || 0,
-                    early_stop_min_hosts: parseInt(els.earlyStopMinHosts.value) || 0,
-                    early_stop_sources: els.earlyStopSources.value || [],
-                    early_stop_hosts: els.earlyStopHosts.value || [],
-                    early_stop_resolutions: els.earlyStopResolutions.value || [],
-                    early_stop_include_nzb: els.earlyStopIncludeNzb.checked,
-                    resilient_enabled: els.resilientPlayback.checked,
-                    resilient_mode: els.resilientMode.value || 'sequential',
-                    resilient_max_fallbacks: parseInt(els.resilientMaxFallbacks.value) || 3,
-                    resilient_max_delay: parseInt(els.resilientMaxDelay.value) || 0,
-                    resilient_same_resolution: els.resilientSameResolution.checked,
-                    resilient_same_language: els.resilientSameLanguage.checked,
-                    resilient_same_quality: els.resilientSameQuality.checked,
-                    resilient_same_host: els.resilientSameHost.checked,
-                    resilient_same_source: els.resilientSameSource.checked,
-                    resilient_same_debrid_only: els.resilientSameDebridOnly.checked,
-                    resilient_allow_uncached: els.resilientAllowUncached.checked,
-                    source_content_types: els.sourceContentTypes.checked,
-                    source_content_types_config: (() => {
-                        const sctConfig = {};
-                        els.sourceContentTypesList.querySelectorAll('.source-content-type-row').forEach(row => {
-                            const sourceName = row.getAttribute('data-source');
-                            const types = [];
-                            row.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                                if (cb.checked) types.push(cb.getAttribute('data-content-type'));
-                            });
-                            sctConfig[sourceName] = types;
-                        });
-                        return sctConfig;
-                    })(),
-                    sort_order: [...els.sortOrderList.querySelectorAll('.sort-order-item')].map(item => item.getAttribute('data-sort-key')),
-                    prioritize_vff_multi: els.prioritizeVffMulti.checked,
-                    stream_type_preference: els.streamTypePreference.value,
-                    excluded_keywords: state.excludedKeywords,
-                    preferred_keywords: state.preferredKeywords,
-                    nzbdav_url: nzbdavUrl,
-                    webdav_user: webdavUser,
-                    webdav_password: webdavPassword
-                };
+                const config = buildUserConfig();
 
                 let url;
 
@@ -3763,28 +3743,9 @@
 
             els.addBtn.addEventListener('click', handleAddTag);
 
-            const handleAddPreferredTag = () => {
-                addPreferredTag(els.preferredInput.value);
-                els.preferredInput.value = '';
-            };
-
-            els.preferredInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddPreferredTag();
-                }
-            });
-
-            els.addPreferredBtn.addEventListener('click', handleAddPreferredTag);
-
             els.cachedToggle.addEventListener('click', () => {
                 els.showOnlyCached.checked = !els.showOnlyCached.checked;
                 els.cachedToggleBtn.classList.toggle('active', els.showOnlyCached.checked);
-            });
-
-            els.prioritizeVffMultiToggle.addEventListener('click', () => {
-                els.prioritizeVffMulti.checked = !els.prioritizeVffMulti.checked;
-                els.prioritizeVffMultiToggleBtn.classList.toggle('active', els.prioritizeVffMulti.checked);
             });
 
             els.deduplicateToggle.addEventListener('click', () => {
@@ -3816,39 +3777,11 @@
 
             els.resilientMode.addEventListener('sl-change', updateResilientMode);
 
-            els.resilientSameResolutionToggle.addEventListener('click', () => {
-                els.resilientSameResolution.checked = !els.resilientSameResolution.checked;
-                els.resilientSameResolutionToggleBtn.classList.toggle('active', els.resilientSameResolution.checked);
-            });
-
-            els.resilientSameLanguageToggle.addEventListener('click', () => {
-                els.resilientSameLanguage.checked = !els.resilientSameLanguage.checked;
-                els.resilientSameLanguageToggleBtn.classList.toggle('active', els.resilientSameLanguage.checked);
-            });
-
-            els.resilientSameQualityToggle.addEventListener('click', () => {
-                els.resilientSameQuality.checked = !els.resilientSameQuality.checked;
-                els.resilientSameQualityToggleBtn.classList.toggle('active', els.resilientSameQuality.checked);
-            });
-
-            els.resilientSameHostToggle.addEventListener('click', () => {
-                els.resilientSameHost.checked = !els.resilientSameHost.checked;
-                els.resilientSameHostToggleBtn.classList.toggle('active', els.resilientSameHost.checked);
-            });
-
-            els.resilientSameSourceToggle.addEventListener('click', () => {
-                els.resilientSameSource.checked = !els.resilientSameSource.checked;
-                els.resilientSameSourceToggleBtn.classList.toggle('active', els.resilientSameSource.checked);
-            });
-
-            els.resilientSameDebridOnlyToggle.addEventListener('click', () => {
-                els.resilientSameDebridOnly.checked = !els.resilientSameDebridOnly.checked;
-                els.resilientSameDebridOnlyToggleBtn.classList.toggle('active', els.resilientSameDebridOnly.checked);
-            });
-
-            els.resilientAllowUncachedToggle.addEventListener('click', () => {
-                els.resilientAllowUncached.checked = !els.resilientAllowUncached.checked;
-                els.resilientAllowUncachedToggleBtn.classList.toggle('active', els.resilientAllowUncached.checked);
+            ['resilientSameResolution', 'resilientSameLanguage', 'resilientSameQuality', 'resilientSameHost', 'resilientSameSource', 'resilientSameDebridOnly', 'resilientAllowUncached'].forEach(base => {
+                els[base + 'Toggle'].addEventListener('click', () => {
+                    els[base].checked = !els[base].checked;
+                    els[base + 'ToggleBtn'].classList.toggle('active', els[base].checked);
+                });
             });
 
             els.sourceContentTypesToggle.addEventListener('click', () => {
@@ -3981,6 +3914,13 @@
             initFirstServiceEntry();
 
             els.generateBtn.addEventListener('click', generateLink);
+
+            els.exportConfigBtn.addEventListener('click', exportUserConfig);
+            els.importConfigBtn.addEventListener('click', () => els.importConfigFile.click());
+            els.importConfigFile.addEventListener('change', (e) => {
+                importUserConfig(e.target.files[0]);
+                e.target.value = '';
+            });
             els.copyBtn.addEventListener('click', copyLink);
             els.copyUuidBtn.addEventListener('click', copyUuid);
             els.openBtn.addEventListener('click', openStremio);
@@ -4114,7 +4054,17 @@
             }
         };
 
+        // Champs propres a Wacustom, absents de l'interface upstream 3.8.2 :
+        // sans les memoriser ici, chaque sauvegarde depuis la nouvelle page les
+        // effacerait silencieusement de la config utilisateur (le backend les
+        // exploite toujours, cf. services/stream.py).
+        const wacustomOnlyFields = {};
+        const WACUSTOM_ONLY_KEYS = ['stream_type_preference', 'prioritize_vff_multi', 'preferred_keywords'];
+
         const applyConfigToForm = (config) => {
+            WACUSTOM_ONLY_KEYS.forEach(k => {
+                if (config[k] !== undefined) wacustomOnlyFields[k] = config[k];
+            });
             let debridServices = [];
             if (config.debrid_services && Array.isArray(config.debrid_services)) {
                 debridServices = config.debrid_services;
@@ -4126,17 +4076,22 @@
             }
 
             if (debridServices.length > 0) {
+                const prevServices = getDebridServices();
+                const prevKeyByService = {};
+                prevServices.forEach(s => { if (s.api_key) prevKeyByService[s.service] = s.api_key; });
+
                 clearDebridServices();
 
                 debridServices.forEach((serviceEntry) => {
                     const nzbdavUrlValue = serviceEntry.service === 'nzbdav' ? (config.nzbdav_url || '') : '';
                     const webdavUserValue = serviceEntry.service === 'nzbdav' ? (config.webdav_user || '') : '';
-                    const webdavPasswordValue = serviceEntry.service === 'nzbdav' ? (config.webdav_password || '') : '';
+                    const webdavPasswordValue = serviceEntry.service === 'nzbdav' ? (config.webdav_password || prevServices.webdav_password || '') : '';
+                    const apiKeyValue = serviceEntry.api_key || prevKeyByService[serviceEntry.service] || '';
                     const enableNzb = serviceEntry.enable_nzb || false;
                     const enableFullSeason = serviceEntry.enable_full_season || false;
                     addDebridServiceEntry(
                         serviceEntry.service,
-                        serviceEntry.api_key,
+                        apiKeyValue,
                         serviceEntry.hosts || [],
                         serviceEntry.sources || [],
                         nzbdavUrlValue,
@@ -4152,60 +4107,61 @@
             }
 
             if (config.tmdb_api_token) els.tmdbToken.value = config.tmdb_api_token;
-            if (config.timeout) els.timeout.value = config.timeout;
-            if (config.stream_request_timeout) els.timeout.value = config.stream_request_timeout;
-            if (config.max_results_per_resolution) els.maxResults.value = config.max_results_per_resolution;
-            if (config.max_size_gb) els.maxSize.value = config.max_size_gb;
-            if (config.show_only_cached) {
-                els.showOnlyCached.checked = true;
-                els.cachedToggleBtn.classList.add('active');
+            if (config.timeout !== undefined) els.timeout.value = config.timeout;
+            if (config.stream_request_timeout !== undefined) els.timeout.value = config.stream_request_timeout;
+            if (config.max_results_per_resolution !== undefined) els.maxResults.value = config.max_results_per_resolution;
+            if (config.max_size_gb !== undefined) els.maxSize.value = config.max_size_gb;
+
+            if (config.show_only_cached !== undefined) {
+                els.showOnlyCached.checked = !!config.show_only_cached;
+                els.cachedToggleBtn.classList.toggle('active', !!config.show_only_cached);
             }
 
-            if (config.deduplicate_results) {
-                els.deduplicateResults.checked = true;
-                els.deduplicateToggleBtn.classList.add('active');
+            if (config.deduplicate_results !== undefined) {
+                els.deduplicateResults.checked = !!config.deduplicate_results;
+                els.deduplicateToggleBtn.classList.toggle('active', !!config.deduplicate_results);
             }
 
-            if (config.recheck_hoster_status) {
-                els.recheckHosterStatus.checked = true;
-                els.recheckHosterStatusToggleBtn.classList.add('active');
+            if (config.recheck_hoster_status !== undefined) {
+                els.recheckHosterStatus.checked = !!config.recheck_hoster_status;
+                els.recheckHosterStatusToggleBtn.classList.toggle('active', !!config.recheck_hoster_status);
             }
 
-            if (config.early_stop) {
-                els.earlyStop.checked = true;
-                els.earlyStopToggleBtn.classList.add('active');
-                els.earlyStopOptions.style.display = 'block';
+            if (config.early_stop !== undefined) {
+                els.earlyStop.checked = !!config.early_stop;
+                els.earlyStopToggleBtn.classList.toggle('active', !!config.early_stop);
+                els.earlyStopOptions.style.display = config.early_stop ? 'block' : 'none';
             }
 
-            if (config.early_stop_min_streams) {
+            if (config.early_stop_min_streams !== undefined) {
                 els.earlyStopMinStreams.value = config.early_stop_min_streams;
             }
 
-            if (config.early_stop_min_hosts) {
+            if (config.early_stop_min_hosts !== undefined) {
                 els.earlyStopMinHosts.value = config.early_stop_min_hosts;
             }
 
-            if (config.early_stop_sources && config.early_stop_sources.length > 0) {
+            if (Array.isArray(config.early_stop_sources)) {
                 els.earlyStopSources.value = config.early_stop_sources;
             }
 
-            if (config.early_stop_hosts && config.early_stop_hosts.length > 0) {
+            if (Array.isArray(config.early_stop_hosts)) {
                 els.earlyStopHosts.value = config.early_stop_hosts;
             }
 
-            if (config.early_stop_resolutions && config.early_stop_resolutions.length > 0) {
+            if (Array.isArray(config.early_stop_resolutions)) {
                 els.earlyStopResolutions.value = config.early_stop_resolutions;
             }
 
-            if (config.early_stop_include_nzb) {
-                els.earlyStopIncludeNzb.checked = true;
-                els.earlyStopIncludeNzbToggleBtn.classList.add('active');
+            if (config.early_stop_include_nzb !== undefined) {
+                els.earlyStopIncludeNzb.checked = !!config.early_stop_include_nzb;
+                els.earlyStopIncludeNzbToggleBtn.classList.toggle('active', !!config.early_stop_include_nzb);
             }
 
-            if (config.resilient_enabled) {
-                els.resilientPlayback.checked = true;
-                els.resilientPlaybackToggleBtn.classList.add('active');
-                els.resilientPlaybackOptions.style.display = 'block';
+            if (config.resilient_enabled !== undefined) {
+                els.resilientPlayback.checked = !!config.resilient_enabled;
+                els.resilientPlaybackToggleBtn.classList.toggle('active', !!config.resilient_enabled);
+                els.resilientPlaybackOptions.style.display = config.resilient_enabled ? 'block' : 'none';
             }
 
             if (config.resilient_mode) {
@@ -4220,69 +4176,43 @@
                 els.resilientMaxDelay.value = config.resilient_max_delay;
             }
 
-            if (config.resilient_same_resolution === false) {
-                els.resilientSameResolution.checked = false;
-                els.resilientSameResolutionToggleBtn.classList.remove('active');
+            [
+                ['resilient_same_resolution', 'resilientSameResolution'],
+                ['resilient_same_language', 'resilientSameLanguage'],
+                ['resilient_same_quality', 'resilientSameQuality'],
+                ['resilient_same_host', 'resilientSameHost'],
+                ['resilient_same_source', 'resilientSameSource'],
+                ['resilient_same_debrid_only', 'resilientSameDebridOnly'],
+                ['resilient_allow_uncached', 'resilientAllowUncached']
+            ].forEach(([key, base]) => {
+                if (typeof config[key] === 'boolean') {
+                    els[base].checked = config[key];
+                    els[base + 'ToggleBtn'].classList.toggle('active', config[key]);
+                }
+            });
+
+            if (config.source_content_types !== undefined) {
+                els.sourceContentTypes.checked = !!config.source_content_types;
+                els.sourceContentTypesToggleBtn.classList.toggle('active', !!config.source_content_types);
+                els.sourceContentTypesOptions.style.display = config.source_content_types ? 'block' : 'none';
             }
 
-            if (config.resilient_same_language === false) {
-                els.resilientSameLanguage.checked = false;
-                els.resilientSameLanguageToggleBtn.classList.remove('active');
-            }
-
-            if (config.resilient_same_quality) {
-                els.resilientSameQuality.checked = true;
-                els.resilientSameQualityToggleBtn.classList.add('active');
-            }
-
-            if (config.resilient_same_host) {
-                els.resilientSameHost.checked = true;
-                els.resilientSameHostToggleBtn.classList.add('active');
-            }
-
-            if (config.resilient_same_source) {
-                els.resilientSameSource.checked = true;
-                els.resilientSameSourceToggleBtn.classList.add('active');
-            }
-
-            if (config.resilient_same_debrid_only === false) {
-                els.resilientSameDebridOnly.checked = false;
-                els.resilientSameDebridOnlyToggleBtn.classList.remove('active');
-            }
-
-            if (config.resilient_allow_uncached) {
-                els.resilientAllowUncached.checked = true;
-                els.resilientAllowUncachedToggleBtn.classList.add('active');
-            }
-
-            updateResilientMode();
-
-            if (config.source_content_types) {
-                els.sourceContentTypes.checked = true;
-                els.sourceContentTypesToggleBtn.classList.add('active');
-                els.sourceContentTypesOptions.style.display = 'block';
-            }
-
-            if (config.languages && config.languages.length > 0) {
-                const encodedLanguages = config.languages.map(lang => lang.replace(/\s+/g, '_'));
+            if (Array.isArray(config.languages)) {
+                const encodedLanguages = config.languages.map(lang => String(lang).replace(/\s+/g, '_'));
                 els.languageSelect.value = encodedLanguages;
             }
 
-            if (config.resolutions && config.resolutions.length > 0) {
+            if (Array.isArray(config.resolutions)) {
                 els.resolutionSelect.value = config.resolutions;
             }
 
-            if (config.excluded_keywords && Array.isArray(config.excluded_keywords)) {
+            if (Array.isArray(config.excluded_keywords)) {
                 state.excludedKeywords = [...config.excluded_keywords];
                 renderTags();
             }
 
-            if (config.preferred_keywords && Array.isArray(config.preferred_keywords)) {
-                state.preferredKeywords = [...config.preferred_keywords];
-                renderPreferredTags();
-            }
-
             updateEarlyStopOptions();
+            updateResilientMode();
             updateSourceContentTypesOptions();
 
             if (config.source_content_types_config) {
@@ -4298,17 +4228,7 @@
                 });
             }
 
-            if (config.prioritize_vff_multi) {
-                els.prioritizeVffMulti.checked = true;
-                if (els.prioritizeVffMultiToggleBtn) {
-                    els.prioritizeVffMultiToggleBtn.classList.add('active');
-                }
-            }
-            if (config.stream_type_preference) {
-                els.streamTypePreference.value = config.stream_type_preference;
-            }
-
-            renderSortOrderList(config.sort_order || null);
+            renderSortOrderList(Array.isArray(config.sort_order) ? config.sort_order : null);
         };
 
         // ===========================
@@ -4364,7 +4284,11 @@
             if (els.earlyStopSources) els.earlyStopSources.label = trans.labels.earlyStopSources;
             if (els.earlyStopHosts) els.earlyStopHosts.label = trans.labels.earlyStopHosts;
             if (els.earlyStopResolutions) els.earlyStopResolutions.label = trans.labels.earlyStopResolutions;
-            if (els.streamTypePreference) els.streamTypePreference.label = trans.labels.streamTypePreference;
+            if (els.resilientMode) els.resilientMode.label = trans.labels.resilientMode;
+            if (els.resilientModeSeqOption) els.resilientModeSeqOption.textContent = trans.labels.resilientModeSequential;
+            if (els.resilientModeRaceOption) els.resilientModeRaceOption.textContent = trans.labels.resilientModeParallel;
+            if (els.resilientMaxFallbacks) els.resilientMaxFallbacks.label = trans.labels.resilientMaxFallbacks;
+            if (els.resilientMaxDelay) els.resilientMaxDelay.label = trans.labels.resilientMaxDelay;
 
             const entries = els.debridServicesContainer?.querySelectorAll('.debrid-service-entry');
             if (entries) {
@@ -4450,23 +4374,13 @@
             }
 
             updateEarlyStopOptions();
-            updateSourceContentTypesOptions();
             updateResilientMode();
+            updateSourceContentTypesOptions();
             renderSortOrderList(null);
-
-            if (els.prioritizeVffMulti) {
-                els.prioritizeVffMulti.checked = false;
-                if (els.prioritizeVffMultiToggleBtn) {
-                    els.prioritizeVffMultiToggleBtn.classList.remove('active');
-                }
-            }
-            if (els.streamTypePreference) {
-                els.streamTypePreference.value = 'ddl_first';
-            }
 
             loadExistingConfig();
 
-            const savedLang = localStorage.getItem('wastream_language') || 'fr';
+            const savedLang = localStorage.getItem('wastream_language') || 'en';
             switchLanguage(savedLang);
         };
 

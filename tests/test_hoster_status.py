@@ -1,5 +1,5 @@
 """Tests pour la logique synchrone de wastream/services/hoster_status.py
-(mark_hoster_down, is_hoster_up, garde de schedule_recheck).
+(mark_hoster_down, is_hoster_up, garde de schedule_alldebrid_hoster_recheck).
 
 Hors perimetre volontairement : _check_torbox_hosters / _check_alldebrid_hosters
 / _recheck_alldebrid_hoster font de vrais appels HTTP -> necessiteraient un
@@ -141,19 +141,19 @@ def test_is_hoster_up_torbox_no_match_defaults_true():
 
 
 # ===========================
-# schedule_recheck — garde anti-doublon
+# schedule_alldebrid_hoster_recheck — garde anti-doublon
 # ===========================
 def test_schedule_recheck_empty_hoster_name_is_noop(monkeypatch):
     called = []
     monkeypatch.setattr(hs, "lancer_tache", lambda coro: called.append(coro))
-    hs.schedule_recheck("http://example.com/link", "apikey", "")
+    hs.schedule_alldebrid_hoster_recheck("http://example.com/link", "apikey", "")
     assert called == []
 
 
 def test_schedule_recheck_marks_in_progress(monkeypatch):
     called = []
     monkeypatch.setattr(hs, "lancer_tache", lambda coro: called.append(coro))
-    hs.schedule_recheck("http://example.com/link", "apikey", "RapidGator")
+    hs.schedule_alldebrid_hoster_recheck("http://example.com/link", "apikey", "RapidGator")
     assert "rapidgator" in hs._recheck_in_progress
     assert len(called) == 1
     called[0].close()  # evite un warning "coroutine was never awaited"
@@ -163,5 +163,5 @@ def test_schedule_recheck_skips_if_already_in_progress(monkeypatch):
     called = []
     monkeypatch.setattr(hs, "lancer_tache", lambda coro: called.append(coro))
     hs._recheck_in_progress.add("rapidgator")
-    hs.schedule_recheck("http://example.com/link", "apikey", "rapidgator")
+    hs.schedule_alldebrid_hoster_recheck("http://example.com/link", "apikey", "rapidgator")
     assert called == []

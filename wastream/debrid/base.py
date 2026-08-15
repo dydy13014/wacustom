@@ -16,7 +16,6 @@ class BaseDebridService(ABC):
 
     @abstractmethod
     async def check_cache_and_enrich(self, results: List[Dict], api_key: str, config: Dict, timeout_remaining: float = 0, user_season: Optional[str] = None, user_episode: Optional[str] = None, user_hosts: Optional[List[str]] = None) -> List[Dict]:
-        """Check which links are cached on the debrid service and enrich results with cache status and metadata."""
         pass
 
     @abstractmethod
@@ -40,10 +39,10 @@ class BaseDebridService(ABC):
 
         http_error_count += 1
         if http_error_count >= max_retries:
-            debrid_logger.error(f"HTTP {response.status_code} - Max retries")
+            debrid_logger.error(f"[{service_name}] HTTP {response.status_code} - Max retries")
             return (False, http_error_count)
 
-        debrid_logger.debug(f"HTTP {response.status_code} - Retry {http_error_count}/{max_retries}")
+        debrid_logger.debug(f"[{service_name}] HTTP {response.status_code} - Retry {http_error_count}/{max_retries}")
         await sleep(retry_delay)
         return (True, http_error_count)
 

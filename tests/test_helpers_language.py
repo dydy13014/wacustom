@@ -1,11 +1,13 @@
-"""Regression tests pour la collision de codes langue ISO courts (helpers.py).
+"""Regression tests pour la collision de codes langue ISO courts (languages.py).
 
 Bug reel du 2026-08-01 : un titre romanise japonais comme "Kimi No Na Wa"
 matchait "no" (Norwegian) puis "wa" (Walloon) une fois "no" ecarte, alors
 qu'aucune des deux langues n'a de rapport avec le titre. Voir le commentaire
-au-dessus de _is_plausible_language_token dans wastream/utils/helpers.py.
+au-dessus de _is_plausible_language_token dans wastream/utils/languages.py
+(deplace depuis helpers.py lors du rebase 3.8.2 : upstream y a centralise
+l'extraction de langue, le garde-fou profite ainsi a toutes les sources).
 """
-from wastream.utils.helpers import _is_plausible_language_token, extract_language_from_tokens
+from wastream.utils.languages import _is_plausible_language_token, extract_language_from_tokens
 
 
 def test_short_syllables_from_romanized_japanese_titles_are_rejected():

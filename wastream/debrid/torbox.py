@@ -40,10 +40,10 @@ class TorBoxService(BaseDebridService):
 
         http_error_count += 1
         if http_error_count > settings.DEBRID_HTTP_ERROR_MAX_RETRIES:
-            debrid_logger.error(f"[Torbox] COOLDOWN_LIMIT: Max ({settings.DEBRID_HTTP_ERROR_MAX_RETRIES})")
+            debrid_logger.error(f"[TorBox] COOLDOWN_LIMIT: Max ({settings.DEBRID_HTTP_ERROR_MAX_RETRIES})")
             return ("RETRY_ERROR", http_error_count)
 
-        debrid_logger.debug(f"[Torbox] COOLDOWN_LIMIT: Retry {http_error_count}/{settings.DEBRID_HTTP_ERROR_MAX_RETRIES}")
+        debrid_logger.debug(f"[TorBox] COOLDOWN_LIMIT: Retry {http_error_count}/{settings.DEBRID_HTTP_ERROR_MAX_RETRIES}")
         await sleep(settings.DEBRID_HTTP_ERROR_RETRY_DELAY)
         return ("RETRY", http_error_count)
 
@@ -54,16 +54,16 @@ class TorBoxService(BaseDebridService):
         attempt: int
     ) -> Optional[str]:
         if error_code == "LINK_OFFLINE":
-            debrid_logger.debug(f"[Torbox] {error_code}")
+            debrid_logger.debug(f"[TorBox] {error_code}")
             return "LINK_DOWN"
 
         if error_code in RETRY_ERRORS:
-            debrid_logger.error(f"[Torbox] {error_code}")
+            debrid_logger.error(f"[TorBox] {error_code}")
             if attempt >= settings.DEBRID_MAX_RETRIES - 1:
                 return "RETRY_ERROR"
             return "RETRY"
 
-        debrid_logger.error(f"[Torbox] Fatal: {error_code}")
+        debrid_logger.error(f"[TorBox] Fatal: {error_code}")
         return "FATAL_ERROR"
 
     def _calculate_hash(self, url: str) -> str:
@@ -100,7 +100,7 @@ class TorBoxService(BaseDebridService):
                 )
 
                 should_retry, http_error_count = await self._handle_http_retry_error(
-                    response, http_error_count, "TORBOX",
+                    response, http_error_count, "TorBox",
                     settings.DEBRID_HTTP_ERROR_RETRY_DELAY, settings.DEBRID_HTTP_ERROR_MAX_RETRIES
                 )
                 if should_retry:
@@ -446,7 +446,7 @@ class TorBoxService(BaseDebridService):
                 )
 
                 should_retry, http_error_count = await self._handle_http_retry_error(
-                    create_response, http_error_count, "TORBOX",
+                    create_response, http_error_count, "TorBox",
                     settings.DEBRID_HTTP_ERROR_RETRY_DELAY, settings.DEBRID_HTTP_ERROR_MAX_RETRIES
                 )
                 if should_retry:
@@ -655,7 +655,7 @@ class TorBoxService(BaseDebridService):
                 )
 
                 should_retry, http_error_count = await self._handle_http_retry_error(
-                    request_response, http_error_count, "TORBOX",
+                    request_response, http_error_count, "TorBox",
                     settings.DEBRID_HTTP_ERROR_RETRY_DELAY, settings.DEBRID_HTTP_ERROR_MAX_RETRIES
                 )
                 if should_retry:

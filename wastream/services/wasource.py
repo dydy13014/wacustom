@@ -7,6 +7,7 @@ from wastream.config.settings import settings
 from wastream.utils.database import database
 from wastream.utils.logger import database_logger
 from wastream.utils.tasks import lancer_tache
+from wastream.utils.urls import canonicalize_url
 
 MAX_WASOURCE_LOCKS = 10000
 
@@ -31,11 +32,11 @@ async def _get_wasource_lock(imdb_id: str, season: Optional[int], episode: Optio
 
 async def _increment_wasource_link_count(count: int):
     try:
-        from wastream.utils.database import get_cache_stats, save_cache_stats
+        from wastream.utils.database import get_cache_stats, set_cache_stats
         stats = await get_cache_stats()
         if stats:
             stats["wasource_total_links"] = stats.get("wasource_total_links", 0) + count
-            await save_cache_stats(stats)
+            await set_cache_stats(stats)
     except Exception as e:
         # Ces compteurs sont purement informatifs : un echec ne doit jamais faire
         # echouer l'operation appelante, d'ou le fait de ne pas relancer. Mais
@@ -47,22 +48,22 @@ async def _increment_wasource_link_count(count: int):
 
 async def _decrement_wasource_link_count(count: int):
     try:
-        from wastream.utils.database import get_cache_stats, save_cache_stats
+        from wastream.utils.database import get_cache_stats, set_cache_stats
         stats = await get_cache_stats()
         if stats:
             stats["wasource_total_links"] = max(0, stats.get("wasource_total_links", 0) - count)
-            await save_cache_stats(stats)
+            await set_cache_stats(stats)
     except Exception as e:
         database_logger.debug(f"[WASource] Compteur (-{count}) non mis a jour: {type(e).__name__}: {e}")
 
 
 async def _reset_wasource_link_count():
     try:
-        from wastream.utils.database import get_cache_stats, save_cache_stats
+        from wastream.utils.database import get_cache_stats, set_cache_stats
         stats = await get_cache_stats()
         if stats:
             stats["wasource_total_links"] = 0
-            await save_cache_stats(stats)
+            await set_cache_stats(stats)
     except Exception as e:
         database_logger.debug(f"[WASource] Remise a zero du compteur echouee: {type(e).__name__}: {e}")
 
@@ -245,8 +246,8 @@ async def add_wasource_links_bulk(
                     existing_urls = set()
 
                 for url_entry in urls:
-                    url = url_entry.get("url", "").strip()
-                    host = url_entry.get("host", "").strip()
+                    url = canonicalize_url((url_entry.get("url") or "").strip())
+                    host = (url_entry.get("host") or "").strip()
 
                     if not url or not url.startswith("http"):
                         errors.append(f"Invalid URL: {url[:50]}...")
@@ -283,8 +284,8 @@ async def add_wasource_links_bulk(
                 }
 
                 for url_entry in urls:
-                    url = url_entry.get("url", "").strip()
-                    host = url_entry.get("host", "").strip()
+                    url = canonicalize_url((url_entry.get("url") or "").strip())
+                    host = (url_entry.get("host") or "").strip()
 
                     if not url or not url.startswith("http"):
                         errors.append(f"Invalid URL: {url[:50]}...")
@@ -355,6 +356,9 @@ async def add_wasource_links_bulk(
     }
 
 
+# ===========================
+# Add WASource Content (From Remote)
+# ===========================
 async def add_wasource_links_from_remote(
     imdb_id: str,
     title: str,
@@ -405,8 +409,8 @@ async def add_wasource_links_from_remote(
                     existing_urls = {u.get("url") for u in release.get("urls", [])}
 
                     for url_entry in urls:
-                        url = url_entry.get("url", "").strip()
-                        host = url_entry.get("host", "").strip()
+                        url = canonicalize_url((url_entry.get("url") or "").strip())
+                        host = (url_entry.get("host") or "").strip()
 
                         if not url or not url.startswith("http"):
                             errors.append(f"Invalid URL: {url[:50]}...")
@@ -444,8 +448,8 @@ async def add_wasource_links_from_remote(
                     }
 
                     for url_entry in urls:
-                        url = url_entry.get("url", "").strip()
-                        host = url_entry.get("host", "").strip()
+                        url = canonicalize_url((url_entry.get("url") or "").strip())
+                        host = (url_entry.get("host") or "").strip()
 
                         if not url or not url.startswith("http"):
                             errors.append(f"Invalid URL: {url[:50]}...")
@@ -481,8 +485,8 @@ async def add_wasource_links_from_remote(
                 }
 
                 for url_entry in urls:
-                    url = url_entry.get("url", "").strip()
-                    host = url_entry.get("host", "").strip()
+                    url = canonicalize_url((url_entry.get("url") or "").strip())
+                    host = (url_entry.get("host") or "").strip()
 
                     if not url or not url.startswith("http"):
                         errors.append(f"Invalid URL: {url[:50]}...")
@@ -549,6 +553,7 @@ async def delete_wasource_links(release_ids: List[str]) -> int:
                 releases_by_content[content_id].append(release_idx)
 
         deleted = 0
+        deleted_urls = 0
         for content_id, release_indices in releases_by_content.items():
             row = await database.fetch_one(
                 "SELECT data FROM wasource WHERE id = :id",
@@ -572,8 +577,9 @@ async def delete_wasource_links(release_ids: List[str]) -> int:
             indices_to_delete = sorted(set(release_indices), reverse=True)
             for idx in indices_to_delete:
                 if 0 <= idx < len(releases):
-                    releases.pop(idx)
+                    removed = releases.pop(idx)
                     deleted += 1
+                    deleted_urls += len(removed.get("urls", []))
 
             if not releases:
                 await database.execute(
@@ -586,6 +592,9 @@ async def delete_wasource_links(release_ids: List[str]) -> int:
                     "UPDATE wasource SET data = :data, updated_at = :updated_at WHERE id = :id",
                     {"id": content_id, "data": json.dumps(data), "updated_at": int(time.time())}
                 )
+
+        if deleted_urls:
+            asyncio.create_task(_decrement_wasource_link_count(deleted_urls))
 
         return deleted
     except Exception as e:
@@ -623,92 +632,133 @@ async def update_wasource_content(
     size: Optional[int] = None,
     season: Optional[int] = None,
     episode: Optional[int] = None,
-    urls: Optional[List[Dict[str, str]]] = None
-) -> bool:
+    urls: Optional[List[Dict[str, str]]] = None,
+    release_idx: Optional[int] = None,
+    is_movie: Optional[bool] = None
+) -> str:
     try:
+        if urls is not None:
+            urls = [{**u, "url": canonicalize_url(u.get("url", ""))} for u in urls]
+
         existing = await database.fetch_one(
-            "SELECT * FROM wasource WHERE id = :id",
+            "SELECT imdb_id, season, episode FROM wasource WHERE id = :id",
             {"id": content_id}
         )
         if not existing:
-            return False
+            return "not_found"
 
-        data = json.loads(existing["data"])
-        releases = data.get("releases", [])
+        lock = await _get_wasource_lock(existing["imdb_id"], existing["season"], existing["episode"])
+        url_delta = 0
 
-        if not releases and data.get("urls"):
-            releases = [{
-                "quality": data.get("quality"),
-                "language": data.get("language"),
-                "release_name": data.get("release_name"),
-                "size": data.get("size"),
-                "urls": data.get("urls", [])
-            }]
+        async with lock:
+            existing = await database.fetch_one(
+                "SELECT * FROM wasource WHERE id = :id",
+                {"id": content_id}
+            )
+            if not existing:
+                return "not_found"
 
-        if releases:
-            release = releases[0]
-            if release_name is not None:
-                release["release_name"] = release_name
-            if quality is not None:
-                release["quality"] = quality
-            if language is not None:
-                release["language"] = language
-            if size is not None:
-                release["size"] = size
-            if urls is not None:
-                release["urls"] = urls
-        else:
-            releases = [{
-                "quality": quality,
-                "language": language,
-                "release_name": release_name,
-                "size": size,
-                "urls": urls or []
-            }]
+            new_imdb_id = imdb_id if imdb_id is not None else existing["imdb_id"]
+            new_tmdb_id = tmdb_id if tmdb_id is not None else existing["tmdb_id"]
+            new_title = title if title is not None else existing["title"]
+            new_year = year if year is not None else existing["year"]
+            if is_movie:
+                new_season = None
+                new_episode = None
+            else:
+                new_season = season if season is not None else existing["season"]
+                new_episode = episode if episode is not None else existing["episode"]
 
-        data["releases"] = releases
-        data.pop("quality", None)
-        data.pop("language", None)
-        data.pop("release_name", None)
-        data.pop("size", None)
-        data.pop("urls", None)
+            if new_imdb_id != existing["imdb_id"] or new_season != existing["season"] or new_episode != existing["episode"]:
+                conflict = await database.fetch_one(
+                    """SELECT id FROM wasource
+                       WHERE imdb_id = :imdb_id
+                       AND COALESCE(season, -1) = COALESCE(:season, -1)
+                       AND COALESCE(episode, -1) = COALESCE(:episode, -1)
+                       AND id != :id""",
+                    {"imdb_id": new_imdb_id, "season": new_season, "episode": new_episode, "id": content_id}
+                )
+                if conflict:
+                    return "conflict"
 
-        new_imdb_id = imdb_id if imdb_id is not None else existing["imdb_id"]
-        new_tmdb_id = tmdb_id if tmdb_id is not None else existing["tmdb_id"]
-        new_title = title if title is not None else existing["title"]
-        new_year = year if year is not None else existing["year"]
-        new_season = season if season is not None else existing["season"]
-        new_episode = episode if episode is not None else existing["episode"]
+            data = json.loads(existing["data"])
+            releases = data.get("releases", [])
 
-        await database.execute(
-            """UPDATE wasource SET
-               imdb_id = :imdb_id,
-               tmdb_id = :tmdb_id,
-               title = :title,
-               year = :year,
-               season = :season,
-               episode = :episode,
-               data = :data,
-               updated_at = :updated_at
-               WHERE id = :id""",
-            {
-                "id": content_id,
-                "imdb_id": new_imdb_id,
-                "tmdb_id": new_tmdb_id,
-                "title": new_title,
-                "year": new_year,
-                "season": new_season,
-                "episode": new_episode,
-                "data": json.dumps(data),
-                "updated_at": int(time.time())
-            }
-        )
+            if not releases and data.get("urls"):
+                releases = [{
+                    "quality": data.get("quality"),
+                    "language": data.get("language"),
+                    "release_name": data.get("release_name"),
+                    "size": data.get("size"),
+                    "urls": data.get("urls", [])
+                }]
 
-        return True
+            if releases:
+                if release_idx is not None and not (0 <= release_idx < len(releases)):
+                    return "release_not_found"
+                release = releases[release_idx if release_idx is not None else 0]
+                if release_name is not None:
+                    release["release_name"] = release_name
+                if quality is not None:
+                    release["quality"] = quality
+                if language is not None:
+                    release["language"] = language
+                if size is not None:
+                    release["size"] = size
+                if urls is not None:
+                    url_delta = len(urls) - len(release.get("urls", []))
+                    release["urls"] = urls
+            else:
+                releases = [{
+                    "quality": quality,
+                    "language": language,
+                    "release_name": release_name,
+                    "size": size,
+                    "urls": urls or []
+                }]
+                url_delta = len(urls or [])
+
+            data["releases"] = releases
+            data.pop("quality", None)
+            data.pop("language", None)
+            data.pop("release_name", None)
+            data.pop("size", None)
+            data.pop("urls", None)
+
+            await database.execute(
+                """UPDATE wasource SET
+                   imdb_id = :imdb_id,
+                   tmdb_id = :tmdb_id,
+                   title = :title,
+                   year = :year,
+                   season = :season,
+                   episode = :episode,
+                   data = :data,
+                   updated_at = :updated_at
+                   WHERE id = :id""",
+                {
+                    "id": content_id,
+                    "imdb_id": new_imdb_id,
+                    "tmdb_id": new_tmdb_id,
+                    "title": new_title,
+                    "year": new_year,
+                    "season": new_season,
+                    "episode": new_episode,
+                    "data": json.dumps(data),
+                    "updated_at": int(time.time())
+                }
+            )
+
+        if url_delta > 0:
+            asyncio.create_task(_increment_wasource_link_count(url_delta))
+        elif url_delta < 0:
+            asyncio.create_task(_decrement_wasource_link_count(-url_delta))
+
+        return "ok"
 
     except Exception as e:
         database_logger.error(f"[WASource] Failed to update content: {type(e).__name__}: {e}")
-        return False
+        return "error"
 
 
 # ===========================
@@ -800,7 +850,7 @@ async def get_wasource_stats() -> Dict[str, Any]:
 # ===========================
 # Get Links by IMDB (for scraper)
 # ===========================
-async def get_links_by_imdb(imdb_id: str, season: Optional[int] = None, episode: Optional[int] = None) -> List[Dict]:
+async def get_wasource_links_by_imdb(imdb_id: str, season: Optional[int] = None, episode: Optional[int] = None) -> List[Dict]:
     try:
         if season is not None and episode is not None:
             rows = await database.fetch_all(
@@ -867,7 +917,7 @@ async def get_links_by_imdb(imdb_id: str, season: Optional[int] = None, episode:
 # ===========================
 # Get Links by Title (for Kitsu)
 # ===========================
-async def get_links_by_title(title: str, year: Optional[int] = None, season: Optional[int] = None, episode: Optional[int] = None) -> List[Dict]:
+async def get_wasource_links_by_title(title: str, year: Optional[int] = None, season: Optional[int] = None, episode: Optional[int] = None) -> List[Dict]:
     try:
         search_pattern = f"%{_escape_like(title.lower())}%"
 

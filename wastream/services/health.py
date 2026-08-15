@@ -53,6 +53,7 @@ def _get_sources_config() -> Dict[str, Optional[str]]:
         "Darki-API": settings.DARKI_API_URL,
         "Movix": settings.MOVIX_API_URL,
         "Webshare": settings.WEBSHARE_URL,
+        "Zone-Telechargement": settings.ZONE_TELECHARGEMENT_URL,
         "YggReborn": settings.YGGREBORN_URL,
         "Tr4ker": settings.TR4KER_URL,
         "Torr9": settings.TORR9_URL,
@@ -61,6 +62,16 @@ def _get_sources_config() -> Dict[str, Optional[str]]:
         "Generation-Free": settings.GENERATIONFREE_URL,
         "Zilean": settings.ZILEAN_URL,
     }
+
+
+def _queue_domain_recheck(status: SourceStatus):
+    if status.status != "offline":
+        return
+    try:
+        from wastream.services.domain_sync import request_source_recheck
+        request_source_recheck(status.name)
+    except Exception as error:
+        api_logger.debug(f"Domain recheck queue skipped for {status.name}: {type(error).__name__}: {error}")
 
 
 def _mask_url(url: Optional[str]) -> Optional[str]:
@@ -156,7 +167,7 @@ async def _check_proxy() -> SourceStatus:
 # ===========================
 # System Info Functions
 # ===========================
-def _get_system_info() -> Dict[str, Any]:
+def get_system_info() -> Dict[str, Any]:
     try:
         import psutil
         process = psutil.Process(os.getpid())
@@ -173,10 +184,6 @@ def _get_system_info() -> Dict[str, Any]:
         return {"available": False}
     except Exception:
         return {"available": False}
-
-
-def get_system_info() -> Dict[str, Any]:
-    return _get_system_info()
 
 
 # ===========================
@@ -336,7 +343,7 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
         )
 
 
-async def check_all_sources(force: bool = False) -> Dict[str, Any]:
+async def check_sources_and_services(force: bool = False) -> Dict[str, Any]:
     if _health_state.checking and not force:
         return get_health_status()
 
@@ -354,6 +361,7 @@ async def check_all_sources(force: bool = False) -> Dict[str, Any]:
 
         for status in source_results:
             _health_state.sources[status.name] = status
+            _queue_domain_recheck(status)
 
         for status in service_results:
             _health_state.services[status.name] = status
@@ -397,6 +405,7 @@ async def check_sources_only() -> Dict[str, Any]:
 
         for status in source_results:
             _health_state.sources[status.name] = status
+            _queue_domain_recheck(status)
 
         _health_state.last_sources_check = time.time()
         api_logger.debug(f"Sources check completed for {len(source_results)} sources")
@@ -517,7 +526,7 @@ def get_health_status() -> Dict[str, Any]:
     offline_count = sum(1 for s in sources_list if s["status"] == "offline")
     unconfigured_count = sum(1 for s in sources_list if s["status"] == "unconfigured")
 
-    system_info = _get_system_info()
+    system_info = get_system_info()
 
     hosters_list = _build_hosters_list()
 
@@ -573,14 +582,14 @@ async def check_remote_instances():
 async def start_background_health_check():
     api_logger.info(f"Starting background health check (interval: {settings.HEALTH_CHECK_INTERVAL}s)")
 
-    await check_all_sources()
+    await check_sources_and_services()
     await check_remote_instances()
     await get_hoster_status("torbox")
 
     while True:
-        await asyncio.sleep(settings.HEALTH_CHECK_INTERVAL)
+        await asyncio.sleep(max(1, settings.HEALTH_CHECK_INTERVAL))
         try:
-            await check_all_sources()
+            await check_sources_and_services()
             await check_remote_instances()
             await get_hoster_status("torbox")
         except Exception as e:

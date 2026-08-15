@@ -1,0 +1,28 @@
+stages:
+  - build
+
+build-docker:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker run --privileged --rm tonistiigi/binfmt --install all
+    - docker context create builder-context
+    - docker buildx create --use --name multibuilder builder-context
+  script:
+    - |
+      VERSION=$(awk -F'"' '/"version":/ {print $4; exit}' wastream/config/settings.py)
+      echo "Extracted version $VERSION"
+      docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        --tag $CI_REGISTRY_IMAGE:$VERSION \
+        --tag $CI_REGISTRY_IMAGE:latest \
+        --push .
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual

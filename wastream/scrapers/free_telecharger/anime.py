@@ -9,7 +9,7 @@ from wastream.utils.logger import scraper_logger
 class AnimeScraper(BaseFreeTelecharger):
 
     async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None) -> List[Dict]:
-        scraper_logger.debug(f"[FreeTelecharger] Searching anime: '{title}' ({year})")
+        scraper_logger.debug(f"[Free-Telecharger] Searching anime: '{title}' ({year})")
         results = await self.search_content(title, year, metadata, "anime")
         return results
 

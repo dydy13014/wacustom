@@ -1,37 +1,26 @@
 import ast
 import asyncio
-import hashlib
-import math
 import re
 import time
 from typing import Any, List, Dict, Optional, Tuple
 
 from wastream.config.settings import settings
-from wastream.services.wasource import add_wasource_links_bulk
-from wastream.utils.database import database
+from wastream.services.scraper_importer import (
+    ALLDEBRID_DEFAULT_BASE_URL,
+    build_release_name,
+    parse_release_info as _parse_release_info,
+    parse_size_list,
+    process_content_entries,
+    resolve_imdb_id as _resolve_imdb_id,
+    resolve_source_url,
+)
 from wastream.utils.http_client import http_client
-from wastream.utils.languages import normalize_language
 from wastream.utils.logger import scraper_logger
-from wastream.utils.quality import extract_resolution
-from wastream.utils.urls import canonicalize_url
 
 
 # ===========================
 # Constants
 # ===========================
-ALLDEBRID_DEFAULT_BASE_URL = "https://alldebrid.com/f/"
-
-# Domain fragments used to detect a known host inside a full URL. The set of ACCEPTED hosts
-# stays driven by settings.WASOURCE_SUPPORTED_HOSTS; this only maps a host name to its domain(s).
-HOST_DOMAINS = {
-    "1fichier": ("1fichier.com",),
-    "turbobit": ("turbobit.net",),
-    "rapidgator": ("rapidgator.net",),
-    "sendcm": ("send.cm",),
-    "darkibox": ("darkibox.com",),
-    "alldebrid": ("alldebrid.com",),
-}
-
 COL_CAT = 0
 COL_TMDB = 1
 COL_TITLE = 2
@@ -45,8 +34,6 @@ SERIES_URL_PATTERN = re.compile(r"(\d+)\s*:\s*'([^']*)'")
 # Auto-discovery: a paste "code" is a bare alphanumeric token on its own line (a paste id
 # to append to the base URL). Used to tell an index page (only codes) from a content page.
 PASTE_CODE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{4,64}$")
-
-_pastebin_content_hashes: Dict[str, str] = {}
 
 _scraper_state: Dict[str, Any] = {
     "running": False,
@@ -68,59 +55,9 @@ def get_pastebin_scraper_status() -> Dict[str, Any]:
     return dict(_scraper_state)
 
 
-# ===========================
-# Release Info Extraction
-# ===========================
-def _clean_name(text: str) -> str:
-    cleaned = re.sub(r'[^\w]+', '.', text)
-    cleaned = cleaned.replace('_', '.')
-    cleaned = re.sub(r'\.{2,}', '.', cleaned)
-    return cleaned.strip('.')
-
-
-def parse_release_info(release_name: str) -> Tuple[str, str]:
-    if not release_name:
-        return "Unknown", "Unknown"
-
-    parts = release_name.split(" - ", 1)
-    if len(parts) < 2:
-        return "Unknown", release_name
-
-    first_part = parts[0].strip()
-    tokens = first_part.upper().split()
-
-    if "MULTI" in tokens:
-        return "Multi", parts[1].strip()
-
-    for token in tokens:
-        normalized = normalize_language(token.lower())
-        if normalized != "Unknown":
-            return normalized, parts[1].strip()
-
-    return "Unknown", release_name
-
-
-def build_pastebin_release_name(
-    title: str, year: Optional[int], season: Optional[int],
-    episode: Optional[int], res_name: Optional[str]
-) -> str:
-    name = _clean_name(title)
-
-    if year:
-        name += f".{year}"
-
-    if season is not None:
-        s = str(season).zfill(2)
-        if episode is not None:
-            e = str(episode).zfill(2)
-            name += f".S{s}E{e}"
-        else:
-            name += f".S{s}"
-
-    if res_name:
-        name += f".{_clean_name(res_name)}"
-
-    return name
+build_pastebin_release_name = build_release_name
+parse_release_info = _parse_release_info
+resolve_imdb_id = _resolve_imdb_id
 
 
 # ===========================
@@ -131,118 +68,15 @@ def parse_series_urls(urls_raw: str) -> List[Tuple[int, str]]:
     return [(int(ep), suffix) for ep, suffix in matches]
 
 
-# ===========================
-# URL Host Detection
-# ===========================
-def detect_known_host(value: str) -> Optional[str]:
-    lowered = value.lower()
-    for host in settings.WASOURCE_SUPPORTED_HOSTS:
-        for domain in HOST_DOMAINS.get(host, (host,)):
-            if domain in lowered:
-                return host
-    return None
-
-
-def resolve_pastebin_url(value: str, alldebrid_base_url: str) -> Optional[Dict[str, str]]:
-    value = canonicalize_url(value.strip())
-    if not value:
-        return None
-
-    host = detect_known_host(value)
-    if host:
-        url = value if "://" in value else f"https://{value}"
-        return {"host": host, "url": url}
-
-    # No known host: a bare token is a legacy AllDebrid share suffix; anything already
-    # shaped like a URL points to an unsupported host, so it is dropped.
-    if "://" in value or ("." in value and "/" in value):
-        scraper_logger.debug(f"[PastebinScraper] Ignored unsupported-host URL: {value[:80]}")
-        return None
-
-    return {"host": "alldebrid", "url": alldebrid_base_url + value}
+resolve_pastebin_url = resolve_source_url
 
 
 # ===========================
 # TMDB → IMDB Resolution
 # ===========================
-async def get_imdb_id_from_wasource(tmdb_id: str) -> Optional[str]:
-    try:
-        row = await database.fetch_one(
-            "SELECT imdb_id FROM wasource WHERE tmdb_id = :tmdb_id LIMIT 1",
-            {"tmdb_id": tmdb_id}
-        )
-        if row:
-            return row["imdb_id"]
-    except Exception:
-        pass
-    return None
-
-
-async def resolve_imdb_id(tmdb_id: str, content_type: str, tmdb_api_token: str) -> Optional[str]:
-    imdb_id = await get_imdb_id_from_wasource(tmdb_id)
-    if imdb_id:
-        return imdb_id
-
-    if not tmdb_api_token:
-        return None
-
-    try:
-        endpoint = "movie" if content_type == "film" else "tv"
-        url = f"{settings.TMDB_API_URL}/{endpoint}/{tmdb_id}/external_ids"
-
-        response = await http_client.get(
-            url,
-            params={"api_key": tmdb_api_token},
-            timeout=settings.METADATA_TIMEOUT
-        )
-
-        if response.status_code == 429:
-            await asyncio.sleep(2)
-            response = await http_client.get(
-                url,
-                params={"api_key": tmdb_api_token},
-                timeout=settings.METADATA_TIMEOUT
-            )
-
-        if response.status_code != 200:
-            return None
-
-        data = response.json()
-        imdb_id = data.get("imdb_id")
-
-        await asyncio.sleep(0.15)
-        return imdb_id
-
-    except Exception as e:
-        scraper_logger.error(f"[PastebinScraper] TMDB lookup failed for {tmdb_id}: {type(e).__name__}: {e}")
-        return None
-
-
 # ===========================
 # Size Parsing
 # ===========================
-def _size_gb_to_bytes(value) -> Optional[int]:
-    try:
-        gb = float(value)
-    except (ValueError, TypeError):
-        return None
-    if not math.isfinite(gb) or gb <= 0:
-        return None
-    return int(gb * (1024 ** 3))
-
-
-def _parse_size_list(size_raw: str) -> List[Optional[int]]:
-    if not size_raw:
-        return []
-    try:
-        values = ast.literal_eval(size_raw)
-    except (ValueError, SyntaxError):
-        return []
-    if not isinstance(values, (list, tuple)):
-        return []
-    return [_size_gb_to_bytes(v) for v in values]
-
-
 # ===========================
 # Parse Pastebin Content
 # ===========================
@@ -277,7 +111,7 @@ def parse_pastebin_content(content: str) -> tuple:
             year_str = parts[COL_YEAR].strip()
             res_raw = parts[COL_RES].strip()
             urls_raw = parts[-1].strip()
-            sizes = _parse_size_list(parts[COL_SIZE].strip()) if len(parts) >= 13 else []
+            sizes = parse_size_list(parts[COL_SIZE].strip()) if len(parts) >= 13 else []
 
             if not tmdb_id or not title:
                 continue
@@ -360,90 +194,19 @@ async def _fetch_pastebin(url: str) -> Optional[str]:
 # Content Processing
 # ===========================
 async def _process_content_entries(entries: List[Dict], alldebrid_base_url: str, tmdb_api_token: str, stats: Dict):
-    for entry in entries:
-        if _scraper_state["stop_requested"]:
-            break
-        try:
-            tmdb_id = entry["tmdb_id"]
-            cat = entry["cat"]
-
-            imdb_id = await resolve_imdb_id(tmdb_id, cat, tmdb_api_token)
-            if not imdb_id:
-                stats["errors"] += 1
-                continue
-
-            if cat == "serie":
-                res_name = entry.get("release_name")
-                language, raw_quality = parse_release_info(res_name)
-                quality = extract_resolution(raw_quality)
-
-                episode_sizes = entry.get("episode_sizes", {})
-                for ep_num, suffixes in entry["episodes"].items():
-                    urls = [link for link in (resolve_pastebin_url(s, alldebrid_base_url) for s in suffixes) if link]
-                    if not urls:
-                        continue
-                    release_name = build_pastebin_release_name(
-                        entry["title"], entry["year"], entry["season"], ep_num, res_name
-                    )
-
-                    result = await add_wasource_links_bulk(
-                        imdb_id=imdb_id,
-                        title=entry["title"],
-                        release_name=release_name,
-                        quality=quality,
-                        language=language,
-                        size=episode_sizes.get(ep_num),
-                        season=entry["season"],
-                        episode=ep_num,
-                        urls=urls,
-                        tmdb_id=str(tmdb_id),
-                        year=entry["year"]
-                    )
-
-                    stats["added"] += result.get("added", 0)
-                    stats["skipped"] += result.get("skipped", 0)
-
-            else:
-                for res_name, url_suffix, size_bytes in entry["releases"]:
-                    link = resolve_pastebin_url(url_suffix, alldebrid_base_url)
-                    if not link:
-                        continue
-                    language, raw_quality = parse_release_info(res_name)
-                    quality = extract_resolution(raw_quality)
-                    release_name = build_pastebin_release_name(
-                        entry["title"], entry["year"], None, None, res_name
-                    )
-
-                    result = await add_wasource_links_bulk(
-                        imdb_id=imdb_id,
-                        title=entry["title"],
-                        release_name=release_name,
-                        quality=quality,
-                        language=language,
-                        size=size_bytes,
-                        season=None,
-                        episode=None,
-                        urls=[link],
-                        tmdb_id=str(tmdb_id),
-                        year=entry["year"]
-                    )
-
-                    stats["added"] += result.get("added", 0)
-                    stats["skipped"] += result.get("skipped", 0)
-
-        except Exception as e:
-            scraper_logger.error(f"[PastebinScraper] Entry error ({entry.get('title', '?')}): {type(e).__name__}: {e}")
-            stats["errors"] += 1
+    await process_content_entries(
+        entries=entries,
+        alldebrid_base_url=alldebrid_base_url,
+        tmdb_api_token=tmdb_api_token,
+        stats=stats,
+        stop_requested=lambda: _scraper_state["stop_requested"],
+        logger_name="PastebinScraper",
+    )
 
 
 async def _process_content_page(url: str, content: str, entries: List[Dict], alldebrid_base_url: str, tmdb_api_token: str, stats: Dict):
-    content_hash = hashlib.md5(content.encode(), usedforsecurity=False).hexdigest()
-    if _pastebin_content_hashes.get(url) == content_hash:
-        scraper_logger.info("[PastebinScraper] Unchanged, skipping")
-        return
     stats["total"] += len(entries)
     await _process_content_entries(entries, alldebrid_base_url, tmdb_api_token, stats)
-    _pastebin_content_hashes[url] = content_hash
 
 
 # ===========================

@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import computed_field, field_validator
+from pydantic import AliasChoices, Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,7 +9,8 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
-        case_sensitive=False
+        case_sensitive=False,
+        validate_assignment=True
     )
 
     # ===========================
@@ -32,8 +33,9 @@ class Settings(BaseSettings):
     DARKI_API_KEY: Optional[str] = None
     MOVIX_URL: Optional[str] = None
     WEBSHARE_URL: Optional[str] = None
-    DARKIMOVIX_KITSU_TMDB_MAPPING: List[str] = ["tt0388629"]
-    KITSU_IMDB_OVERRIDE: List[str] = ["6589=1,8174=2,13893=3,42213=4-1,42927=4-2:tt2250192"]
+    ZONE_TELECHARGEMENT_URL: Optional[str] = None
+    DARKIMOVIX_KITSU_TMDB_MAPPING: List[str] = []
+    KITSU_IMDB_OVERRIDE: List[str] = []
 
     # ===========================
     # Pagination Configuration
@@ -41,6 +43,8 @@ class Settings(BaseSettings):
     WAWACITY_MAX_SEARCH_PAGES: int = 3
     FREE_TELECHARGER_MAX_SEARCH_PAGES: int = 3
     WEBSHARE_MAX_SEARCH_PAGES: int = 3
+    ZONE_TELECHARGEMENT_MAX_SEARCH_PAGES: int = 3
+    ZONE_TELECHARGEMENT_MAX_CONCURRENCY: int = 16
     DARKI_API_MAX_LINK_PAGES: int = 5
     DARKIBOX_LINK_TIMEOUT: int = 2
 
@@ -51,6 +55,9 @@ class Settings(BaseSettings):
     DATABASE_TYPE: str = "sqlite"
     DATABASE_PATH: str = "/app/data/wastream.db"
     DATABASE_URL: str = ""
+    DATABASE_BUSY_TIMEOUT_SECONDS: int = 30
+    DATABASE_RETRY_MAX_ATTEMPTS: int = 8
+    DATABASE_RETRY_DELAY_SECONDS: float = 0.25
 
     # ===========================
     # Cache Configuration
@@ -112,28 +119,28 @@ class Settings(BaseSettings):
     ALLDEBRID_API_URL: str = "https://api.alldebrid.com/v4"
     ALLDEBRID_BATCH_SIZE: int = 12
     ALLDEBRID_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "vidoza", "alldebrid", "torrent"]
-    ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "yggreborn", "tr4ker", "torr9", "c411", "gemini", "generation-free", "zilean", "nyaa"]
+    ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "gemini", "generation-free", "zilean", "nyaa"]
 
     # ===========================
     # TorBox Configuration
     # ===========================
     TORBOX_API_URL: str = "https://api.torbox.app/v1/api"
-    TORBOX_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "sendcm", "darkibox", "webshare"]
-    TORBOX_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "webshare", "yggreborn", "tr4ker", "torr9", "c411", "gemini", "generation-free", "zilean", "nyaa"]
+    TORBOX_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "sendcm", "send.now", "darkibox", "webshare"]
+    TORBOX_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "webshare", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "gemini", "generation-free", "zilean", "nyaa"]
 
     # ===========================
     # Premiumize Configuration
     # ===========================
     PREMIUMIZE_API_URL: str = "https://www.premiumize.me/api"
     PREMIUMIZE_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator"]
-    PREMIUMIZE_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "yggreborn", "tr4ker", "torr9", "c411", "gemini", "generation-free", "zilean", "nyaa"]
+    PREMIUMIZE_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "gemini", "generation-free", "zilean", "nyaa"]
 
     # ===========================
     # 1fichier Configuration
     # ===========================
     ONEFICHIER_API_URL: str = "https://api.1fichier.com/v1"
     ONEFICHIER_SUPPORTED_HOSTS: List[str] = ["1fichier"]
-    ONEFICHIER_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix"]
+    ONEFICHIER_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "zone-telechargement"]
 
     # ===========================
     # NZBDav Configuration
@@ -190,6 +197,18 @@ class Settings(BaseSettings):
     PASTEBIN_SCRAPER_INTERVAL: int = 86400
     PASTEBIN_SCRAPER_MAX_DEPTH: int = 5
     PASTEBIN_SCRAPER_MAX_PAGES: int = 1000
+
+    # ===========================
+    # Idrix Scraper Configuration
+    # ===========================
+    IDRIX_SCRAPER_URLS: List[str] = []
+    IDRIX_SCRAPER_INTERVAL: int = 86400
+    IDRIX_SCRAPER_MAX_DEPTH: int = 5
+    IDRIX_SCRAPER_MAX_PAGES: int = 1000
+    IDRIX_SCRAPER_RETRY_MAX_ATTEMPTS: int = 3
+    IDRIX_SCRAPER_RETRY_DELAY_SECONDS: int = 2
+    IDRIX_SCRAPER_REQUEST_DELAY_SECONDS: float = 0.15
+    IDRIX_SCRAPER_MAX_RETRY_DELAY_SECONDS: float = 30.0
 
     # ===========================
     # TMDB Configuration
@@ -252,9 +271,35 @@ class Settings(BaseSettings):
     HEALTH_CHECK_INTERVAL: int = 60
 
     # ===========================
+    # Domain Synchronization
+    # ===========================
+    DOMAIN_SYNC_ENABLED: bool = False
+    DOMAIN_SYNC_INTERVAL: int = 7200
+    DOMAIN_SYNC_RECHECK_ON_HEALTH_ERROR: bool = True
+    DOMAIN_SYNC_HEALTH_ERROR_RECHECK_DELAY_SECONDS: int = 900
+    DOMAIN_SYNC_WAWACITY_TELEGRAM_URL: Optional[str] = None
+    DOMAIN_SYNC_FREE_TELECHARGER_TELEGRAM_URL: Optional[str] = None
+    DOMAIN_SYNC_MOVIX_TELEGRAM_URL: Optional[str] = None
+    DOMAIN_SYNC_ZONE_TELECHARGEMENT_TELEGRAM_URL: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "DOMAIN_SYNC_ZONE_TELECHARGEMENT_TELEGRAM_URL",
+            "DOMAIN_SYNC_ZT_TELEGRAM_URL",
+        ),
+    )
+
+    # ===========================
     # Field Validators
     # ===========================
-    @field_validator("WAWACITY_URL", "FREE_TELECHARGER_URL", "DARKI_API_URL", "MOVIX_URL", "WEBSHARE_URL", "PROXY_URL", "YGGREBORN_URL", "TR4KER_URL", "TORR9_URL", "C411_URL", "GEMINI_URL", "GENERATIONFREE_URL", "ZILEAN_URL", "NYAA_URL")
+    @field_validator(
+        "WAWACITY_URL", "FREE_TELECHARGER_URL", "DARKI_API_URL", "MOVIX_URL",
+        "WEBSHARE_URL", "ZONE_TELECHARGEMENT_URL", "PROXY_URL",
+        "DOMAIN_SYNC_WAWACITY_TELEGRAM_URL", "DOMAIN_SYNC_FREE_TELECHARGER_TELEGRAM_URL",
+        "DOMAIN_SYNC_MOVIX_TELEGRAM_URL", "DOMAIN_SYNC_ZONE_TELECHARGEMENT_TELEGRAM_URL",
+        # Nos sources maison (trackers Torznab/UNIT3D, Zilean, Nyaa)
+        "YGGREBORN_URL", "TR4KER_URL", "TORR9_URL", "C411_URL",
+        "GEMINI_URL", "GENERATIONFREE_URL", "ZILEAN_URL", "NYAA_URL"
+    )
     @classmethod
     def normalize_urls(cls, v):
         if isinstance(v, str):
@@ -291,7 +336,7 @@ class Settings(BaseSettings):
         return {
             "id": self.ADDON_ID,
             "name": self.ADDON_NAME,
-            "version": "3.6.3",
+            "version": "3.8.2",
             "description": "Stremio addon to convert DDL to streams via debrid services",
             "catalogs": [],
             "resources": ["stream"],
@@ -334,6 +379,10 @@ SOURCE_DISPLAY_NAMES = {
     "wasource": "WASource",
     "movix": "Movix",
     "webshare": "Webshare",
+    "zone-telechargement": "Zone-Telechargement",
+    # ⚠️ Toute source doit figurer ici avec la casse EXACTE de son champ
+    # "source" : sinon _check_cache_and_enrich la filtre silencieusement après
+    # le scraping (0 résultat malgré un scraper qui fonctionne).
     "yggreborn": "YggReborn",
     "tr4ker": "Tr4ker",
     "torr9": "Torr9",
