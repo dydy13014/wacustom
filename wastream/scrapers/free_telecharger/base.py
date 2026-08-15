@@ -9,7 +9,8 @@ from wastream.config.settings import settings
 from wastream.utils.helpers import quote_url_param, normalize_text, build_display_name, normalize_size, format_url
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import scraper_logger
-from wastream.utils.quality import quality_sort_key, normalize_quality
+from wastream.utils.quality import quality_sort_key
+from wastream.utils.release_parser import parse_release_info
 
 # ===========================
 # Category Mappings
@@ -31,7 +32,7 @@ ANIME_CATEGORIES = [
 ]
 
 # ===========================
-# Quality to ignore (bad quality)
+# Ignored Qualities
 # ===========================
 IGNORED_QUALITIES = ["cam", "ts", "r5", "dvdscr", "hdcam", "hdts", "telesync", "telecine"]
 
@@ -288,10 +289,10 @@ class BaseFreeTelecharger:
     async def _resolve_intermediate_link(self, link: str) -> List[Tuple[str, str]]:
         results = []
         try:
-            scraper_logger.debug("[FreeTelecharger] Resolving intermediate link")
+            scraper_logger.debug("[Free-Telecharger] Resolving intermediate link")
             response = await http_client.get(link)
             if response.status_code != 200:
-                scraper_logger.debug(f"[FreeTelecharger] Failed to resolve link: {response.status_code}")
+                scraper_logger.debug(f"[Free-Telecharger] Failed to resolve link: {response.status_code}")
                 return results
 
             parser = HTMLParser(response.text)
@@ -315,10 +316,10 @@ class BaseFreeTelecharger:
                             if real_link:
                                 results.append((real_link, hoster))
 
-            scraper_logger.debug(f"[FreeTelecharger] Resolved {len(results)} links from intermediate page")
+            scraper_logger.debug(f"[Free-Telecharger] Resolved {len(results)} links from intermediate page")
 
         except Exception as e:
-            scraper_logger.error(f"[FreeTelecharger] Intermediate link resolution error: {type(e).__name__}: {e}")
+            scraper_logger.error(f"[Free-Telecharger] Intermediate link resolution error: {type(e).__name__}: {e}")
 
         return results
 
@@ -336,19 +337,19 @@ class BaseFreeTelecharger:
                 return result
 
         if year:
-            scraper_logger.debug(f"[FreeTelecharger] No results found with year {year}, retrying without year...")
+            scraper_logger.debug(f"[Free-Telecharger] No results found with year {year}, retrying without year...")
             for search_title in titles_to_try:
                 result = await self.try_search_with_title(search_title, None, metadata, content_type)
                 if result:
                     return result
 
-        scraper_logger.debug(f"[FreeTelecharger] No {content_type} found for any title variants of '{title}'")
+        scraper_logger.debug(f"[Free-Telecharger] No {content_type} found for any title variants of '{title}'")
         return None
 
     async def try_search_with_title(self, search_title: str, year: Optional[str],
                                     metadata: Optional[Dict], content_type: str) -> Optional[Dict]:
         if not settings.FREE_TELECHARGER_URL:
-            scraper_logger.error("[FreeTelecharger] settings.FREE_TELECHARGER_URL not configured")
+            scraper_logger.error("[Free-Telecharger] settings.FREE_TELECHARGER_URL not configured")
             return None
 
         encoded_title = quote_url_param(str(search_title))
@@ -357,22 +358,22 @@ class BaseFreeTelecharger:
         if year:
             search_url += f"&rech_annee={year}"
 
-        scraper_logger.debug(f"[FreeTelecharger] Trying search for: {search_title}")
+        scraper_logger.debug(f"[Free-Telecharger] Trying search for: {search_title}")
 
         try:
             response = await http_client.get(search_url)
             if response.status_code != 200:
-                scraper_logger.debug(f"[FreeTelecharger] Search failed: {response.status_code}")
+                scraper_logger.debug(f"[Free-Telecharger] Search failed: {response.status_code}")
                 return None
 
             parser = HTMLParser(response.text)
             search_results = parser.css("div.container")
 
             if not search_results:
-                scraper_logger.debug(f"[FreeTelecharger] No results for '{search_title}'")
+                scraper_logger.debug(f"[Free-Telecharger] No results for '{search_title}'")
                 return None
 
-            scraper_logger.debug(f"[FreeTelecharger] Found {len(search_results)} results for '{search_title}'")
+            scraper_logger.debug(f"[Free-Telecharger] Found {len(search_results)} results for '{search_title}'")
 
             if metadata and metadata.get("titles"):
                 tmdb_titles = [normalize_text(t) for t in metadata.get("all_titles", metadata["titles"])]
@@ -393,7 +394,7 @@ class BaseFreeTelecharger:
             return None
 
         except Exception as e:
-            scraper_logger.error(f"[FreeTelecharger] Title '{search_title}' search error: {type(e).__name__}: {e}")
+            scraper_logger.error(f"[Free-Telecharger] Title '{search_title}' search error: {type(e).__name__}: {e}")
             return None
 
     async def try_page_verification(self, search_title: str, year: Optional[str],
@@ -409,7 +410,7 @@ class BaseFreeTelecharger:
             if year:
                 search_url += f"&rech_annee={year}"
 
-            scraper_logger.debug(f"[FreeTelecharger] Trying page {page_num}")
+            scraper_logger.debug(f"[Free-Telecharger] Trying page {page_num}")
 
             response = await http_client.get(search_url)
             if response.status_code != 200:
@@ -419,15 +420,15 @@ class BaseFreeTelecharger:
             search_results = parser.css("div.container")
 
             if not search_results:
-                scraper_logger.debug(f"[FreeTelecharger] No results on page {page_num}")
+                scraper_logger.debug(f"[Free-Telecharger] No results on page {page_num}")
                 return None
 
-            scraper_logger.debug(f"[FreeTelecharger] Found {len(search_results)} results on page {page_num}")
+            scraper_logger.debug(f"[Free-Telecharger] Found {len(search_results)} results on page {page_num}")
 
             return self.verify_content_results(search_results, tmdb_titles, tmdb_year, content_type)
 
         except Exception as e:
-            scraper_logger.error(f"[FreeTelecharger] Page {page_num} search error: {type(e).__name__}: {e}")
+            scraper_logger.error(f"[Free-Telecharger] Page {page_num} search error: {type(e).__name__}: {e}")
             return None
 
     def verify_content_results(self, search_results, tmdb_titles: List[str],
@@ -474,18 +475,18 @@ class BaseFreeTelecharger:
                     freetelecharger_year = year_match.group(1)
 
                 if not freetelecharger_year:
-                    scraper_logger.debug("[FreeTelecharger] FreeTelecharger year missing, skipping")
+                    scraper_logger.debug("[Free-Telecharger] FreeTelecharger year missing, skipping")
                     continue
 
                 if not year:
-                    scraper_logger.debug("[FreeTelecharger] TMDB year missing, skipping")
+                    scraper_logger.debug("[Free-Telecharger] TMDB year missing, skipping")
                     continue
 
                 if year != freetelecharger_year:
-                    scraper_logger.debug(f"[FreeTelecharger] Year mismatch: TMDB {year} vs FreeTelecharger {freetelecharger_year}")
+                    scraper_logger.debug(f"[Free-Telecharger] Year mismatch: TMDB {year} vs FreeTelecharger {freetelecharger_year}")
                     continue
 
-                scraper_logger.debug(f"[FreeTelecharger] Found match: {cleaned_title}")
+                scraper_logger.debug(f"[Free-Telecharger] Found match: {cleaned_title}")
                 return {
                     "link": link,
                     "title": raw_title,
@@ -494,7 +495,7 @@ class BaseFreeTelecharger:
                 }
 
             except Exception as e:
-                scraper_logger.error(f"[FreeTelecharger] Content data extraction error: {type(e).__name__}: {e}")
+                scraper_logger.error(f"[Free-Telecharger] Content data extraction error: {type(e).__name__}: {e}")
                 continue
 
         return None
@@ -529,7 +530,7 @@ class BaseFreeTelecharger:
                     if {"page_path": page_path} not in quality_pages:
                         quality_pages.append({"page_path": page_path})
         except Exception as e:
-            scraper_logger.error(f"[FreeTelecharger] Quality pages extraction error: {type(e).__name__}: {e}")
+            scraper_logger.error(f"[Free-Telecharger] Quality pages extraction error: {type(e).__name__}: {e}")
 
         tasks = [self._extract_movie_links_for_quality(quality, title, year) for quality in quality_pages]
         results_lists = await asyncio.gather(*tasks, return_exceptions=True)
@@ -539,9 +540,9 @@ class BaseFreeTelecharger:
             if isinstance(result, list):
                 all_results.extend(result)
             elif not isinstance(result, Exception):
-                scraper_logger.error(f"[FreeTelecharger] Unexpected result type: {type(result)}")
+                scraper_logger.error(f"[Free-Telecharger] Unexpected result type: {type(result)}")
 
-        scraper_logger.debug(f"[FreeTelecharger] Formatted {len(all_results)} valid links")
+        scraper_logger.debug(f"[Free-Telecharger] Formatted {len(all_results)} valid links")
         all_results.sort(key=quality_sort_key)
         return all_results
 
@@ -563,11 +564,18 @@ class BaseFreeTelecharger:
             parser = HTMLParser(response.text)
             page_text = parser.text()
 
+            # On garde nos propres extracteurs plutôt que le parse_release_info()
+            # partagé d'upstream : sur le champ « Langue : » de ce site, le
+            # parseur partagé ne retient QUE le premier marqueur trouvé et perd
+            # les combinaisons — « Français et Anglais » ressort « Unknown »
+            # chez lui contre « Multi (French, English) » ici (mesuré sur
+            # 21 cas réels du site, 2026-08-01). Les deux corrigent en revanche
+            # le bug de sous-chaîne (« EN » dans « TRUEFRENCH »).
             quality_match = re.search(r"Qualité\s*:\s*([^\n]+)", page_text)
-            quality = normalize_quality(self._extract_quality_from_text(quality_match.group(1) if quality_match else ""))
+            quality = self._extract_quality_from_text(quality_match.group(1) if quality_match else "")
 
             if self._is_ignored_quality(quality):
-                scraper_logger.debug(f"[FreeTelecharger] Ignoring bad quality: {quality}")
+                scraper_logger.debug(f"[Free-Telecharger] Ignoring bad quality: {quality}")
                 return page_results
 
             language_match = re.search(r"Langue\s*:\s*([^\n]+)", page_text)
@@ -632,7 +640,7 @@ class BaseFreeTelecharger:
                         page_results.append(result)
 
         except Exception as e:
-            scraper_logger.error(f"[FreeTelecharger] Failed to extract movie links from {page_path}: {type(e).__name__}: {e}")
+            scraper_logger.error(f"[Free-Telecharger] Failed to extract movie links from {page_path}: {type(e).__name__}: {e}")
 
         return page_results
 
@@ -698,9 +706,9 @@ class BaseFreeTelecharger:
                     all_results.extend(result)
 
         except Exception as e:
-            scraper_logger.error(f"[FreeTelecharger] Series content extraction error: {type(e).__name__}: {e}")
+            scraper_logger.error(f"[Free-Telecharger] Series content extraction error: {type(e).__name__}: {e}")
 
-        scraper_logger.debug(f"[FreeTelecharger] Formatted {len(all_results)} valid links")
+        scraper_logger.debug(f"[Free-Telecharger] Formatted {len(all_results)} valid links")
         all_results.sort(key=lambda x: (
             int(x.get("season", "0")),
             int(x.get("episode", "0")),
@@ -733,11 +741,13 @@ class BaseFreeTelecharger:
             parser = HTMLParser(html)
             page_text = parser.text()
 
+            # Même raison qu'au-dessus : extracteurs maison, pas le parseur
+            # partagé (il perd les combinaisons de langues sur ce site).
             quality_match = re.search(r"Qualité\s*:\s*([^\n]+)", page_text)
-            quality = normalize_quality(self._extract_quality_from_text(quality_match.group(1) if quality_match else ""))
+            quality = self._extract_quality_from_text(quality_match.group(1) if quality_match else "")
 
             if self._is_ignored_quality(quality):
-                scraper_logger.debug(f"[FreeTelecharger] Ignoring bad quality: {quality}")
+                scraper_logger.debug(f"[Free-Telecharger] Ignoring bad quality: {quality}")
                 return page_results
 
             language_match = re.search(r"Langue\s*:\s*([^\n]+)", page_text)
@@ -834,7 +844,7 @@ class BaseFreeTelecharger:
                         page_results.append(result)
 
         except Exception as e:
-            scraper_logger.error(f"[FreeTelecharger] Failed to extract episodes from {page_path}: {type(e).__name__}: {e}")
+            scraper_logger.error(f"[Free-Telecharger] Failed to extract episodes from {page_path}: {type(e).__name__}: {e}")
 
         return page_results
 
@@ -844,7 +854,7 @@ class BaseFreeTelecharger:
         try:
             search_result = await self.search_content_by_titles(title, year, metadata, content_type)
             if not search_result:
-                scraper_logger.debug(f"[FreeTelecharger] {content_type.title()} not found")
+                scraper_logger.debug(f"[Free-Telecharger] {content_type.title()} not found")
                 return []
 
             if content_type == "movie":
@@ -852,9 +862,9 @@ class BaseFreeTelecharger:
             else:
                 results = await self._extract_series_content(search_result, title, year)
 
-            scraper_logger.debug(f"[FreeTelecharger] {content_type.title()} links found: {len(results)}")
+            scraper_logger.debug(f"[Free-Telecharger] {content_type.title()} links found: {len(results)}")
             return results
 
         except Exception as e:
-            scraper_logger.error(f"[FreeTelecharger] {content_type.title()} search error: {type(e).__name__}: {e}")
+            scraper_logger.error(f"[Free-Telecharger] {content_type.title()} search error: {type(e).__name__}: {e}")
             return []

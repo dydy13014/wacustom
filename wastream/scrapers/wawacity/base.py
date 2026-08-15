@@ -7,8 +7,9 @@ from selectolax.parser import HTMLParser, Node
 from wastream.config.settings import settings
 from wastream.utils.helpers import (
     quote_url_param, normalize_text, extract_and_decode_filename,
-    parse_movie_info, parse_series_info, format_url, normalize_size, build_display_name
+    format_url, normalize_size, build_display_name
 )
+from wastream.utils.release_parser import parse_movie_info, parse_series_info
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import scraper_logger
 from wastream.utils.quality import quality_sort_key

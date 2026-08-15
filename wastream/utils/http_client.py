@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 
 import httpx
@@ -12,6 +13,7 @@ class HTTPClient:
 
     _instance: Optional['HTTPClient'] = None
     _client: Optional[httpx.AsyncClient] = None
+    _drain_tasks: set = set()
 
     def __new__(cls):
         if cls._instance is None:
@@ -46,6 +48,23 @@ class HTTPClient:
         if self._client:
             await self._client.aclose()
             self._client = None
+
+    async def reload(self):
+        old = self._client
+        self._client = None
+        if old is not None:
+            task = asyncio.create_task(self._drain(old))
+            self._drain_tasks.add(task)
+            task.add_done_callback(self._drain_tasks.discard)
+
+    async def _drain(self, client: httpx.AsyncClient):
+        try:
+            await asyncio.sleep(float(settings.STREAM_REQUEST_TIMEOUT))
+        finally:
+            try:
+                await client.aclose()
+            except Exception:
+                pass
 
 
 # ===========================

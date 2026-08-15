@@ -3,19 +3,103 @@ import json
 import os
 import time
 import uuid
-from typing import Optional, List, Dict
+from contextlib import asynccontextmanager
+from typing import Awaitable, Callable, Dict, List, Optional, TypeVar
 
 from databases import Database
 
 from wastream.config.settings import settings
-from wastream.utils.helpers import create_cache_key
+from wastream.utils.helpers import build_cache_key
 from wastream.utils.logger import database_logger
 from wastream.utils.tasks import lancer_tache
+from wastream.utils.urls import DOMAIN_ALIASES, canonicalize_url
 
 # ===========================
 # Database Instance
 # ===========================
-database = Database(settings.get_database_url())
+_database_options = {}
+if settings.DATABASE_TYPE == "sqlite":
+    _database_options["timeout"] = max(
+        1, int(settings.DATABASE_BUSY_TIMEOUT_SECONDS)
+    )
+database = Database(settings.get_database_url(), **_database_options)
+
+T = TypeVar("T")
+_cache_stats_lock = asyncio.Lock()
+_cache_stats_suppression_depth = 0
+
+
+# ===========================
+# Database Retry Helpers
+# ===========================
+def _is_retryable_database_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return any(marker in message for marker in (
+        "database is locked",
+        "database table is locked",
+        "database is busy",
+        "deadlock detected",
+        "could not serialize access",
+        "serialization failure",
+        "lock not available",
+        "lock timeout",
+        "could not obtain lock",
+    ))
+
+
+async def run_database_operation(
+        operation: Callable[[], Awaitable[T]], operation_name: str) -> T:
+    max_attempts = max(1, int(settings.DATABASE_RETRY_MAX_ATTEMPTS))
+    base_delay = max(0.05, float(settings.DATABASE_RETRY_DELAY_SECONDS))
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await operation()
+        except Exception as error:
+            if (
+                    not _is_retryable_database_error(error)
+                    or attempt >= max_attempts
+            ):
+                raise
+
+            delay = min(5.0, base_delay * (2 ** (attempt - 1)))
+            database_logger.warning(
+                f"[Database] Transient conflict during {operation_name}; "
+                f"retry {attempt}/{max_attempts - 1} in {delay:.2f}s"
+            )
+            await asyncio.sleep(delay)
+
+    raise RuntimeError(
+        f"Database operation did not complete: {operation_name}"
+    )
+
+
+async def run_database_transaction(
+        operation: Callable[[], Awaitable[T]], operation_name: str) -> T:
+    async def transaction_operation() -> T:
+        async with database.transaction():
+            return await operation()
+
+    return await run_database_operation(transaction_operation, operation_name)
+
+
+def cache_stats_updates_suppressed() -> bool:
+    return _cache_stats_suppression_depth > 0
+
+
+@asynccontextmanager
+async def suppress_cache_stats_updates():
+    global _cache_stats_suppression_depth
+
+    async with _cache_stats_lock:
+        _cache_stats_suppression_depth += 1
+    try:
+        yield
+    finally:
+        async with _cache_stats_lock:
+            _cache_stats_suppression_depth = max(
+                0, _cache_stats_suppression_depth - 1
+            )
 
 
 # ===========================
@@ -60,6 +144,11 @@ async def setup_database():
             updated_at INTEGER NOT NULL,
             accessed_at INTEGER NOT NULL
         )""")
+        await database.execute("""CREATE TABLE IF NOT EXISTS admin_sessions (
+            token_hash TEXT PRIMARY KEY,
+            created_at INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL
+        )""")
 
         if settings.DATABASE_TYPE == "sqlite":
             await database.execute("""CREATE TABLE IF NOT EXISTS wasource (
@@ -95,11 +184,16 @@ async def setup_database():
         await database.execute("CREATE INDEX IF NOT EXISTS idx_wasource_tmdb ON wasource(tmdb_id)")
         await database.execute("CREATE INDEX IF NOT EXISTS idx_wasource_title ON wasource(title)")
         await database.execute("CREATE TABLE IF NOT EXISTS cache_stats (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL)")
+        await database.execute("CREATE TABLE IF NOT EXISTS settings_overrides (setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL)")
 
         await database.execute("CREATE INDEX IF NOT EXISTS idx_dead_links_expires ON dead_links(expires_at)")
         await database.execute("CREATE INDEX IF NOT EXISTS idx_scrape_lock_expires ON scrape_lock(expires_at)")
         await database.execute("CREATE INDEX IF NOT EXISTS idx_content_cache_expires ON content_cache(expires_at)")
         await database.execute("CREATE INDEX IF NOT EXISTS idx_users_accessed ON users(accessed_at)")
+        await database.execute(
+            "CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires "
+            "ON admin_sessions(expires_at)"
+        )
 
         if settings.DATABASE_TYPE == "sqlite":
             await database.execute("""CREATE TABLE IF NOT EXISTS remote_api_keys (
@@ -182,7 +276,7 @@ async def setup_database():
                     await database.execute("ALTER TABLE remote_api_keys_new RENAME TO remote_api_keys")
                     await database.execute("CREATE INDEX IF NOT EXISTS idx_remote_api_keys_enabled ON remote_api_keys(enabled)")
                     await database.execute("CREATE INDEX IF NOT EXISTS idx_remote_api_keys_hash ON remote_api_keys(key_hash)")
-                    database_logger.info("Migration: Removed last_used_at column from remote_api_keys")
+                    database_logger.info("[Migration] Removed last_used_at column from remote_api_keys")
             else:
                 column_exists = await database.fetch_one(
                     """SELECT 1 FROM information_schema.columns
@@ -190,21 +284,28 @@ async def setup_database():
                 )
                 if column_exists:
                     await database.execute("ALTER TABLE remote_api_keys DROP COLUMN last_used_at")
-                    database_logger.info("Migration: Removed last_used_at column from remote_api_keys")
+                    database_logger.info("[Migration] Removed last_used_at column from remote_api_keys")
         except Exception:
             pass
 
         if settings.DATABASE_TYPE == "sqlite":
-            await database.execute("PRAGMA busy_timeout=30000")
+            busy_timeout_ms = max(
+                1, int(settings.DATABASE_BUSY_TIMEOUT_SECONDS)
+            ) * 1000
+            await database.execute(f"PRAGMA busy_timeout={busy_timeout_ms}")
             await database.execute("PRAGMA journal_mode=WAL")
             await database.execute("PRAGMA synchronous=NORMAL")
             await database.execute("PRAGMA temp_store=MEMORY")
             await database.execute("PRAGMA cache_size=-2000")
 
-        # Create admin_settings table
+        await migrate_domain_aliases()
+
+        # Notre table historique de reglages persistants, anterieure au
+        # settings_manager d'upstream (qui utilise sa propre table
+        # settings_overrides, cree plus haut). Les deux coexistent sans
+        # collision ; celle-ci reste alimentee par notre endpoint d'admin.
         await database.execute("CREATE TABLE IF NOT EXISTS admin_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
 
-        # Load persistent admin settings and apply to global settings instance
         try:
             rows = await database.fetch_all("SELECT key, value FROM admin_settings")
             for row in rows:
@@ -223,6 +324,51 @@ async def setup_database():
     except Exception as e:
         database_logger.error(f"Setup failed: {type(e).__name__}: {e}")
         raise
+
+
+# ===========================
+# Domain Alias Migration
+# ===========================
+async def migrate_domain_aliases():
+    try:
+        for alias, canonical in DOMAIN_ALIASES.items():
+            params = {"alias": alias, "canonical": canonical, "pattern": f"%{alias}%"}
+            await database.execute(
+                "UPDATE content_cache SET content = REPLACE(content, :alias, :canonical) "
+                "WHERE content LIKE :pattern",
+                params
+            )
+            await database.execute(
+                "UPDATE wasource SET data = REPLACE(data, :alias, :canonical) "
+                "WHERE data LIKE :pattern",
+                params
+            )
+
+        like_params = {f"p{index}": f"%{alias}%" for index, alias in enumerate(DOMAIN_ALIASES)}
+        where_clause = " OR ".join(f"url LIKE :{key}" for key in like_params)
+        rows = await database.fetch_all(
+            f"SELECT url, expires_at FROM dead_links WHERE {where_clause}",
+            like_params
+        )
+        if settings.DATABASE_TYPE == "sqlite":
+            upsert = "INSERT OR REPLACE INTO dead_links (url, expires_at) VALUES (:url, :expires_at)"
+        else:
+            upsert = ("INSERT INTO dead_links (url, expires_at) VALUES (:url, :expires_at) "
+                      "ON CONFLICT (url) DO UPDATE SET expires_at = :expires_at")
+
+        migrated = 0
+        for row in rows:
+            new_url = canonicalize_url(row["url"])
+            if new_url == row["url"]:
+                continue
+            await database.execute(upsert, {"url": new_url, "expires_at": row["expires_at"]})
+            await database.execute("DELETE FROM dead_links WHERE url = :url", {"url": row["url"]})
+            migrated += 1
+
+        if migrated:
+            database_logger.info(f"[Migration] Normalized {migrated} dead_links to canonical domains")
+    except Exception as e:
+        database_logger.error(f"[Migration] Domain alias normalization failed: {type(e).__name__}: {e}")
 
 
 # ===========================
@@ -248,31 +394,54 @@ async def cleanup_expired_data():
                 {"current_time": current_time}
             )
 
-            if deleted_locks or deleted_links or deleted_cache:
-                database_logger.debug(f"Cleanup: {deleted_locks} locks, {deleted_links} links, {deleted_cache} cache")
+            deleted_sessions = await database.execute(
+                "DELETE FROM admin_sessions WHERE expires_at <= :current_time",
+                {"current_time": current_time}
+            )
+
+            if deleted_locks or deleted_links or deleted_cache or deleted_sessions:
+                database_logger.debug(
+                    f"Cleanup: {deleted_locks} locks, {deleted_links} links, "
+                    f"{deleted_cache} cache, {deleted_sessions} admin sessions"
+                )
 
         except Exception as e:
             database_logger.error(f"Cleanup error: {type(e).__name__}: {e}")
 
-        await asyncio.sleep(settings.CLEANUP_INTERVAL)
+        await asyncio.sleep(max(1, settings.CLEANUP_INTERVAL))
 
 
 # ===========================
 # Cache Stats Management
 # ===========================
 async def get_cache_stats() -> dict:
-    try:
+    async def read() -> dict:
         row = await database.fetch_one("SELECT data FROM cache_stats WHERE id = 1")
         if row:
             return json.loads(row["data"])
+        return {}
+
+    try:
+        return await run_database_operation(read, "cache stats read")
     except Exception:
         pass
     return {}
 
 
-async def save_cache_stats(stats: dict):
-    try:
-        data = json.dumps(stats, separators=(",", ":"))
+async def set_cache_stats(stats: dict):
+    if cache_stats_updates_suppressed():
+        return
+
+    async with _cache_stats_lock:
+        if cache_stats_updates_suppressed():
+            return
+        await _write_cache_stats(stats)
+
+
+async def _write_cache_stats(stats: dict):
+    data = json.dumps(stats, separators=(",", ":"))
+
+    async def write() -> None:
         if settings.DATABASE_TYPE == "sqlite":
             await database.execute(
                 "INSERT OR REPLACE INTO cache_stats (id, data) VALUES (1, :data)",
@@ -283,11 +452,29 @@ async def save_cache_stats(stats: dict):
                 "INSERT INTO cache_stats (id, data) VALUES (1, :data) ON CONFLICT (id) DO UPDATE SET data = :data",
                 {"data": data}
             )
-    except Exception as e:
-        database_logger.error(f"[CacheStats] Save failed: {type(e).__name__}: {e}")
+
+    try:
+        await run_database_operation(write, "cache stats save")
+    except Exception as error:
+        database_logger.error(
+            f"[CacheStats] Save failed: {type(error).__name__}: {error}"
+        )
 
 
 async def rebuild_cache_stats():
+    async with _cache_stats_lock:
+        try:
+            return await run_database_operation(_rebuild_cache_stats, "cache stats rebuild")
+        except Exception as error:
+            database_logger.error(f"[CacheStats] Rebuild failed: {type(error).__name__}: {error}")
+            return {
+                "searches_cached": 0, "streams_total": 0,
+                "by_source_total": {}, "by_content_type_total": {},
+                "wasource_total_links": 0
+            }
+
+
+async def _rebuild_cache_stats():
     database_logger.info("[CacheStats] Rebuilding stats...")
     unique_titles = set()
     streams_total = 0
@@ -363,16 +550,37 @@ async def rebuild_cache_stats():
             "by_content_type_total": by_content_type,
             "wasource_total_links": wasource_total_links
         }
-        await save_cache_stats(stats)
+        await _write_cache_stats(stats)
         database_logger.info(f"[CacheStats] Done: {searches_cached} searches, {streams_total} streams, {wasource_total_links} wasource links")
         return stats
 
-    except Exception as e:
-        database_logger.error(f"[CacheStats] Rebuild failed: {type(e).__name__}: {e}")
-        return {"searches_cached": 0, "streams_total": 0, "by_source_total": {}, "by_content_type_total": {}, "wasource_total_links": 0}
+    except Exception as error:
+        if _is_retryable_database_error(error):
+            raise
+        database_logger.error(f"[CacheStats] Rebuild failed: {type(error).__name__}: {error}")
+        return {
+            "searches_cached": 0, "streams_total": 0,
+            "by_source_total": {}, "by_content_type_total": {},
+            "wasource_total_links": 0
+        }
 
 
 async def update_cache_stats_on_set(cache_key: str, new_results: list, old_results: list = None):
+    async with _cache_stats_lock:
+        if cache_stats_updates_suppressed():
+            return
+        try:
+            await run_database_operation(
+                lambda: _update_cache_stats_on_set(cache_key, new_results, old_results),
+                "cache stats update"
+            )
+        except Exception as error:
+            database_logger.error(
+                f"[CacheStats] Update failed: {type(error).__name__}: {error}"
+            )
+
+
+async def _update_cache_stats_on_set(cache_key: str, new_results: list, old_results: list = None):
     try:
         stats = await get_cache_stats()
         if not stats:
@@ -427,10 +635,14 @@ async def update_cache_stats_on_set(cache_key: str, new_results: list, old_resul
             if existing_count and existing_count <= 1:
                 stats["searches_cached"] = stats.get("searches_cached", 0) + 1
 
-        await save_cache_stats(stats)
+        await _write_cache_stats(stats)
 
-    except Exception as e:
-        database_logger.error(f"[CacheStats] Update failed: {type(e).__name__}: {e}")
+    except Exception as error:
+        if _is_retryable_database_error(error):
+            raise
+        database_logger.error(
+            f"[CacheStats] Update failed: {type(error).__name__}: {error}"
+        )
 
 
 # ===========================
@@ -460,7 +672,6 @@ async def check_dead_links_batch(urls: List[str]) -> Dict[str, bool]:
         return {}
 
     try:
-        import asyncio
         from wastream.services.remote import fetch_remote_dead_links
 
         async def check_local():
@@ -523,6 +734,7 @@ async def _store_remote_dead_link(url: str):
 # ===========================
 async def mark_dead_link(url: str, ttl: int):
     try:
+        url = canonicalize_url(url)
         if ttl == -1:
             expires_at = -1
         else:
@@ -596,7 +808,7 @@ async def release_lock(lock_key: str, instance_id: str):
 class SearchLock:
     def __init__(self, content_type: str, title: str, year: Optional[str] = None,
                  timeout: Optional[int] = None, retry_interval: float = 1.0):
-        lock_key = create_cache_key(content_type, title, year)
+        lock_key = build_cache_key(content_type, title, year)
         self.lock_key = lock_key
         self.instance_id = f"{uuid.uuid4()}_{os.getpid()}"
         self.duration = settings.SCRAPE_LOCK_TTL

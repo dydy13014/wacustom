@@ -6,7 +6,9 @@ from urllib.parse import urlparse
 
 from wastream.config.settings import settings
 from wastream.debrid.base import BaseDebridService, HTTP_RETRY_ERRORS
-from wastream.services.hoster_status import get_hoster_status, mark_hoster_down, is_hoster_up, schedule_recheck
+from wastream.services.hoster_status import (
+    get_hoster_status, mark_hoster_down, is_hoster_up, schedule_alldebrid_hoster_recheck
+)
 from wastream.utils.helpers import select_episode_file
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import debrid_logger, cache_logger
@@ -118,7 +120,7 @@ class AllDebridService(BaseDebridService):
 
         if down_hosters and config.get("recheck_hoster_status", False):
             for hoster_name, link in down_hosters.items():
-                schedule_recheck(link, api_key, hoster_name)
+                schedule_alldebrid_hoster_recheck(link, api_key, hoster_name)
                 debrid_logger.debug(f"[AllDebrid] Background recheck scheduled for '{hoster_name}'")
 
         # DDL : marqués cached (vérification réelle à la conversion, comme avant).
@@ -311,7 +313,7 @@ class AllDebridService(BaseDebridService):
                     )
 
                 should_retry, http_error_count = await self._handle_http_retry_error(
-                    response1, http_error_count, "ALLDEBRID",
+                    response1, http_error_count, "AllDebrid",
                     settings.DEBRID_HTTP_ERROR_RETRY_DELAY, settings.DEBRID_HTTP_ERROR_MAX_RETRIES
                 )
                 if should_retry:
@@ -343,7 +345,7 @@ class AllDebridService(BaseDebridService):
                         return "LINK_DOWN"
 
                     if error_code == "NO_SERVER":
-                        debrid_logger.warning(f"[AllDebrid] NO_SERVER - server blocked by AllDebrid (VPN/datacenter detected)")
+                        debrid_logger.warning("[AllDebrid] NO_SERVER - server blocked by AllDebrid (VPN/datacenter detected)")
                         return "FATAL_ERROR"
 
                     if error_code in RETRY_ERRORS:
@@ -386,7 +388,7 @@ class AllDebridService(BaseDebridService):
                 )
 
                 should_retry, http_error_count = await self._handle_http_retry_error(
-                    response2, http_error_count, "ALLDEBRID",
+                    response2, http_error_count, "AllDebrid",
                     settings.DEBRID_HTTP_ERROR_RETRY_DELAY, settings.DEBRID_HTTP_ERROR_MAX_RETRIES
                 )
                 if should_retry:
@@ -418,7 +420,7 @@ class AllDebridService(BaseDebridService):
                         return "LINK_DOWN"
 
                     if error_code2 == "NO_SERVER":
-                        debrid_logger.warning(f"[AllDebrid] NO_SERVER - server blocked by AllDebrid (VPN/datacenter detected)")
+                        debrid_logger.warning("[AllDebrid] NO_SERVER - server blocked by AllDebrid (VPN/datacenter detected)")
                         return "FATAL_ERROR"
 
                     if error_code2 in RETRY_ERRORS:

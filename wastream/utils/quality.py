@@ -1,4 +1,5 @@
-from typing import Dict, Any
+import re
+from typing import Dict, Any, List
 
 
 # ===========================
@@ -17,6 +18,25 @@ AVAILABLE_RESOLUTIONS = [
     "480p",
     "Unknown"
 ]
+
+
+# ===========================
+# Release Format Patterns
+# ===========================
+RELEASE_FORMAT_PATTERNS = (
+    (r"\bremux\b", "REMUX"),
+    (r"\bblu[-. _]?ray\b", "BluRay"),
+    (r"\bbr[-. _]?rip\b", "BRRip"),
+    (r"\bbd[-. _]?rip\b", "BDRip"),
+    (r"\bweb[-. _]?dl\b", "WEB-DL"),
+    (r"\bhdlight\b", "HDLight"),
+    (r"\bweb[-. _]?rip\b", "WEBRip"),
+    (r"\bhd[-. _]?rip\b", "HDRip"),
+    (r"\bhd[-. _]?tv\b", "HDTV"),
+    (r"\bdvd[-. _]?rip\b", "DVDRip"),
+    (r"\btv[-. _]?rip\b", "TVRip"),
+    (r"(?<![a-z])web(?![a-z])", "WEB-DL"),
+)
 
 
 # ===========================
@@ -60,6 +80,91 @@ def normalize_quality(raw_quality: str) -> str:
         normalized = "HDLight 2160p"
 
     return normalized
+
+
+# ===========================
+# Free-Text Quality Extraction
+# ===========================
+def extract_quality_from_text(text: str, fallback: str = "") -> str:
+    resolution = ""
+    release_type = ""
+
+    for value in (text or "", fallback or ""):
+        value_lower = value.lower()
+        if not resolution:
+            if ("2160" in value_lower or "4k" in value_lower or "uhd" in value_lower
+                    or re.search(r"\bultra[-. _]+hd(?:light)?\b", value_lower)):
+                resolution = "2160p"
+            elif "1080" in value_lower:
+                resolution = "1080p"
+            elif "720" in value_lower:
+                resolution = "720p"
+            elif "480" in value_lower:
+                resolution = "480p"
+
+        if not release_type:
+            for pattern, label in RELEASE_FORMAT_PATTERNS:
+                if re.search(pattern, value_lower):
+                    release_type = label
+                    break
+
+    if resolution and release_type:
+        raw_quality = f"{release_type} {resolution}"
+    else:
+        raw_quality = release_type or resolution or "Unknown"
+
+    return normalize_quality(raw_quality)
+
+
+# ===========================
+# Tokenized Quality Extraction
+# ===========================
+def extract_quality_from_tokens(tokens: List[str]) -> str:
+    resolution = ""
+    release_type = ""
+
+    for token in tokens:
+        if not resolution:
+            if "2160p" in token or "4k" == token or "uhd" == token or "ultra" == token:
+                resolution = "2160p"
+            elif "1080p" in token or "1080" == token or "hd" == token:
+                resolution = "1080p"
+            elif "720p" in token or "720" == token:
+                resolution = "720p"
+            elif "480p" in token or "480" == token:
+                resolution = "480p"
+
+        if not release_type:
+            token_upper = token.upper()
+            if token_upper == "REMUX":
+                release_type = "REMUX"
+            elif token_upper in ("BLURAY", "BDRIP", "BRRIP"):
+                release_type = "BluRay"
+            elif token_upper == "WEBDL":
+                release_type = "WEB-DL"
+            elif token_upper == "WEBRIP":
+                release_type = "WEBRip"
+            elif token_upper == "HDLIGHT":
+                release_type = "HDLight"
+            elif token_upper == "HDRIP":
+                release_type = "HDRip"
+            elif token_upper == "HDTV":
+                release_type = "HDTV"
+            elif token_upper == "DVDRIP":
+                release_type = "DVDRip"
+            elif token_upper == "TVRIP":
+                release_type = "TVRip"
+
+    if resolution and release_type:
+        raw_quality = f"{resolution} {release_type}"
+    elif resolution:
+        raw_quality = resolution
+    elif release_type:
+        raw_quality = release_type
+    else:
+        raw_quality = "Unknown"
+
+    return normalize_quality(raw_quality)
 
 
 # ===========================

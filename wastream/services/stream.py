@@ -15,9 +15,9 @@ from wastream.scrapers.darki_api.anime import anime_scraper as darki_api_anime_s
 from wastream.scrapers.darki_api.base import BaseDarkiAPI
 from wastream.scrapers.darki_api.movie import movie_scraper as darki_api_movie_scraper
 from wastream.scrapers.darki_api.series import series_scraper as darki_api_series_scraper
-from wastream.scrapers.wawacity.anime import anime_scraper
-from wastream.scrapers.wawacity.movie import movie_scraper
-from wastream.scrapers.wawacity.series import series_scraper
+from wastream.scrapers.wawacity.anime import anime_scraper as wawacity_anime_scraper
+from wastream.scrapers.wawacity.movie import movie_scraper as wawacity_movie_scraper
+from wastream.scrapers.wawacity.series import series_scraper as wawacity_series_scraper
 from wastream.scrapers.free_telecharger.anime import anime_scraper as free_telecharger_anime_scraper
 from wastream.scrapers.free_telecharger.movie import movie_scraper as free_telecharger_movie_scraper
 from wastream.scrapers.free_telecharger.series import series_scraper as free_telecharger_series_scraper
@@ -31,6 +31,9 @@ from wastream.scrapers.movix.series import series_scraper as movix_series_scrape
 from wastream.scrapers.webshare.anime import anime_scraper as webshare_anime_scraper
 from wastream.scrapers.webshare.movie import movie_scraper as webshare_movie_scraper
 from wastream.scrapers.webshare.series import series_scraper as webshare_series_scraper
+from wastream.scrapers.zone_telechargement.anime import anime_scraper as zone_telechargement_anime_scraper
+from wastream.scrapers.zone_telechargement.movie import movie_scraper as zone_telechargement_movie_scraper
+from wastream.scrapers.zone_telechargement.series import series_scraper as zone_telechargement_series_scraper
 from wastream.scrapers.torznab.trackers import yggreborn_scraper, tr4ker_scraper, torr9_scraper, c411_scraper, gemini_scraper, generationfree_scraper
 from wastream.scrapers.zilean.base import zilean_scraper
 from wastream.scrapers.nyaa.base import nyaa_scraper
@@ -57,6 +60,12 @@ from wastream.utils.quality import quality_sort_key, extract_resolution
 from wastream.utils.urls import canonicalize_url
 from wastream.utils.validators import extract_media_info
 from wastream.utils.tasks import lancer_tache
+
+
+# ===========================
+# Playback Sentinels
+# ===========================
+PLAYBACK_SENTINELS = ("LINK_DOWN", "RETRY_ERROR", "FATAL_ERROR", "LINK_UNCACHED")
 
 
 # ===========================
@@ -1043,7 +1052,7 @@ class StreamService:
             return True
         allowed = content_name in sct_config[source_name]
         if not allowed:
-            stream_logger.debug(f"[Content-Filter] {source_name} skipped for '{content_name}' (allowed: {sct_config[source_name]})")
+            stream_logger.debug(f"[Source-Content] {source_name} skipped for '{content_name}' (allowed: {sct_config[source_name]})")
         return allowed
 
     def _check_early_stop_conditions(self, results: List[Dict], early_stop_config: Dict, source_name: str) -> bool:
@@ -1135,6 +1144,7 @@ class StreamService:
     async def _search_content_common(self, content_type: str, content_name: str,
                                      wawacity_scraper, darki_scraper, free_telecharger_scraper,
                                      wasource_scraper, movix_scraper, webshare_scraper,
+                                     zone_telechargement_scraper,
                                      title: str, year: Optional[str],
                                      metadata: Optional[Dict] = None,
                                      season: Optional[str] = None, episode: Optional[str] = None,
@@ -1198,6 +1208,18 @@ class StreamService:
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("webshare", coro))
 
+        if "zone-telechargement" in supported_sources and self._is_source_allowed_for_content("zone-telechargement", content_name, config):
+            if use_episode_cache:
+                do_search = lambda: zone_telechargement_scraper.search(
+                    title, year, metadata, season, episode
+                )
+            else:
+                do_search = lambda: zone_telechargement_scraper.search(title, year, metadata)
+            coro = self._search_source_with_cache(
+                "zone_telechargement", content_type, do_search,
+                title, year, season if use_episode_cache else None, episode if use_episode_cache else None,
+                metadata, use_episode_key=use_episode_cache, filter_episodes=False)
+            tasks_with_sources.append(("zone-telechargement", coro))
         if "yggreborn" in supported_sources and self._is_source_allowed_for_content("yggreborn", content_name, config):
             if use_episode_cache:
                 coro = self._search_source_with_cache(
@@ -1431,20 +1453,23 @@ class StreamService:
         return all_results
 
     async def _search_movie(self, title: str, year: Optional[str], metadata: Optional[Dict] = None, config: Dict = None) -> List[Dict]:
-        return await self._search_content_common("movies", "movie", movie_scraper, darki_api_movie_scraper,
+        return await self._search_content_common("movies", "movie", wawacity_movie_scraper, darki_api_movie_scraper,
                                                  free_telecharger_movie_scraper, wasource_movie_scraper, movix_movie_scraper, webshare_movie_scraper,
+                                                 zone_telechargement_movie_scraper,
                                                  title, year, metadata, None, None, config, use_episode_cache=False)
 
     async def _search_anime(self, title: str, year: Optional[str],
                             season: Optional[str], episode: Optional[str], metadata: Optional[Dict] = None, config: Dict = None) -> List[Dict]:
-        return await self._search_content_common("anime", "anime", anime_scraper, darki_api_anime_scraper,
+        return await self._search_content_common("anime", "anime", wawacity_anime_scraper, darki_api_anime_scraper,
                                                  free_telecharger_anime_scraper, wasource_anime_scraper, movix_anime_scraper, webshare_anime_scraper,
+                                                 zone_telechargement_anime_scraper,
                                                  title, year, metadata, season, episode, config, use_episode_cache=True)
 
     async def _search_series(self, title: str, year: Optional[str],
                              season: Optional[str], episode: Optional[str], metadata: Optional[Dict] = None, config: Dict = None) -> List[Dict]:
-        return await self._search_content_common("series", "series", series_scraper, darki_api_series_scraper,
+        return await self._search_content_common("series", "series", wawacity_series_scraper, darki_api_series_scraper,
                                                  free_telecharger_series_scraper, wasource_series_scraper, movix_series_scraper, webshare_series_scraper,
+                                                 zone_telechargement_series_scraper,
                                                  title, year, metadata, season, episode, config, use_episode_cache=True)
 
     async def resolve_link(self, link: str, config: Dict, season: Optional[str] = None, episode: Optional[str] = None, service: Optional[str] = None, content_type: Optional[str] = None, title: Optional[str] = None, source: Optional[str] = None, hoster: Optional[str] = None, mark_dead: bool = True) -> Optional[str]:
@@ -1650,6 +1675,7 @@ class StreamService:
         else:
             actual_season = None
             actual_episode = None
+            season_mapping = None
             base_metadata = None
             season_mapping = None
             search_title = kitsu_metadata["title"]
@@ -1697,7 +1723,7 @@ class StreamService:
 
             if "wawacity" in supported_sources and self._is_source_allowed_for_content("wawacity", "anime", config):
                 tasks.append(self._search_source_with_cache(
-                    "wawacity", "anime", lambda: anime_scraper.search(search_title, search_year, enhanced_kitsu_metadata),
+                    "wawacity", "anime", lambda: wawacity_anime_scraper.search(search_title, search_year, enhanced_kitsu_metadata),
                     search_title, search_year, str(actual_season), str(actual_episode),
                     enhanced_kitsu_metadata, use_episode_key=False, filter_episodes=True
                 ))
@@ -1730,6 +1756,16 @@ class StreamService:
                 tasks.append(self._search_source_with_cache(
                     "webshare", "anime", lambda: webshare_anime_scraper.search(search_title, search_year, enhanced_kitsu_metadata, _s, _e, config),
                     search_title, search_year, _s, _e,
+                    enhanced_kitsu_metadata, use_episode_key=True, filter_episodes=False
+                ))
+
+            if "zone-telechargement" in supported_sources and self._is_source_allowed_for_content("zone-telechargement", "anime", config):
+                tasks.append(self._search_source_with_cache(
+                    "zone_telechargement", "anime", lambda: zone_telechargement_anime_scraper.search(
+                        search_title, search_year, enhanced_kitsu_metadata,
+                        str(actual_season), str(actual_episode)
+                    ),
+                    search_title, search_year, str(actual_season), str(actual_episode),
                     enhanced_kitsu_metadata, use_episode_key=True, filter_episodes=False
                 ))
 

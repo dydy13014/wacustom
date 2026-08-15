@@ -7,8 +7,6 @@ from base64 import b64encode, b64decode, urlsafe_b64encode, urlsafe_b64decode
 from typing import Optional, Dict, Any, List
 from urllib.parse import quote, quote_plus, urlparse, parse_qs, unquote
 
-from wastream.utils.languages import normalize_language, LANGUAGE_MAPPING
-from wastream.utils.quality import normalize_quality
 from wastream.utils.urls import canonicalize_url
 
 
@@ -80,9 +78,9 @@ def decode_playback_token(token: str) -> Optional[Dict[str, Any]]:
 
 
 # ===========================
-# Cache Key Creation
+# Cache Key Builder
 # ===========================
-def create_cache_key(cache_type: str, title: str, year: Optional[str] = None) -> str:
+def build_cache_key(cache_type: str, title: str, year: Optional[str] = None) -> str:
     cache_key = f"{cache_type}:{quote_plus(title.lower())}"
     if year:
         cache_key += f":{year}"
@@ -132,183 +130,6 @@ def extract_and_decode_filename(url: str) -> Optional[str]:
     except Exception:
         pass
     return None
-
-
-# ===========================
-# Movie Info Parsing
-# ===========================
-def parse_movie_info(decoded_filename: str) -> Dict[str, str]:
-    quality = "Unknown"
-    raw_language = "Unknown"
-
-    if "[" in decoded_filename and "]" in decoded_filename:
-        start = decoded_filename.find("[")
-        end = decoded_filename.find("]", start)
-        if start != -1 and end != -1:
-            quality = decoded_filename[start + 1:end].strip()
-
-    if " - " in decoded_filename:
-        parts = decoded_filename.split(" - ")
-        if len(parts) > 1:
-            raw_language = parts[1].strip()
-
-    return {
-        "quality": normalize_quality(quality),
-        "language": normalize_language(raw_language),
-        "raw_language": raw_language
-    }
-
-
-# ===========================
-# Series Info Parsing
-# ===========================
-def parse_series_info(decoded_filename: str) -> Dict[str, str]:
-    season = "1"
-    episode = "1"
-    quality = "Unknown"
-    raw_language = "Unknown"
-
-    season_match = re.search(r"Saison (\d+)", decoded_filename)
-    if season_match:
-        season = season_match.group(1)
-
-    episode_match = re.search(r"Épisode (\d+)", decoded_filename)
-    if episode_match:
-        episode = episode_match.group(1)
-
-    if "[" in decoded_filename and "]" in decoded_filename:
-        start = decoded_filename.find("[")
-        end = decoded_filename.find("]", start)
-        if start != -1 and end != -1:
-            bracket_content = decoded_filename[start + 1:end].strip()
-
-            parts = bracket_content.split()
-
-            if len(parts) >= 1:
-                raw_language = parts[0]
-
-                if len(parts) > 1:
-                    quality_parts = parts[1:]
-                    quality = " ".join(quality_parts)
-
-    return {
-        "season": season,
-        "episode": episode,
-        "quality": normalize_quality(quality),
-        "language": normalize_language(raw_language),
-        "raw_language": raw_language
-    }
-
-
-# ===========================
-# Filename Tokenization
-# ===========================
-def tokenize_filename(filename: str) -> List[str]:
-    name_no_ext = re.sub(r"\.\w{2,4}$", "", filename)
-    tokens = re.split(r"[\.\s\-_\(\)\[\]]+", name_no_ext)
-    return [t.lower() for t in tokens if t]
-
-
-# ===========================
-# Quality Extraction from Tokens
-# ===========================
-def extract_quality_from_tokens(tokens: List[str]) -> str:
-    resolution = ""
-    release_type = ""
-
-    for token in tokens:
-        if not resolution:
-            if "2160p" in token or "4k" == token or "uhd" == token or "ultra" == token:
-                resolution = "2160p"
-            elif "1080p" in token or "1080" == token or "hd" == token:
-                resolution = "1080p"
-            elif "720p" in token or "720" == token:
-                resolution = "720p"
-            elif "480p" in token or "480" == token:
-                resolution = "480p"
-
-        if not release_type:
-            token_upper = token.upper()
-            if token_upper == "REMUX":
-                release_type = "REMUX"
-            elif token_upper in ("BLURAY", "BDRIP", "BRRIP"):
-                release_type = "BluRay"
-            elif token_upper == "WEBDL":
-                release_type = "WEB-DL"
-            elif token_upper == "WEBRIP":
-                release_type = "WEBRip"
-            elif token_upper == "HDLIGHT":
-                release_type = "HDLight"
-            elif token_upper == "HDRIP":
-                release_type = "HDRip"
-            elif token_upper == "HDTV":
-                release_type = "HDTV"
-            elif token_upper == "DVDRIP":
-                release_type = "DVDRip"
-            elif token_upper == "TVRIP":
-                release_type = "TVRip"
-
-    if resolution and release_type:
-        raw_quality = f"{resolution} {release_type}"
-    elif resolution:
-        raw_quality = resolution
-    elif release_type:
-        raw_quality = release_type
-    else:
-        raw_quality = "Unknown"
-
-    return normalize_quality(raw_quality)
-
-
-# ===========================
-# Language Extraction from Tokens
-# ===========================
-# `LANGUAGE_MAPPING` couvre ~130 langues via des codes ISO à 2-3 lettres.
-# Un token à 2 lettres a une chance élevée de coïncider avec un mot FR/EN
-# courant OU une syllabe romanisée japonaise ("no", "de", "la", "en", "it",
-# "na", "wa", "ka", "ta"...) sans le moindre rapport avec une langue. Confirmé
-# en conditions réelles (2026-08-01) : "Kimi No Na Wa" matche successivement
-# "no" (Norwegian) PUIS "wa" (Walloon) une fois "no" écarté — whack-a-mole
-# caractéristique des titres romanisés japonais, qui contiennent presque
-# toujours une syllabe de 2 lettres qui coïncide avec un code ISO quelque part
-# dans une liste de 130 langues. Un token à 3 lettres est bien moins exposé,
-# mais pas totalement ("cat", "fin", "ben" sont aussi des mots/prénoms usuels).
-#
-# Stratégie : plutôt qu'une liste noire qui s'allonge indéfiniment à chaque
-# nouvelle collision découverte, un token à 2 lettres n'est accepté que s'il
-# fait partie d'un petit vocabulaire scène explicitement utilisé ici (VF/VO) ;
-# les langues à code 2 lettres restent détectables via leur forme longue
-# ("norwegian", "german"...) ou leur code 3 lettres, non ambigus.
-_SAFE_SHORT_CODES = {"vf", "vo"}
-_AMBIGUOUS_3LETTER_CODES = {"cat", "fin", "ben"}
-
-
-def _is_plausible_language_token(token: str) -> bool:
-    if len(token) == 2:
-        return token in _SAFE_SHORT_CODES
-    if token in _AMBIGUOUS_3LETTER_CODES:
-        return False
-    return True
-
-
-def extract_language_from_tokens(tokens: List[str]) -> str:
-    for token in tokens:
-        if not _is_plausible_language_token(token):
-            continue
-        mapped = LANGUAGE_MAPPING.get(token)
-        if mapped and mapped != "Unknown":
-            return mapped
-    return "Unknown"
-
-
-def extract_raw_language_from_tokens(tokens: List[str]) -> str:
-    for token in tokens:
-        if not _is_plausible_language_token(token):
-            continue
-        mapped = LANGUAGE_MAPPING.get(token)
-        if mapped and mapped != "Unknown":
-            return token.upper()
-    return "Unknown"
 
 
 # ===========================
@@ -405,6 +226,8 @@ def deduplicate_and_sort_results(results: list, quality_sort_key_func) -> list:
                 continue
             seen_infohashes.add(norm_hash)
 
+        if link_key:
+            result["link"] = link_key
         if link_key and link_key not in seen_links:
             seen_links.add(link_key)
             deduplicated.append(result)

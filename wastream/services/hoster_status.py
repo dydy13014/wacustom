@@ -255,7 +255,7 @@ async def _recheck_alldebrid_hoster(link: str, api_key: str, hoster_key: str):
         _recheck_in_progress.discard(hoster_key)
 
 
-def schedule_recheck(link: str, api_key: str, hoster_name: str):
+def schedule_alldebrid_hoster_recheck(link: str, api_key: str, hoster_name: str):
     hoster_key = hoster_name.lower().strip()
     if not hoster_key or hoster_key in _recheck_in_progress:
         return

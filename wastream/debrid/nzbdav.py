@@ -108,7 +108,7 @@ class NZBDavService(BaseDebridService):
                 )
 
                 should_retry, http_error_count = await self._handle_http_retry_error(
-                    response, http_error_count, "NZBDAV",
+                    response, http_error_count, "NZBDav",
                     settings.DEBRID_HTTP_ERROR_RETRY_DELAY, settings.DEBRID_HTTP_ERROR_MAX_RETRIES
                 )
                 if should_retry:

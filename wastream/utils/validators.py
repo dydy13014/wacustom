@@ -86,12 +86,6 @@ class UserConfig(BaseModel):
 # Configuration Validation
 # ===========================
 def validate_config(config_base64: Optional[str]) -> Optional[Dict]:
-    """Decode and validate a base64-encoded user configuration.
-
-    Validates debrid services, filters, languages, resolutions and returns
-    the config dict if valid, or None if invalid. Supports both multi-service
-    (debrid_services list) and legacy single-service (debrid_service/debrid_api_key) formats.
-    """
     if not config_base64:
         api_logger.debug("Empty config provided")
         return None
@@ -145,7 +139,6 @@ def validate_config(config_base64: Optional[str]) -> Optional[Dict]:
 # Media Info Extraction
 # ===========================
 def extract_media_info(content_id: str, content_type: str) -> Dict[str, Optional[str]]:
-    """Parse a Stremio content ID into imdb_id/kitsu_id, season, and episode components."""
     content_id_formatted = content_id.replace(".json", "")
 
     if content_id_formatted.startswith("kitsu:"):

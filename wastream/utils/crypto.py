@@ -159,11 +159,25 @@ def decrypt_password_from_url(encrypted_password: str) -> Optional[str]:
         return None
 
 
+# ===========================
+# Secret Encryption (SECRET_KEY only, for server-side secrets at rest)
+# ===========================
+def encrypt_secret(plaintext: str) -> str:
+    return encrypt_password_for_url(plaintext)
+
+
+def decrypt_secret(ciphertext: str) -> Optional[str]:
+    return decrypt_password_from_url(ciphertext)
+
+
 # fast_hash / verify_fast_hash ont été retirés : sans aucun appelant dans tout
 # le dépôt, ils constituaient du code mort — et leur comparaison par `==` était
 # vulnérable au minutage. Pour signer quoi que ce soit, utiliser hmac.new() et
 # hmac.compare_digest() (cf. helpers.sign_token), jamais une concaténation
 # « données + secret » comparée avec `==`.
+#
+# ⚠️ Upstream 3.8.2 les réintroduit (toujours sans aucun appelant de son côté) —
+# ne pas les reprendre lors d'une future remontée de version.
 
 
 # ===========================

@@ -2,7 +2,7 @@ import asyncio
 from typing import List, Dict, Optional
 
 from wastream.config.settings import settings
-from wastream.services.wasource import get_links_by_imdb as get_wasource_links_by_imdb, get_links_by_title as get_wasource_links_by_title, add_wasource_links_from_remote, update_wasource_release_sizes
+from wastream.services.wasource import get_wasource_links_by_imdb, get_wasource_links_by_title, add_wasource_links_from_remote, update_wasource_release_sizes
 from wastream.services.remote import fetch_remote_wasource
 from wastream.utils.helpers import build_display_name, normalize_size, get_debrid_api_key
 from wastream.utils.http_client import http_client

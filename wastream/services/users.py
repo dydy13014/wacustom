@@ -141,7 +141,7 @@ async def get_user_config_detailed(user_uuid: str, password: str) -> Dict[str, A
 # ===========================
 # User Config from URL
 # ===========================
-async def get_config_from_url_params(user_uuid: str, encrypted_password: str) -> Optional[Dict[str, Any]]:
+async def get_user_config_from_url(user_uuid: str, encrypted_password: str) -> Optional[Dict[str, Any]]:
     try:
         password = decrypt_password_from_url(encrypted_password)
         if not password:

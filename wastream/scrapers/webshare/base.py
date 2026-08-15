@@ -5,13 +5,12 @@ from typing import List, Dict, Optional
 from xml.etree import ElementTree
 
 from wastream.config.settings import settings
-from wastream.utils.helpers import (
-    tokenize_filename, extract_quality_from_tokens, extract_language_from_tokens,
-    extract_raw_language_from_tokens, normalize_size, build_display_name, deduplicate_and_sort_results
-)
+from wastream.utils.helpers import normalize_size, build_display_name, deduplicate_and_sort_results
+from wastream.utils.languages import extract_language_from_tokens, extract_raw_language_from_tokens
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import scraper_logger
-from wastream.utils.quality import quality_sort_key
+from wastream.utils.quality import quality_sort_key, extract_quality_from_tokens
+from wastream.utils.release_parser import tokenize_filename
 
 
 # ===========================

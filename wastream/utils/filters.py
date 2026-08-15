@@ -14,7 +14,7 @@ def filter_by_languages(results: List[Dict], user_languages: List[str]) -> List[
     filtered_results = []
 
     for result in results:
-        result_language = result.get("language", "Unknown")
+        result_language = result.get("language") or "Unknown"
 
         include_result = False
 
@@ -189,7 +189,7 @@ def filter_archive_files(streams: List[Dict]) -> List[Dict]:
     filtered_streams = []
 
     for stream in streams:
-        stream_desc = stream.get("description", "")
+        stream_desc = stream.get("description") or ""
 
         is_archive = False
         if "📁" in stream_desc:
@@ -213,8 +213,8 @@ def filter_excluded_keywords(streams: List[Dict], excluded_keywords: List[str]) 
     filtered_streams = []
 
     for stream in streams:
-        stream_name = stream.get("name", "").lower()
-        stream_desc = stream.get("description", "").lower()
+        stream_name = (stream.get("name") or "").lower()
+        stream_desc = (stream.get("description") or "").lower()
         stream_text = f"{stream_name} {stream_desc}"
 
         exclude_stream = False
