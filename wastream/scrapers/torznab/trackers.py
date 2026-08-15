@@ -32,6 +32,16 @@ class Torr9Scraper:
         return await scraper.search(title, year, metadata, season, episode, config)
 
 
+class V3XScraper:
+    async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
+                     season: Optional[str] = None, episode: Optional[str] = None,
+                     config: Optional[Dict] = None) -> List[Dict]:
+        if not settings.V3X_API_KEY or not settings.V3X_URL:
+            return []
+        scraper = BaseTorznab("V3X", settings.V3X_URL, settings.V3X_API_KEY, auth_type="query")
+        return await scraper.search(title, year, metadata, season, episode, config)
+
+
 class C411Scraper:
     async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
                      season: Optional[str] = None, episode: Optional[str] = None,
@@ -46,6 +56,7 @@ yggreborn_scraper = YggRebornScraper()
 tr4ker_scraper = Tr4kerScraper()
 torr9_scraper = Torr9Scraper()
 c411_scraper = C411Scraper()
+v3x_scraper = V3XScraper()
 
 
 # ===========================

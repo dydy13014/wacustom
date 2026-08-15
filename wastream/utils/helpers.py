@@ -328,6 +328,14 @@ def normalize_tracker_url(name: str, url: str) -> str:
                 url = f"{url}/v1/torznab"
             else:
                 url = f"{url}/api/v1/torznab"
+    elif name == "V3X":
+        # L'API vit sur un sous-domaine dedie : on accepte aussi bien le site
+        # (https://v3x.club) que l'URL Torznab complete, pour ne pas imposer
+        # de connaitre ce detail.
+        if "api.v3x.club" not in url:
+            url = "https://api.v3x.club/torznab"
+        if not url.endswith("/api"):
+            url = f"{url}/api"
     elif name == "C411":
         if "api/torznab" not in url:
             if url.endswith("/api"):

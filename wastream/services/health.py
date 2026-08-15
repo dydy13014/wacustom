@@ -58,6 +58,7 @@ def _get_sources_config() -> Dict[str, Optional[str]]:
         "Tr4ker": settings.TR4KER_URL,
         "Torr9": settings.TORR9_URL,
         "C411": settings.C411_URL,
+        "V3X": settings.V3X_URL,
         "Gemini": settings.GEMINI_URL,
         "Generation-Free": settings.GENERATIONFREE_URL,
         "Zilean": settings.ZILEAN_URL,
