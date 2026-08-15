@@ -7,10 +7,10 @@
 
 ### Sources
 
-- **Consolidation en un seul addon** : Wawacity, Free-Telecharger, Movix, Webshare, trackers Torznab (YggReborn, Tr4ker, Torr9, C411), Zilean et Nyaa — évite de maintenir 4-5 conteneurs séparés.
+- **Consolidation en un seul addon** : Wawacity, Free-Telecharger, Movix, Webshare, Zone-Telechargement, trackers Torznab (YggReborn, Tr4ker, Torr9, C411, V3X), Zilean et Nyaa — évite de maintenir 4-5 conteneurs séparés.
 - **Scraper Nyaa** (flux RSS, `infoHash` direct, sans clé API) : anime via Kitsu, **et contenu live action japonais**. La recherche essaie aussi les **titres alternatifs TMDB** — Nyaa n'indexe quasiment jamais un titre français, mais répond sur le titre international (cas réel : « Comme les grands » → 0 résultat, « Old Enough » → 3).
 - **Scraper UNIT3D natif** (Gemini, Generation-Free) et **scraper Zilean** (index DMM public).
-- **Portage sélectif de WAStream v3.7.0** : Turbobit, lecture résiliente, scraper Pastebin.
+- **Aligné sur WAStream 3.8.2** : le fork repart de la base upstream et y réapplique ses correctifs, plutôt que de porter les nouveautés une par une (Turbobit, lecture résiliente et scraper Pastebin, autrefois portés à la main, sont désormais natifs).
 
 ### Débridage
 

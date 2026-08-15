@@ -30,7 +30,7 @@ SENSITIVE_SETTINGS = frozenset({
     # Clés des trackers propres au fork : même traitement que les
     # autres secrets (affichées masquées, écriture seule, chiffrées).
     "YGGREBORN_API_KEY", "TR4KER_API_KEY", "TORR9_API_KEY", "C411_API_KEY",
-    "GEMINI_API_KEY", "GENERATIONFREE_API_KEY",
+    "GEMINI_API_KEY", "GENERATIONFREE_API_KEY", "V3X_API_KEY",
 })
 
 # Excluded from export/import: raw HTML -> importing from an untrusted file would be stored XSS.
@@ -178,7 +178,8 @@ SETTINGS_LAYOUT = [
     ("Trackers Torznab", ["YGGREBORN_URL", "YGGREBORN_API_KEY",
                           "TR4KER_URL", "TR4KER_API_KEY",
                           "TORR9_URL", "TORR9_API_KEY",
-                          "C411_URL", "C411_API_KEY"]),
+                          "C411_URL", "C411_API_KEY",
+                          "V3X_URL", "V3X_API_KEY"]),
     ("Trackers UNIT3D", ["GEMINI_URL", "GEMINI_API_KEY",
                          "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY"]),
     ("Zilean / Nyaa", ["ZILEAN_URL", "NYAA_URL"]),

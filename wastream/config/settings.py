@@ -133,21 +133,21 @@ class Settings(BaseSettings):
     ALLDEBRID_API_URL: str = "https://api.alldebrid.com/v4"
     ALLDEBRID_BATCH_SIZE: int = 12
     ALLDEBRID_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "vidoza", "alldebrid", "torrent"]
-    ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "gemini", "generation-free", "zilean", "nyaa"]
+    ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa"]
 
     # ===========================
     # TorBox Configuration
     # ===========================
     TORBOX_API_URL: str = "https://api.torbox.app/v1/api"
     TORBOX_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "sendcm", "send.now", "darkibox", "webshare"]
-    TORBOX_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "webshare", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "gemini", "generation-free", "zilean", "nyaa"]
+    TORBOX_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "webshare", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa"]
 
     # ===========================
     # Premiumize Configuration
     # ===========================
     PREMIUMIZE_API_URL: str = "https://www.premiumize.me/api"
     PREMIUMIZE_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator"]
-    PREMIUMIZE_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "gemini", "generation-free", "zilean", "nyaa"]
+    PREMIUMIZE_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa"]
 
     # ===========================
     # 1fichier Configuration
@@ -185,6 +185,8 @@ class Settings(BaseSettings):
     TORR9_API_KEY: Optional[str] = None
     C411_URL: Optional[str] = None
     C411_API_KEY: Optional[str] = None
+    V3X_URL: Optional[str] = None
+    V3X_API_KEY: Optional[str] = None
 
     # ===========================
     # Tracker Configuration (UNIT3D — API JSON native)
@@ -311,7 +313,7 @@ class Settings(BaseSettings):
         "DOMAIN_SYNC_WAWACITY_TELEGRAM_URL", "DOMAIN_SYNC_FREE_TELECHARGER_TELEGRAM_URL",
         "DOMAIN_SYNC_MOVIX_TELEGRAM_URL", "DOMAIN_SYNC_ZONE_TELECHARGEMENT_TELEGRAM_URL",
         # Nos sources maison (trackers Torznab/UNIT3D, Zilean, Nyaa)
-        "YGGREBORN_URL", "TR4KER_URL", "TORR9_URL", "C411_URL",
+        "YGGREBORN_URL", "TR4KER_URL", "TORR9_URL", "C411_URL", "V3X_URL",
         "GEMINI_URL", "GENERATIONFREE_URL", "ZILEAN_URL", "NYAA_URL"
     )
     @classmethod
@@ -401,6 +403,7 @@ SOURCE_DISPLAY_NAMES = {
     "tr4ker": "Tr4ker",
     "torr9": "Torr9",
     "c411": "C411",
+    "v3x": "V3X",
     "gemini": "Gemini",
     "generation-free": "Generation-Free",
     "zilean": "Zilean",
