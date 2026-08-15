@@ -24,7 +24,8 @@ class NyaaScraper:
 
     async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
                      season: Optional[str] = None, episode: Optional[str] = None,
-                     config: Optional[Dict] = None, category: str = "1_0") -> List[Dict]:
+                     config: Optional[Dict] = None, category: str = "1_0",
+                     absolute_episode: Optional[str] = None) -> List[Dict]:
         if not settings.NYAA_URL:
             scraper_logger.debug("[Nyaa] URL not configured, skipping")
             return []
@@ -60,8 +61,21 @@ class NyaaScraper:
 
                 # Recherche full-text laxiste côté Nyaa : re-valider localement
                 # que la release correspond bien à l'épisode demandé.
+                #
+                # strict=True : une release d'animé est quasi toujours numérotée,
+                # donc un nom où l'on ne détecte AUCUN épisode est du bruit (autre
+                # série, PV, bande-annonce). Sans ce mode, tout ce que les motifs
+                # ne reconnaissaient pas passait — et le format dominant ici,
+                # « Titre - 05 », n'était justement pas reconnu, d'où des épisodes
+                # d'autres saisons dans les résultats.
+                #
+                # absolute_episode : Nyaa numérote souvent en continu (S02E01 se
+                # nomme « 13 »), on accepte donc aussi ce numéro tant que le nom
+                # ne porte pas de marqueur de saison explicite.
                 if season and episode:
-                    if episode_matches(release_name, season, episode) is False:
+                    if episode_matches(release_name, season, episode,
+                                       absolute_episode=absolute_episode,
+                                       strict=True) is False:
                         continue
 
                 tokens = tokenize_filename(release_name)
