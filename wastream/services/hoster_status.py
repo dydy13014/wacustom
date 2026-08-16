@@ -95,7 +95,11 @@ async def _check_alldebrid_hosters(api_key: str) -> Dict[str, dict]:
                 continue
             quota = info.get("quota")
             quota_max = info.get("quotaMax")
-            quota_pct = (quota / quota_max * 100) if quota_max else None
+            # `quota` absent alors que `quotaMax` est présent lève un TypeError,
+            # attrapé par le try englobant : la fonction renvoie alors {} et
+            # TOUS les hébergeurs perdent leur statut proactif à cause d'une
+            # seule entrée incomplète. On traite donc le quota comme inconnu.
+            quota_pct = (quota / quota_max * 100) if (quota is not None and quota_max) else None
             result[name.lower()] = {"up": bool(info.get("status", True)), "quota_pct": quota_pct}
 
         debrid_logger.debug(f"[HosterStatus] AllDebrid: {result}")

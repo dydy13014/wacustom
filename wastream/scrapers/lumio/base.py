@@ -58,24 +58,39 @@ SOURCE_LABEL = "Lumio"
 # pause courte est donc pire que rien, elle entretient le blocage a l'infini.
 # D'ou 24h, et surtout une pause ECRITE SUR DISQUE : gardee en memoire, elle
 # etait perdue a chaque redemarrage du conteneur et on repartait taper aussitot.
-_RATE_LIMIT_PAUSE_S = int(os.environ.get("LUMIO_RATE_LIMIT_PAUSE", "86400"))
+_RATE_LIMIT_PAUSE_S = settings.LUMIO_RATE_LIMIT_PAUSE
 _PAUSE_FILE = Path(os.environ.get("LUMIO_PAUSE_FILE", "/app/data/lumio_pause"))
+
+# Repli memoire : si /app/data n'est pas monte ou n'est pas inscriptible, la
+# pause ne pouvait pas etre enregistree du tout et on repartait interroger
+# Lumio immediatement — ce qui PROLONGE le blocage au lieu de l'attendre.
+# Moins durable qu'un fichier (perdu au redemarrage), mais infiniment mieux
+# que rien pour qui heberge Wacustom sans le volume.
+_pause_until_mem = 0.0
 
 
 def _paused_for() -> int:
     """Secondes restantes de pause quota, 0 si on peut interroger."""
+    restant = int(_pause_until_mem - time.time())
     try:
-        return max(0, int(float(_PAUSE_FILE.read_text().strip()) - time.time()))
+        depuis_disque = int(float(_PAUSE_FILE.read_text().strip()) - time.time())
+        restant = max(restant, depuis_disque)
     except (OSError, ValueError):
-        return 0
+        pass
+    return max(0, restant)
 
 
 def _start_pause() -> None:
+    global _pause_until_mem
+    _pause_until_mem = time.time() + _RATE_LIMIT_PAUSE_S
     try:
         _PAUSE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _PAUSE_FILE.write_text(str(time.time() + _RATE_LIMIT_PAUSE_S))
+        _PAUSE_FILE.write_text(str(_pause_until_mem))
     except OSError as exc:
-        scraper_logger.warning(f"[Lumio] pause non persistee : {exc}")
+        scraper_logger.warning(
+            f"[Lumio] pause non persistee ({exc}) - repli en memoire, "
+            "elle sera perdue au redemarrage"
+        )
 
 
 def _decode_token(url: str) -> Optional[dict]:
