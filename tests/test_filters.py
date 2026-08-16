@@ -93,6 +93,25 @@ def test_filter_by_languages_rejects_multi_without_match():
     assert filter_by_languages(results, ["French"]) == []
 
 
+def test_filter_by_languages_keeps_bare_multi():
+    # « Multi » BRUT (sans detail) = joker : la source ne liste pas les langues
+    # (cas Lumio). Upstream le rejetait faute de correspondance exacte, ce qui
+    # faisait perdre 36 resultats deja en cache debrid sur Solo Leveling S02E09.
+    for tag in ("Multi", "MULTI", "multi", "Multi-Audio", "MultiLang"):
+        results = [_result(language=tag)]
+        assert filter_by_languages(results, ["French"]) == results, tag
+
+
+def test_filter_by_languages_bare_multi_is_not_a_global_bypass():
+    # Le joker ne doit concerner QUE « Multi » : une autre langue non demandee
+    # reste ecartee, sinon le filtre ne servirait plus a rien.
+    results = [_result(language="German")]
+    assert filter_by_languages(results, ["French"]) == []
+    # ...et « Multi (…) » detaille garde son comportement d'origine.
+    detailed = [_result(language="Multi (German, Italian)")]
+    assert filter_by_languages(detailed, ["French"]) == []
+
+
 # ===========================
 # filter_by_resolutions
 # ===========================

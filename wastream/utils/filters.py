@@ -7,6 +7,21 @@ from wastream.utils.helpers import parse_size_to_gb
 # ===========================
 # Language Filtering
 # ===========================
+# ⚠️ Divergence volontaire d'upstream (3.8.2) — à conserver au prochain rebase.
+# Upstream ne sait lire qu'un « Multi (French, English) » détaillé ; un tag
+# « Multi » BRUT tombe dans la comparaison par nom exact, où « Multi » n'égale
+# jamais « French » → la release est jetée. Or « Multi » veut précisément dire
+# « plusieurs langues », et beaucoup de sources (Lumio en tête, mais aussi des
+# packs Torznab) ne détaillent jamais lesquelles : le nom dit « Multi-Audio »
+# sans les lister, donc l'information n'existe pas côté scraper et ne peut pas
+# être reconstituée là-bas. Corrigé ici, au bon endroit, pour toutes les
+# sources à la fois. Mesuré sur Solo Leveling S02E09 : 36 résultats Lumio en
+# cache debrid ⚡ réduits à 1 par ce filtre, avec une config `['French']`.
+# Compromis assumé : un « Multi » sans français passera aussi — quelques flux
+# en trop, contre la perte totale des flux déjà en cache.
+_MULTI_WILDCARD = {"multi", "multilang", "multilangue", "multi-audio", "multiaudio"}
+
+
 def filter_by_languages(results: List[Dict], user_languages: List[str]) -> List[Dict]:
     if not user_languages:
         return results
@@ -26,6 +41,9 @@ def filter_by_languages(results: List[Dict], user_languages: List[str]) -> List[
                 if lang in user_languages:
                     include_result = True
                     break
+        elif result_language.strip().lower() in _MULTI_WILDCARD:
+            # « Multi » brut, sans détail : joker multi-langues (cf. note ci-dessus).
+            include_result = True
         else:
             if result_language in user_languages:
                 include_result = True
