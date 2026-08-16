@@ -370,16 +370,41 @@ _EP_SEASON_RE = re.compile(
 # (« 86 EIGHTY-SIX », « Mob Psycho 100 », « Gundam 00 ») :
 #   - un séparateur fort AVANT le numéro : tiret, tilde, ou préfixe EP/#
 #   - une assertion de suite APRÈS : tag, résolution, codec, extension, ou fin
+_EP_SUFFIX_ASSERT = (
+    r'(?=[\s\-_~.]*'
+    r'(?:\(|\[|1080p|720p|480p|2160p|x264|x265|h264|h265|hevc|avc'
+    r'|multi|vostfr|sub|dub|end|fin|batch|complete|\d+bit|\.mkv|\.mp4)'
+    r'|$)'
+)
+
 _ANIME_BARE_EP_RE = re.compile(
     r'(?:'
     r'(?:^|[\s\-_~.]+)(?:EP?\.?\s*|#)(\d{1,4})(?:v\d+)?'   # EP05, E05, #12
     r'|'
-    r'[\s_]*[-~][\s_]*(\d{1,4})(?:v\d+)?'                   # « - 05 », « ~ 12 »
+    # Le tiret doit être précédé d'un espace (ou du début du nom) : sans cette
+    # ancre, « HEVC-265 », « DTS-HD MA 5.1-NAN0 » ou un titre finissant par
+    # « -2022 1080p » étaient lus comme des numéros d'épisode.
+    r'(?:^|[\s_])[-~][\s_]*(\d{1,4})(?:v\d+)?'              # « - 05 », « ~ 12 »
     r')'
-    r'(?=[\s\-_~.]*'
-    r'(?:\(|\[|1080p|720p|480p|2160p|x264|x265|h264|h265|hevc|avc'
-    r'|multi|vostfr|sub|dub|end|fin|batch|complete|\d+bit|\.mkv|\.mp4)'
-    r'|$)',
+    + _EP_SUFFIX_ASSERT,
+    re.IGNORECASE
+)
+
+# Plage d'épisodes « nue » : « 01-13 », « 1017-1024 », « Episode 1 - 13 ».
+# Réservée aux noms SANS marqueur de saison (sinon « Season 3 - 7 » serait lu
+# comme la plage 3→7 au lieu de l'épisode 7 de la saison 3). Sans elle, seul le
+# dernier numéro était capturé : un batch « One Piece 1017-1024 » ne
+# correspondait qu'à l'épisode 1024.
+_ANIME_BARE_RANGE_RE = re.compile(
+    r'(?:^|[\s_])(\d{1,4})(?:\.\d)?\s*[-~]\s*(\d{1,4})(?:v\d+)?'
+    + _EP_SUFFIX_ASSERT,
+    re.IGNORECASE
+)
+
+# Release couvrant une saison entière : on ne doit alors pas interpréter un
+# numéro isolé du nom comme « uniquement cet épisode ».
+_BATCH_MARKER_RE = re.compile(
+    r'\b(?:batch|complete|complet|integrale|int[ée]grale|full[\s._-]?season)\b',
     re.IGNORECASE
 )
 
@@ -397,6 +422,16 @@ _SAMPLE_RE = re.compile(r'(?:^|[^a-z])sample(?:[^a-z]|$)', re.IGNORECASE)
 def is_sample_file(filename: str) -> bool:
     """Détecte les fichiers 'sample' inclus dans certaines releases."""
     return bool(_SAMPLE_RE.search(filename or ""))
+
+
+def _bare_episode_numbers(release_name: str) -> List[int]:
+    """Numéros d'épisode « nus » présents dans un nom de release d'animé."""
+    numeros = []
+    for m in _ANIME_BARE_EP_RE.finditer(release_name):
+        g = next((x for x in m.groups() if x is not None), None)
+        if g is not None:
+            numeros.append(int(g))
+    return numeros
 
 
 def episode_matches(release_name: str, season, episode,
@@ -460,17 +495,25 @@ def episode_matches(release_name: str, season, episode,
         g = next(g for g in m.groups() if g is not None)
         seasons.append(int(g))
     if seasons:
-        return req_s in seasons
+        if req_s not in seasons:
+            return False
+        # « S3 - 07 », « Season 3 - 7 » : marqueur de saison ET numéro nu. Ce
+        # n'est pas un season pack mais l'épisode 7 de la saison 3 — sans ce
+        # test, n'importe quel épisode demandé de la saison correspondait
+        # (7,8 % des résultats Nyaa réels, dont le « Solo Leveling S2 - 13 »
+        # qui a fait remonter le problème). Un marqueur de batch explicite
+        # ramène au comportement season pack.
+        if not _BATCH_MARKER_RE.search(release_name):
+            bare = _bare_episode_numbers(release_name)
+            if bare:
+                return req_e in bare
+        return True
 
     # 5. Numéro « nu » des releases d'animé (« Titre - 05 », « EP05 », « #12 »).
     #    Ne s'applique qu'aux noms sans aucun marqueur de saison — ceux-ci sont
     #    déjà traités au point 4 (et un « S02 » interdirait la comparaison au
     #    numéro absolu).
-    bare = []
-    for m in _ANIME_BARE_EP_RE.finditer(release_name):
-        g = next((x for x in m.groups() if x is not None), None)
-        if g is not None:
-            bare.append(int(g))
+    bare = _bare_episode_numbers(release_name)
     if bare:
         attendus = {req_e}
         if req_abs is not None and not _EXPLICIT_SEASON_RE.search(release_name):
@@ -478,6 +521,19 @@ def episode_matches(release_name: str, season, episode,
         if attendus & set(bare):
             return True
         return False  # un numéro est bien présent, mais ce n'est pas le nôtre
+
+    # 5 bis. Plage nue « 1017-1024 » (batchs d'animé sans marqueur de saison).
+    for m in _ANIME_BARE_RANGE_RE.finditer(release_name):
+        start, end = int(m.group(1)), int(m.group(2))
+        # Plage aberrante, ou deux années (« 2022-2023 ») prises pour des
+        # épisodes : on ignore plutôt que de trancher à tort.
+        if start > end or (1900 <= start <= 2100 and 1900 <= end <= 2100):
+            continue
+        attendus = {req_e}
+        if req_abs is not None:
+            attendus.add(req_abs)
+        if any(start <= v <= end for v in attendus):
+            return True
 
     # 6. Aucune info détectée
     return False if strict else None
