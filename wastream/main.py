@@ -110,10 +110,11 @@ async def lifespan(app: FastAPI):
     await setup_database()
     await apply_startup_overrides()
 
-    # ⚠️ Nos sources maison (torznab/nyaa/unit3d/zilean/Lumio) ne sont pas
-    # comptées ici : cet avertissement ne vaut que pour les sources directes
-    # d'upstream. Un déploiement qui n'utiliserait QUE nos sources verrait donc
-    # ce message à tort — inoffensif (log seulement), mais à savoir.
+    # Nos sources maison sont comptées ici au même titre que celles d'upstream :
+    # sans elles, un déploiement n'utilisant QUE nos trackers verrait
+    # l'avertissement à tort. ⚠️ NYAA_URL ayant une valeur par défaut, cette
+    # condition est en pratique toujours vraie — l'avertissement ne se
+    # déclenche donc que si quelqu'un vide explicitement ce réglage.
     has_direct_source = any((
         settings.WAWACITY_URL,
         settings.FREE_TELECHARGER_URL,
@@ -121,7 +122,19 @@ async def lifespan(app: FastAPI):
         settings.MOVIX_URL,
         settings.WEBSHARE_URL,
         settings.ZONE_TELECHARGEMENT_URL,
+        # Sources propres au fork, absentes d'upstream : sans elles, un
+        # deploiement n'utilisant QUE ces sources verrait l'avertissement
+        # ci-dessous alors que tout fonctionne.
         settings.NYAA_URL,
+        settings.ZILEAN_URL,
+        settings.YGGREBORN_URL,
+        settings.TR4KER_URL,
+        settings.TORR9_URL,
+        settings.C411_URL,
+        settings.V3X_URL,
+        settings.GEMINI_URL,
+        settings.GENERATIONFREE_URL,
+        settings.LUMIO_MANIFEST_ID,
     ))
     has_import_feeder = bool(settings.PASTEBIN_SCRAPER_URLS or settings.IDRIX_SCRAPER_URLS)
     if not has_direct_source and not has_import_feeder:

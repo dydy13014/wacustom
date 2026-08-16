@@ -232,7 +232,12 @@ def filter_excluded_keywords(streams: List[Dict], excluded_keywords: List[str]) 
 # ===========================
 # All Filters Application
 # ===========================
-def apply_all_filters(results: List[Dict], config: Dict, content_type: str = "movie") -> List[Dict]:
+# `content_type` est volontairement SANS valeur par defaut : avec un defaut a
+# "movie", un appelant qui l'oublierait sur des episodes reactiverait en silence
+# le filtre anti-poison sur les series — c'est exactement le bug « Comme les
+# grands » du 2026-07-20 (episodes de 20 min rejetes comme trop legers). Sans
+# defaut, l'oubli devient une erreur immediate au lieu d'un filtrage muet.
+def apply_all_filters(results: List[Dict], config: Dict, content_type: str) -> List[Dict]:
     results = filter_implausible_size(results, content_type)
 
     user_languages = config.get("languages", [])
