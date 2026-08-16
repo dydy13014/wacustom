@@ -116,6 +116,54 @@ def test_episode_matches_absolute_episode_ignored_with_explicit_season():
     assert episode_matches("[Group] Show S02 - 13 [1080p].mkv", 1, 13, absolute_episode=13) is False
 
 
+def test_episode_matches_absolute_episode_hybrid_season_and_bare_number():
+    # Cas hybride : saison explicite ET numero nu (« Show S02 - 13 »). Le
+    # numero est alors relatif a la saison marquee, jamais absolu.
+    assert episode_matches("[Group] Show S02 - 13 [1080p].mkv", 2, 13, absolute_episode=25) is True
+    # Meme nom, mais on demande l'episode absolu 13 (= S02E01) : refuse, car
+    # « 13 » designe ici le 13e episode DE la saison 2.
+    assert episode_matches("[Group] Show S02 - 13 [1080p].mkv", 2, 1, absolute_episode=13) is False
+
+
+def test_episode_matches_season_marker_with_bare_number_is_not_a_pack():
+    # Format Nyaa dominant (« S3 - 07 », « Season 3 - 7 ») : la saison est
+    # marquee mais le nom designe UN episode, pas la saison entiere.
+    for name in ("[ASW] Mushoku Tensei S3 - 07 [1080p HEVC x265 10Bit][AAC]",
+                 "[Doomdos] - Mushoku Tensei Season 3 - 7 [2160p IQ WEB-DL]"):
+        assert episode_matches(name, 3, 7) is True
+        assert episode_matches(name, 3, 1) is False
+        assert episode_matches(name, 2, 7) is False
+
+
+def test_episode_matches_batch_marker_stays_a_season_pack():
+    # Un marqueur de batch explicite : le numero present dans le nom ne doit
+    # PAS restreindre la release a ce seul episode.
+    name = ("[Anime Chap] Kaguya-sama Season 3 [WEB 1080p] Improved Subs v2 "
+            "- Episode 1 - 13 (Love is War) {Batch}")
+    assert episode_matches(name, 3, 5) is True
+    assert episode_matches(name, 3, 13) is True
+    assert episode_matches(name, 2, 5) is False
+
+
+def test_episode_matches_bare_range_batch():
+    # Batch sans marqueur de saison : « 1017-1024 » couvre toute la plage,
+    # alors que seul le dernier numero etait reconnu auparavant.
+    name = "[HatSubs] One Piece 1017-1024 (BD 1080p 10-bit) (v0)"
+    assert episode_matches(name, 1, 1020, absolute_episode=1020) is True
+    assert episode_matches(name, 1, 1017, absolute_episode=1017) is True
+    assert episode_matches(name, 1, 1030, absolute_episode=1030) is not True
+
+
+def test_episode_matches_ignores_codec_and_year_false_numbers():
+    # « HEVC-265 » et « -2022 » ne sont pas des numeros d'episode : le tiret
+    # doit etre precede d'un espace pour compter.
+    pack = "[DKB] Jujutsu Kaisen (Season 1) [1080p][HEVC-265 10bit][Multi-Subs][batch]"
+    assert episode_matches(pack, 1, 5) is True
+    film = ("Kaguya-sama: Love Is War -The First Kiss That Never Ends- 2022 "
+            "1080p BluRay REMUX AVC Dual-Audio DTS-HD MA 5.1-NAN0")
+    assert episode_matches(film, 1, 2022, strict=True) is False
+
+
 def test_episode_matches_absolute_episode_none_has_no_effect():
     assert episode_matches("[Group] Show - 05 [1080p].mkv", 1, 5, absolute_episode=None) is True
 

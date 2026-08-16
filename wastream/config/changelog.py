@@ -22,6 +22,8 @@ CHANGELOG = [
             "Nouvelles options disponibles, désactivées par défaut : source Zone-Telechargement, collecteur Idrix, et suivi automatique des changements de domaine des sites sources",
             "Interface revue : navigation par onglets, palette unifiée entre la page de configuration, la connexion et le tableau de bord",
             "Wacustom a désormais son propre numéro de version, distinct de celui de WAStream",
+            "Animés : un fichier nommé « S3 - 07 » n'est plus pris pour la saison 3 entière, il ne correspond plus qu'à l'épisode 7 (les mauvais épisodes n'apparaissent plus dans la liste)",
+            "Animés : les lots d'épisodes (« 1017-1024 ») sont désormais reconnus sur toute leur plage, et une année ou un codec dans le nom ne passe plus pour un numéro d'épisode",
         ],
     },
 ]
