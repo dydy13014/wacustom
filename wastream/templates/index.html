@@ -2252,6 +2252,24 @@
                             </div>
                         </div>
                         <div class="form-field">
+                            <div class="toggle-wrapper" id="prioritizeVffMultiToggle">
+                                <div class="toggle" id="prioritizeVffMultiToggleBtn">
+                                    <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                    <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <span class="toggle-label" data-i18n="toggles.prioritizeVffMulti">Prioritize VFF/Multi over VOSTFR</span>
+                                    <span class="field-help" style="margin-top: 2px;" data-i18n="help.prioritizeVffMultiInfo">Among French results, rank dubbed audio (VFF, MULTI, TRUEFRENCH) before subtitled originals (VOSTFR)</span>
+                                </div>
+                            </div>
+                            <input type="checkbox" id="prioritizeVffMulti" style="display: none;" />
+                        </div>
+                        <div class="form-field">
                             <div class="source-content-types-container">
                                 <div class="toggle-wrapper" id="sourceContentTypesToggle">
                                     <div class="toggle" id="sourceContentTypesToggleBtn">
@@ -2513,6 +2531,9 @@
             resilientAllowUncached: null,
             resilientAllowUncachedToggle: null,
             resilientAllowUncachedToggleBtn: null,
+            prioritizeVffMulti: null,
+            prioritizeVffMultiToggle: null,
+            prioritizeVffMultiToggleBtn: null,
             sourceContentTypes: null,
             sourceContentTypesToggle: null,
             sourceContentTypesToggleBtn: null,
@@ -3505,6 +3526,7 @@
                 resilient_same_source: els.resilientSameSource.checked,
                 resilient_same_debrid_only: els.resilientSameDebridOnly.checked,
                 resilient_allow_uncached: els.resilientAllowUncached.checked,
+                prioritize_vff_multi: els.prioritizeVffMulti.checked,
                 source_content_types: els.sourceContentTypes.checked,
                 source_content_types_config: (() => {
                     const sctConfig = {};
@@ -3932,7 +3954,7 @@
 
             els.resilientMode.addEventListener('sl-change', updateResilientMode);
 
-            ['resilientSameResolution', 'resilientSameLanguage', 'resilientSameQuality', 'resilientSameHost', 'resilientSameSource', 'resilientSameDebridOnly', 'resilientAllowUncached'].forEach(base => {
+            ['resilientSameResolution', 'resilientSameLanguage', 'resilientSameQuality', 'resilientSameHost', 'resilientSameSource', 'resilientSameDebridOnly', 'resilientAllowUncached', 'prioritizeVffMulti'].forEach(base => {
                 els[base + 'Toggle'].addEventListener('click', () => {
                     els[base].checked = !els[base].checked;
                     els[base + 'ToggleBtn'].classList.toggle('active', els[base].checked);
@@ -4214,7 +4236,11 @@
         // effacerait silencieusement de la config utilisateur (le backend les
         // exploite toujours, cf. services/stream.py).
         const wacustomOnlyFields = {};
-        const WACUSTOM_ONLY_KEYS = ['stream_type_preference', 'prioritize_vff_multi', 'preferred_keywords'];
+        // prioritize_vff_multi a maintenant un vrai controle de formulaire (case a
+        // cocher) : le retirer d'ici, sinon le spread `...wacustomOnlyFields` plus
+        // bas ecraserait la valeur cochee par l'utilisateur avec l'ancienne valeur
+        // preservee de la config chargee au demarrage.
+        const WACUSTOM_ONLY_KEYS = ['stream_type_preference', 'preferred_keywords'];
 
         const applyConfigToForm = (config) => {
             WACUSTOM_ONLY_KEYS.forEach(k => {
@@ -4338,7 +4364,8 @@
                 ['resilient_same_host', 'resilientSameHost'],
                 ['resilient_same_source', 'resilientSameSource'],
                 ['resilient_same_debrid_only', 'resilientSameDebridOnly'],
-                ['resilient_allow_uncached', 'resilientAllowUncached']
+                ['resilient_allow_uncached', 'resilientAllowUncached'],
+                ['prioritize_vff_multi', 'prioritizeVffMulti']
             ].forEach(([key, base]) => {
                 if (typeof config[key] === 'boolean') {
                     els[base].checked = config[key];
