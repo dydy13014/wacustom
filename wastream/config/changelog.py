@@ -11,6 +11,13 @@ change à l'usage, pas le détail d'implémentation.
 
 CHANGELOG = [
     {
+        "version": "1.1.0",
+        "date": "2026-08-21",
+        "changes": [
+            "Nouvelle option Réglages : prioriser les résultats en VF/Multi (doublage français) avant les résultats VOSTFR, parmi les résultats français",
+        ],
+    },
+    {
         "version": "1.0.0",
         "date": "2026-08-16",
         "changes": [
