@@ -11,6 +11,13 @@ change à l'usage, pas le détail d'implémentation.
 
 CHANGELOG = [
     {
+        "version": "1.1.1",
+        "date": "2026-09-06",
+        "changes": [
+            "Petites retouches de texte dans l'interface (tirets longs remplacés par une ponctuation plus lisible)",
+        ],
+    },
+    {
         "version": "1.1.0",
         "date": "2026-08-21",
         "changes": [
