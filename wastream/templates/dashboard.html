@@ -4844,7 +4844,7 @@
             return `<div class="pastebin-control" style="display:flex; align-items:center; gap:10px; margin:2px 0 14px;">
                 <button type="button" class="btn-small btn-primary" id="pastebinRunBtn" onclick="runPastebinScraperNow()">Run now</button>
                 <button type="button" class="btn-small btn-danger" id="pastebinStopBtn" onclick="stopPastebinScraperNow()">Stop</button>
-                <span id="pastebinControlStatus" style="font-size:12px; color:var(--text-muted);">—</span>
+                <span id="pastebinControlStatus" style="font-size:12px; color:var(--text-muted);">-</span>
             </div>`;
         }
 
@@ -4893,7 +4893,7 @@
             return `<div class="pastebin-control" style="display:flex; align-items:center; gap:10px; margin:2px 0 14px;">
                 <button type="button" class="btn-small btn-primary" id="idrixRunBtn" onclick="runIdrixScraperNow()">Run now</button>
                 <button type="button" class="btn-small btn-danger" id="idrixStopBtn" onclick="stopIdrixScraperNow()">Stop</button>
-                <span id="idrixControlStatus" style="font-size:12px; color:var(--text-muted);">—</span>
+                <span id="idrixControlStatus" style="font-size:12px; color:var(--text-muted);">-</span>
             </div>`;
         }
 
@@ -5062,7 +5062,7 @@
             if (f.editor === 'kitsu-override') return renderKitsuOverride(f);
 
             if (f.sensitive) {
-                const ph = f.is_set ? 'set — leave empty to keep' : 'not set';
+                const ph = f.is_set ? 'set, leave empty to keep' : 'not set';
                 return `<input type="password" class="form-input" ${attrs} data-sensitive="1" placeholder="${escapeAttr(ph)}" ${dis}>`;
             }
             if (f.kind === 'bool') {
@@ -5163,7 +5163,7 @@
                 chips.insertAdjacentHTML('beforeend', imdbChipHtml(url));
                 added++;
             });
-            if (invalid) showToast('error', 'Invalid URL(s)', `${invalid} ignored — each must start with http:// or https://`);
+            if (invalid) showToast('error', 'Invalid URL(s)', `${invalid} ignored, each must start with http:// or https://`);
             if (added) input.value = '';
         }
 

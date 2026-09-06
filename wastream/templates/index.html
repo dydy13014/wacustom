@@ -332,7 +332,7 @@
            masquage : une section que l'application a elle-meme masquee en
            style inline (Securite tant qu'aucun mot de passe n'est requis,
            Compte hors connexion) reste masquee meme si elle est l'onglet
-           actif — le comportement de l'appli reste prioritaire.
+           actif, le comportement de l'appli reste prioritaire.
            Sans le mode onglets (JS indisponible), tout s'affiche a la
            suite comme avant. */
         body.tabs-mode .section:not(.tab-active) {
@@ -2134,7 +2134,7 @@
                                     </div>
                                     <div class="form-field" id="resilientMaxDelayField">
                                         <sl-input id="resilientMaxDelay" type="number" label="Max wait per link (s)" value="0" min="0"></sl-input>
-                                        <span class="field-help" data-i18n="help.resilientMaxDelay">Give up on a link after this many seconds and try the next — sequential mode only (0 = no limit)</span>
+                                        <span class="field-help" data-i18n="help.resilientMaxDelay">Give up on a link after this many seconds and try the next (sequential mode only, 0 = no limit)</span>
                                     </div>
                                     <div class="form-field">
                                         <div class="toggle-wrapper" id="resilientSameResolutionToggle">
@@ -2182,7 +2182,7 @@
                                             <span class="toggle-label" data-i18n="toggles.resilientSameQuality">Same quality</span>
                                         </div>
                                         <input type="checkbox" id="resilientSameQuality" style="display: none;" />
-                                        <span class="field-help" data-i18n="help.resilientSameQuality">Only try links with the same release type (BluRay, WEB-DL...) — stricter than resolution</span>
+                                        <span class="field-help" data-i18n="help.resilientSameQuality">Only try links with the same release type (BluRay, WEB-DL...), stricter than resolution</span>
                                     </div>
                                     <div class="form-field">
                                         <div class="toggle-wrapper" id="resilientSameHostToggle">
@@ -3589,7 +3589,7 @@
                 showAlert(t('messages.invalidConfigFile') || 'Invalid config file');
                 return;
             }
-            showAlert(t('messages.configImported') || 'Config imported — review and generate your link');
+            showAlert(t('messages.configImported') || 'Config imported. Review and generate your link');
         };
 
         const generateLink = async () => {
