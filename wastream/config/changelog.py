@@ -11,6 +11,13 @@ change à l'usage, pas le détail d'implémentation.
 
 CHANGELOG = [
     {
+        "version": "1.3.0",
+        "date": "2026-09-16",
+        "changes": [
+            "Nouvelle source disponible : AIOSources (agrégateur communautaire C411/Tr4ker/TsukiHime/Nostradamus/TheOldSchool, projet tiers maintenu par Théo [TB]) — réglée une seule fois par l'hébergeur, comme Zilean ou Nyaa : aucune clé à renseigner pour en profiter",
+        ],
+    },
+    {
         "version": "1.2.0",
         "date": "2026-09-09",
         "changes": [
