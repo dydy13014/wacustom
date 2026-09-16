@@ -183,7 +183,7 @@ SETTINGS_LAYOUT = [
                           "V3X_URL", "V3X_API_KEY"]),
     ("Trackers UNIT3D", ["GEMINI_URL", "GEMINI_API_KEY",
                          "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY"]),
-    ("Zilean / Nyaa", ["ZILEAN_URL", "NYAA_URL"]),
+    ("Zilean / Nyaa / AIOSources", ["ZILEAN_URL", "NYAA_URL", "AIOSOURCES_URL"]),
     ("Lumio", ["LUMIO_MANIFEST_ID", "LUMIO_RATE_LIMIT_PAUSE"]),
     ("Database resilience", ["DATABASE_RETRY_MAX_ATTEMPTS", "DATABASE_RETRY_DELAY"]),
     ("Kitsu / Anime", ["DARKIMOVIX_KITSU_TMDB_MAPPING", "KITSU_IMDB_OVERRIDE"]),

@@ -156,21 +156,21 @@ class Settings(BaseSettings):
     # peu importe l'ancienneté du lien (confirmé par appel API direct) — ce
     # n'est pas un hébergeur DDL utilisable via cette API.
     ALLDEBRID_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "vidoza", "torrent"]
-    ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio"]
+    ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio", "aiosources"]
 
     # ===========================
     # TorBox Configuration
     # ===========================
     TORBOX_API_URL: str = "https://api.torbox.app/v1/api"
     TORBOX_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "sendcm", "send.now", "darkibox", "webshare"]
-    TORBOX_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "webshare", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio"]
+    TORBOX_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "webshare", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio", "aiosources"]
 
     # ===========================
     # Premiumize Configuration
     # ===========================
     PREMIUMIZE_API_URL: str = "https://www.premiumize.me/api"
     PREMIUMIZE_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator"]
-    PREMIUMIZE_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio"]
+    PREMIUMIZE_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio", "aiosources"]
 
     # ===========================
     # 1fichier Configuration
@@ -223,6 +223,11 @@ class Settings(BaseSettings):
     # Zilean Configuration (index DMM, pas d'API key)
     # ===========================
     ZILEAN_URL: Optional[str] = None
+
+    # ===========================
+    # AIOSources Configuration (instance partagee, pas de cle par utilisateur)
+    # ===========================
+    AIOSOURCES_URL: Optional[str] = None
 
     # ===========================
     # Lumio Configuration
@@ -398,9 +403,9 @@ class Settings(BaseSettings):
         "WEBSHARE_URL", "ZONE_TELECHARGEMENT_URL", "PROXY_URL",
         "DOMAIN_SYNC_WAWACITY_TELEGRAM_URL", "DOMAIN_SYNC_FREE_TELECHARGER_TELEGRAM_URL",
         "DOMAIN_SYNC_MOVIX_TELEGRAM_URL", "DOMAIN_SYNC_ZONE_TELECHARGEMENT_TELEGRAM_URL",
-        # Nos sources maison (trackers Torznab/UNIT3D, Zilean, Nyaa)
+        # Nos sources maison (trackers Torznab/UNIT3D, Zilean, Nyaa, AIOSources)
         "YGGREBORN_URL", "TR4KER_URL", "TORR9_URL", "C411_URL", "V3X_URL",
-        "GEMINI_URL", "GENERATIONFREE_URL", "ZILEAN_URL", "NYAA_URL"
+        "GEMINI_URL", "GENERATIONFREE_URL", "ZILEAN_URL", "NYAA_URL", "AIOSOURCES_URL"
     )
     @classmethod
     def normalize_urls(cls, v):
@@ -500,5 +505,6 @@ SOURCE_DISPLAY_NAMES = {
     "generation-free": "Generation-Free",
     "zilean": "Zilean",
     "nyaa": "Nyaa",
-    "lumio": "Lumio"
+    "lumio": "Lumio",
+    "aiosources": "AIOSources"
 }

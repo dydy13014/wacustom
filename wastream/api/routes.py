@@ -2620,7 +2620,7 @@ async def admin_get_settings(admin_token: Optional[str] = Cookie(None)):
         "YGGREBORN_URL", "YGGREBORN_API_KEY", "TR4KER_URL", "TR4KER_API_KEY",
         "TORR9_URL", "TORR9_API_KEY", "C411_URL", "C411_API_KEY",
         "GEMINI_URL", "GEMINI_API_KEY", "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY",
-        "ZILEAN_URL"
+        "ZILEAN_URL", "AIOSOURCES_URL"
     ]
     
     settings_dict = {}
@@ -2650,7 +2650,7 @@ async def admin_save_settings(
         "YGGREBORN_URL", "YGGREBORN_API_KEY", "TR4KER_URL", "TR4KER_API_KEY",
         "TORR9_URL", "TORR9_API_KEY", "C411_URL", "C411_API_KEY",
         "GEMINI_URL", "GEMINI_API_KEY", "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY",
-        "ZILEAN_URL"
+        "ZILEAN_URL", "AIOSOURCES_URL"
     ]
 
     from wastream.utils.database import database

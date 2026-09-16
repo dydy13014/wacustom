@@ -63,6 +63,7 @@ def _get_sources_config() -> Dict[str, Optional[str]]:
         "Gemini": settings.GEMINI_URL,
         "Generation-Free": settings.GENERATIONFREE_URL,
         "Zilean": settings.ZILEAN_URL,
+        "AIOSources": settings.AIOSOURCES_URL,
     }
 
 
@@ -308,6 +309,33 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
                 return SourceStatus(
                     name=name,
                     url=_mask_url(url),
+                    status="offline",
+                    response_time=response_time,
+                    last_check=time.time(),
+                    error=f"HTTP {response.status_code}"
+                )
+        elif name == "AIOSources":
+            # /manifest.json : discriminant plus fiable qu'une simple racine —
+            # confirme que c'est bien un addon Stremio qui repond, pas juste
+            # un service quelconque sur ce port/host.
+            response = await http_client.get(
+                f"{url}/manifest.json",
+                timeout=settings.HEALTH_CHECK_TIMEOUT
+            )
+            response_time = int((time.time() - start_time) * 1000)
+
+            if response.status_code == 200:
+                return SourceStatus(
+                    name=name,
+                    url=url,
+                    status="online",
+                    response_time=response_time,
+                    last_check=time.time()
+                )
+            else:
+                return SourceStatus(
+                    name=name,
+                    url=url,
                     status="offline",
                     response_time=response_time,
                     last_check=time.time(),

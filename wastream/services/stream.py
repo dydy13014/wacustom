@@ -37,6 +37,7 @@ from wastream.scrapers.zone_telechargement.series import series_scraper as zone_
 from wastream.scrapers.torznab.trackers import yggreborn_scraper, tr4ker_scraper, torr9_scraper, c411_scraper, v3x_scraper, gemini_scraper, generationfree_scraper
 from wastream.scrapers.zilean.base import zilean_scraper
 from wastream.scrapers.nyaa.base import nyaa_scraper
+from wastream.scrapers.aiosources.base import aiosources_scraper
 from wastream.scrapers.lumio.base import lumio_scraper, SOURCE_LABEL as LUMIO_LABEL
 from wastream.services.kitsu import kitsu_service
 from wastream.services.tmdb import tmdb_service
@@ -1348,6 +1349,17 @@ class StreamService:
                     "zilean", content_type, lambda: zilean_scraper.search(title, year, metadata, config=config),
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("zilean", coro))
+
+        if "aiosources" in supported_sources and self._is_source_allowed_for_content("aiosources", content_name, config):
+            if use_episode_cache:
+                coro = self._search_source_with_cache(
+                    "aiosources", content_type, lambda: aiosources_scraper.search(title, year, metadata, season, episode, config),
+                    title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
+            else:
+                coro = self._search_source_with_cache(
+                    "aiosources", content_type, lambda: aiosources_scraper.search(title, year, metadata, config=config),
+                    title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
+            tasks_with_sources.append(("aiosources", coro))
 
         # Nyaa Live Action : les torrents japonais non-anime (dramas, variete,
         # tele-realite type Old Enough!/Comme les grands) sont indexes sur
