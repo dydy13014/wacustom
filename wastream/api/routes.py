@@ -3,6 +3,7 @@ import json
 import re
 import secrets
 import time
+from html import escape
 from enum import Enum
 from typing import Optional, Dict, Any, List
 from base64 import b64encode
@@ -16,6 +17,7 @@ from wastream.config.changelog import CHANGELOG
 from wastream.utils.crypto import encrypt_password_for_url
 from wastream.utils.validators import validate_config
 from wastream.services.stream import stream_service
+from wastream.services.dead_link_recheck import is_dead_link_recheck_enabled
 from wastream.services.users import (
     create_user,
     get_user_config_detailed,
@@ -68,13 +70,26 @@ from wastream.services.health import (
     check_services_only,
     check_sources_only,
     get_health_status,
+    get_public_health_status,
+    record_public_health_history,
     get_system_info
+)
+from wastream.services.health_history import (
+    HEALTH_HISTORY_CURSOR_MAX_LENGTH,
+    HEALTH_HISTORY_MAX_PAGE_SIZE,
+    HEALTH_HISTORY_PAGE_SIZE,
+    get_health_history_page,
+    get_health_history_retention_seconds,
 )
 from wastream.utils.languages import AVAILABLE_LANGUAGES, LANGUAGES
 from wastream.utils.quality import AVAILABLE_RESOLUTIONS
 from wastream.utils.logger import api_logger, remote_logger, get_logs, get_available_contexts, get_available_prefixes, clear_logs
-from wastream.utils.http_client import http_client
-from wastream.utils.database import database
+from wastream.utils.http_client import http_client, is_rejected_source_page
+from wastream.utils.database import (
+    DEAD_LINK_STATUS_CONFIRMED,
+    DEAD_LINK_STATUS_RECHECKABLE,
+    database,
+)
 from wastream.utils.helpers import build_cache_key, decode_playback_token
 from wastream.utils.http_cache import (
     NO_CACHE_HEADERS, CachedJSONResponse, CachePolicies,
@@ -207,6 +222,65 @@ def _rate_limit_response() -> JSONResponse:
         content={"error": "too_many_attempts", "message": "Too many failed attempts, try again later"},
         headers={"Retry-After": str(LOGIN_RATE_LIMIT_WINDOW)}
     )
+
+
+@router.get("/status",
+            tags=["General"],
+            summary="Public Service Status",
+            description="Displays public content-source and hoster status",
+            include_in_schema=False)
+async def public_health_page():
+    if not settings.PUBLIC_HEALTH_PAGE_ENABLED:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Not found"},
+            headers=NO_CACHE_HEADERS,
+        )
+
+    with open("wastream/templates/status.html", "r", encoding="utf-8") as f:
+        html_content = f.read()
+
+    csp_nonce = secrets.token_urlsafe(24)
+    html_content = html_content.replace("{{ADDON_NAME}}", escape(settings.ADDON_NAME))
+    html_content = html_content.replace(
+        "{{VERSION}}",
+        escape(settings.ADDON_MANIFEST["version"]),
+    )
+    html_content = html_content.replace("{{CSP_NONCE}}", csp_nonce)
+    headers = {
+        **NO_CACHE_HEADERS,
+        "Content-Security-Policy": (
+            f"default-src 'none'; script-src 'self' 'nonce-{csp_nonce}'; "
+            f"style-src 'self' 'nonce-{csp_nonce}'; "
+            "img-src 'self'; connect-src 'self'; base-uri 'none'; "
+            "form-action 'none'; frame-ancestors 'none'; object-src 'none'"
+        ),
+    }
+    return HTMLResponse(content=html_content, headers=headers)
+
+
+@router.get("/api/status",
+            tags=["General"],
+            summary="Public Service Status Data",
+            description="Returns a filtered, read-only service-status snapshot",
+            include_in_schema=False)
+async def public_health_status():
+    if not settings.PUBLIC_HEALTH_PAGE_ENABLED:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Not found"},
+            headers=NO_CACHE_HEADERS,
+        )
+
+    status = get_public_health_status()
+    history_page = await get_health_history_page()
+    status["history"] = history_page["events"]
+    status["history_has_more"] = history_page["has_more"]
+    status["history_available"] = history_page["available"]
+    status["history_retention_seconds"] = (
+        get_health_history_retention_seconds()
+    )
+    return JSONResponse(content=status, headers=NO_CACHE_HEADERS)
 
 
 # ===========================
@@ -463,6 +537,9 @@ async def get_secure_streams(
         )
 
         result = {"streams": streams}
+
+        if is_dead_link_recheck_enabled(config):
+            return JSONResponse(content=result, headers=NO_CACHE_HEADERS)
 
         if settings.HTTP_CACHE_ENABLED:
             is_empty = len(streams) == 0
@@ -860,10 +937,16 @@ async def health_check():
     if settings.WAWACITY_URL:
         wastream_start = time.time()
         try:
-            response = await http_client.get(settings.WAWACITY_URL, timeout=settings.HEALTH_CHECK_TIMEOUT)
+            response = await http_client.get_source(
+                "Wawacity",
+                settings.WAWACITY_URL,
+                settings.WAWACITY_URL,
+                timeout=settings.HEALTH_CHECK_TIMEOUT,
+            )
             wawacity_time = round((time.time() - wastream_start) * 1000)
 
-            if response.status_code == 200:
+            rejected = is_rejected_source_page(str(response.url), response.text)
+            if response.status_code == 200 and not rejected:
                 health_status["checks"]["wawacity"] = {
                     "status": "ok",
                     "message": "Wawacity accessible",
@@ -872,7 +955,10 @@ async def health_check():
             else:
                 health_status["checks"]["wawacity"] = {
                     "status": "error",
-                    "message": f"Wawacity HTTP {response.status_code}",
+                    "message": (
+                        "Wawacity blocked or login page"
+                        if rejected else f"Wawacity HTTP {response.status_code}"
+                    ),
                     "response_time_ms": wawacity_time
                 }
                 health_status["status"] = "degraded"
@@ -894,10 +980,16 @@ async def health_check():
     if settings.FREE_TELECHARGER_URL:
         free_telecharger_start = time.time()
         try:
-            response = await http_client.get(settings.FREE_TELECHARGER_URL, timeout=settings.HEALTH_CHECK_TIMEOUT)
+            response = await http_client.get_source(
+                "Free-Telecharger",
+                settings.FREE_TELECHARGER_URL,
+                settings.FREE_TELECHARGER_URL,
+                timeout=settings.HEALTH_CHECK_TIMEOUT,
+            )
             free_telecharger_time = round((time.time() - free_telecharger_start) * 1000)
 
-            if response.status_code == 200:
+            rejected = is_rejected_source_page(str(response.url), response.text)
+            if response.status_code == 200 and not rejected:
                 health_status["checks"]["free_telecharger"] = {
                     "status": "ok",
                     "message": "Free-Telecharger accessible",
@@ -906,7 +998,10 @@ async def health_check():
             else:
                 health_status["checks"]["free_telecharger"] = {
                     "status": "error",
-                    "message": f"Free-Telecharger HTTP {response.status_code}",
+                    "message": (
+                        "Free-Telecharger blocked or login page"
+                        if rejected else f"Free-Telecharger HTTP {response.status_code}"
+                    ),
                     "response_time_ms": free_telecharger_time
                 }
                 health_status["status"] = "degraded"
@@ -981,10 +1076,19 @@ async def health_check():
                 headers["Origin"] = settings.MOVIX_URL
                 headers["Referer"] = f"{settings.MOVIX_URL}/"
 
-            response = await http_client.get(f"{settings.MOVIX_API_URL}/api/search", params={"title": "test"}, headers=headers, timeout=settings.HEALTH_CHECK_TIMEOUT)
+            response = await http_client.get_source(
+                "Movix",
+                f"{settings.MOVIX_API_URL}/api/search",
+                settings.MOVIX_URL,
+                rewrite_url=False,
+                params={"title": "test"},
+                headers=headers,
+                timeout=settings.HEALTH_CHECK_TIMEOUT,
+            )
             movix_time = round((time.time() - movix_start) * 1000)
 
-            if response.status_code < 400:
+            rejected = is_rejected_source_page(str(response.url), response.text)
+            if response.status_code < 400 and not rejected:
                 health_status["checks"]["movix"] = {
                     "status": "ok",
                     "message": "Movix accessible",
@@ -993,7 +1097,10 @@ async def health_check():
             else:
                 health_status["checks"]["movix"] = {
                     "status": "error",
-                    "message": f"Movix HTTP {response.status_code}",
+                    "message": (
+                        "Movix blocked or login page"
+                        if rejected else f"Movix HTTP {response.status_code}"
+                    ),
                     "response_time_ms": movix_time
                 }
                 health_status["status"] = "degraded"
@@ -1015,7 +1122,12 @@ async def health_check():
     if settings.WEBSHARE_URL:
         webshare_start = time.time()
         try:
-            response = await http_client.get(settings.WEBSHARE_URL, timeout=settings.HEALTH_CHECK_TIMEOUT)
+            response = await http_client.get_source(
+                "Webshare",
+                settings.WEBSHARE_URL,
+                settings.WEBSHARE_URL,
+                timeout=settings.HEALTH_CHECK_TIMEOUT,
+            )
             webshare_time = round((time.time() - webshare_start) * 1000)
 
             if response.status_code == 200:
@@ -1049,10 +1161,16 @@ async def health_check():
     if settings.ZONE_TELECHARGEMENT_URL:
         zone_telechargement_start = time.time()
         try:
-            response = await http_client.get(settings.ZONE_TELECHARGEMENT_URL, timeout=settings.HEALTH_CHECK_TIMEOUT)
+            response = await http_client.get_source(
+                "Zone-Telechargement",
+                settings.ZONE_TELECHARGEMENT_URL,
+                settings.ZONE_TELECHARGEMENT_URL,
+                timeout=settings.HEALTH_CHECK_TIMEOUT,
+            )
             zone_telechargement_time = round((time.time() - zone_telechargement_start) * 1000)
 
-            if response.status_code == 200:
+            rejected = is_rejected_source_page(str(response.url), response.text)
+            if response.status_code == 200 and not rejected:
                 health_status["checks"]["zone_telechargement"] = {
                     "status": "ok",
                     "message": "Zone-Telechargement accessible",
@@ -1061,7 +1179,10 @@ async def health_check():
             else:
                 health_status["checks"]["zone_telechargement"] = {
                     "status": "error",
-                    "message": f"Zone-Telechargement HTTP {response.status_code}",
+                    "message": (
+                        "Zone-Telechargement blocked or login page"
+                        if rejected else f"Zone-Telechargement HTTP {response.status_code}"
+                    ),
                     "response_time_ms": zone_telechargement_time
                 }
                 health_status["status"] = "degraded"
@@ -1609,6 +1730,41 @@ async def admin_get_health(
     return JSONResponse(content=get_health_status())
 
 
+@router.get("/admin/api/health/history",
+            tags=["Admin"],
+            summary="Get Health History",
+            description="Returns a paginated source and hoster incident history")
+async def admin_get_health_history(
+    limit: int = Query(
+        HEALTH_HISTORY_PAGE_SIZE,
+        ge=1,
+        le=HEALTH_HISTORY_MAX_PAGE_SIZE,
+    ),
+    cursor: Optional[str] = Query(
+        None,
+        max_length=HEALTH_HISTORY_CURSOR_MAX_LENGTH,
+    ),
+    admin_token: Optional[str] = Cookie(None),
+):
+    if not await _verify_admin_token(admin_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    try:
+        history_page = await get_health_history_page(
+            limit=limit,
+            cursor=cursor,
+        )
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Invalid history cursor"},
+            headers=NO_CACHE_HEADERS,
+        )
+
+    history_page["retention_seconds"] = get_health_history_retention_seconds()
+    return JSONResponse(content=history_page, headers=NO_CACHE_HEADERS)
+
+
 @router.post("/admin/api/health/check",
              tags=["Admin"],
              summary="Trigger Health Check",
@@ -1670,6 +1826,10 @@ async def admin_check_hosters(
     from wastream.services.hoster_status import get_hoster_status, _hoster_status_cache
     _hoster_status_cache["torbox"]["last_check"] = None
     await get_hoster_status("torbox")
+    await record_public_health_history(
+        include_sources=False,
+        include_hosters=True,
+    )
     api_logger.info("Hoster status check triggered by admin")
 
     return JSONResponse(content=get_health_status())
@@ -2059,12 +2219,18 @@ async def remote_check_dead_links(
 
     current_time = int(time.time())
     results = {}
+    statuses = {}
 
     placeholders = ", ".join([f":url{i}" for i in range(len(urls))])
-    params = {f"url{i}": url for i, url in enumerate(urls)}
+    params: Dict[str, Any] = {
+        f"url{i}": url for i, url in enumerate(urls)
+    }
+    params["recheckable_status"] = DEAD_LINK_STATUS_RECHECKABLE
 
     rows = await database.fetch_all(
-        f"SELECT url, expires_at FROM dead_links WHERE url IN ({placeholders})",
+        f"SELECT url, failure_count, expires_at FROM dead_links "
+        f"WHERE url IN ({placeholders}) "
+        "AND failure_count >= :recheckable_status",
         params
     )
 
@@ -2072,9 +2238,18 @@ async def remote_check_dead_links(
         expires_at = row["expires_at"]
         if expires_at == -1 or expires_at > current_time:
             results[row["url"]] = True
+            statuses[row["url"]] = min(
+                DEAD_LINK_STATUS_CONFIRMED,
+                int(row["failure_count"]),
+            )
 
     remote_logger.debug(f"[Request] Dead-links check by {key_data['name']}: {len(urls)} URLs, {len(results)} dead")
-    return JSONResponse(content={"dead_links": results, "checked": len(urls)})
+    # Keep the boolean map for older peers while preserving the check count.
+    return JSONResponse(content={
+        "dead_links": results,
+        "dead_link_statuses": statuses,
+        "checked": len(urls),
+    })
 
 
 @router.get("/remote/cache/check",

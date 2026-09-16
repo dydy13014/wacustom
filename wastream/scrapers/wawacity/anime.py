@@ -4,7 +4,6 @@ from selectolax.parser import HTMLParser
 
 from wastream.scrapers.wawacity.base import BaseWawacity, gather_bounded
 from wastream.config.settings import settings
-from wastream.utils.http_client import http_client
 from wastream.utils.logger import scraper_logger
 from wastream.utils.quality import quality_sort_key
 
@@ -61,7 +60,7 @@ class AnimeScraper(BaseWawacity):
                 visited_pages.add(current_link)
                 current_url = f"{settings.WAWACITY_URL}/{current_link}"
 
-                response = await http_client.get(current_url)
+                response = await self._get_source_page(current_url)
                 if response.status_code == 200:
                     parser = HTMLParser(response.text)
 

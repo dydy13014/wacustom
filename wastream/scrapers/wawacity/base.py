@@ -45,6 +45,14 @@ async def gather_bounded(coros, limit: int = _MAX_CONCURRENT_PAGES):
 # ===========================
 class BaseWawacity:
 
+    async def _get_source_page(self, url: str, **kwargs):
+        return await http_client.get_source(
+            "Wawacity",
+            url,
+            settings.WAWACITY_URL,
+            **kwargs,
+        )
+
     @staticmethod
     def extract_link_from_node(node: Node) -> Optional[str]:
         link = None
@@ -107,7 +115,7 @@ class BaseWawacity:
         scraper_logger.debug(f"[Wawacity] Trying search for: {search_title}")
 
         try:
-            response = await http_client.get(search_url)
+            response = await self._get_source_page(search_url)
             if response.status_code != 200:
                 scraper_logger.debug(f"[Wawacity] Search failed: {response.status_code}")
                 return None
@@ -204,7 +212,7 @@ class BaseWawacity:
 
             scraper_logger.debug(f"[Wawacity] Trying page {page_num}")
 
-            response = await http_client.get(search_url)
+            response = await self._get_source_page(search_url)
             if response.status_code != 200:
                 return None
 
@@ -367,7 +375,7 @@ class BaseWawacity:
         movie_url = f"{settings.WAWACITY_URL}/{page_link}"
 
         try:
-            response = await http_client.get(movie_url)
+            response = await self._get_source_page(movie_url)
             if response.status_code == 200:
                 parser = HTMLParser(response.text)
                 quality_nodes = parser.css('a[href^="?p=film&id="]:has(button)')
@@ -413,7 +421,7 @@ class BaseWawacity:
                 visited_pages.add(current_link)
                 current_url = f"{settings.WAWACITY_URL}/{current_link}"
 
-                response = await http_client.get(current_url)
+                response = await self._get_source_page(current_url)
                 if response.status_code == 200:
                     parser = HTMLParser(response.text)
 
@@ -459,7 +467,7 @@ class BaseWawacity:
         full_url = f"{settings.WAWACITY_URL}/{page_path}"
 
         try:
-            response = await http_client.get(full_url)
+            response = await self._get_source_page(full_url)
             if response.status_code == 200:
                 parser = HTMLParser(response.text)
 

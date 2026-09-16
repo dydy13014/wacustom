@@ -55,7 +55,7 @@ class TorBoxService(BaseDebridService):
     ) -> Optional[str]:
         if error_code == "LINK_OFFLINE":
             debrid_logger.debug(f"[TorBox] {error_code}")
-            return "LINK_DOWN"
+            return "LINK_SERVICE_DOWN"
 
         if error_code in RETRY_ERRORS:
             debrid_logger.error(f"[TorBox] {error_code}")
@@ -123,7 +123,7 @@ class TorBoxService(BaseDebridService):
 
                 response_json = response.json()
 
-                cache_data = response_json.get("data", {})
+                cache_data = response_json.get("data") or {}
                 if link_hash in cache_data:
                     cached_info = cache_data[link_hash]
 
@@ -243,7 +243,7 @@ class TorBoxService(BaseDebridService):
 
                 http_error_count = 0
 
-                cache_data = response_json.get("data", {})
+                cache_data = response_json.get("data") or {}
                 for link_dict in links:
                     link = link_dict.get("link")
                     link_hash = link_to_hash.get(link)
@@ -468,7 +468,7 @@ class TorBoxService(BaseDebridService):
                 if create_response.status_code != 200:
                     debrid_logger.error(f"[TorBox] Create HTTP {create_response.status_code}")
                     if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                        await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                        await sleep(settings.DEBRID_RETRY_DELAY)
                         continue
                     return "FATAL_ERROR", http_error_count
 
@@ -487,10 +487,10 @@ class TorBoxService(BaseDebridService):
                             continue
 
                         api_error_result = self._handle_api_error(error_code, detail, attempt)
-                        if api_error_result in ["LINK_DOWN", "FATAL_ERROR", "RETRY_ERROR"]:
+                        if api_error_result in ["LINK_DOWN", "LINK_SERVICE_DOWN", "FATAL_ERROR", "RETRY_ERROR"]:
                             return api_error_result, http_error_count
                         elif api_error_result == "RETRY":
-                            await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                            await sleep(settings.DEBRID_RETRY_DELAY)
                             continue
 
                 http_error_count = 0
@@ -500,7 +500,7 @@ class TorBoxService(BaseDebridService):
                     if not download_id:
                         debrid_logger.error(f"[TorBox] No {id_key}")
                         if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                            await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                            await sleep(settings.DEBRID_RETRY_DELAY)
                             continue
                         return "FATAL_ERROR", http_error_count
                     return download_id, http_error_count
@@ -510,7 +510,7 @@ class TorBoxService(BaseDebridService):
             except Exception as e:
                 debrid_logger.error(f"[TorBox] Create attempt {attempt + 1} failed: {type(e).__name__}: {e}")
                 if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
                 return "FATAL_ERROR", http_error_count
 
@@ -573,7 +573,7 @@ class TorBoxService(BaseDebridService):
 
         result, http_error_count = await self._create_download_with_retry(cleaned_link, headers, http_error_count, return_id=True, download_type=download_type)
 
-        if isinstance(result, str) and result in ["FATAL_ERROR", "RETRY_ERROR", "LINK_DOWN"]:
+        if isinstance(result, str) and result in ["FATAL_ERROR", "RETRY_ERROR", "LINK_DOWN", "LINK_SERVICE_DOWN"]:
             return result
 
         download_id = result
@@ -669,7 +669,7 @@ class TorBoxService(BaseDebridService):
                 if request_response.status_code != 200:
                     debrid_logger.error(f"[TorBox] Request HTTP {request_response.status_code}")
                     if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                        await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                        await sleep(settings.DEBRID_RETRY_DELAY)
                         continue
                     return "FATAL_ERROR"
 
@@ -688,10 +688,10 @@ class TorBoxService(BaseDebridService):
                             continue
 
                         api_error_result = self._handle_api_error(error_code, detail, attempt)
-                        if api_error_result in ["LINK_DOWN", "FATAL_ERROR", "RETRY_ERROR"]:
+                        if api_error_result in ["LINK_DOWN", "LINK_SERVICE_DOWN", "FATAL_ERROR", "RETRY_ERROR"]:
                             return api_error_result
                         elif api_error_result == "RETRY":
-                            await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                            await sleep(settings.DEBRID_RETRY_DELAY)
                             continue
 
                 direct_link = request_data.get("data")
@@ -702,7 +702,7 @@ class TorBoxService(BaseDebridService):
 
                 debrid_logger.error("[TorBox] No direct link")
                 if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
                 return "FATAL_ERROR"
@@ -710,7 +710,7 @@ class TorBoxService(BaseDebridService):
             except Exception as e:
                 debrid_logger.error(f"[TorBox] Attempt {attempt + 1} failed: {type(e).__name__}: {e}")
                 if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
         debrid_logger.error(f"[TorBox] Failed after {settings.DEBRID_MAX_RETRIES} attempts")

@@ -4,14 +4,13 @@ import os
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Awaitable, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Dict, List, Optional, TypeVar
 
 from databases import Database
 
 from wastream.config.settings import settings
 from wastream.utils.helpers import build_cache_key
 from wastream.utils.logger import database_logger
-from wastream.utils.tasks import lancer_tache
 from wastream.utils.urls import DOMAIN_ALIASES, canonicalize_url
 
 # ===========================
@@ -20,13 +19,21 @@ from wastream.utils.urls import DOMAIN_ALIASES, canonicalize_url
 _database_options = {}
 if settings.DATABASE_TYPE == "sqlite":
     _database_options["timeout"] = max(
-        1, int(settings.DATABASE_BUSY_TIMEOUT_SECONDS)
+        1, int(settings.DATABASE_BUSY_TIMEOUT)
     )
 database = Database(settings.get_database_url(), **_database_options)
 
 T = TypeVar("T")
 _cache_stats_lock = asyncio.Lock()
+_sqlite_transaction_lock = asyncio.Lock()
+_remote_dead_link_store_lock = asyncio.Lock()
 _cache_stats_suppression_depth = 0
+
+DEAD_LINK_STATUS_ALIVE = 0
+DEAD_LINK_STATUS_RECHECKABLE = 1
+DEAD_LINK_STATUS_CONFIRMED = 2
+_QUERY_BATCH_SIZE = 500
+_HEALTH_HISTORY_CURRENT_INDEX = "idx_health_status_history_current"
 
 
 # ===========================
@@ -50,7 +57,7 @@ def _is_retryable_database_error(error: Exception) -> bool:
 async def run_database_operation(
         operation: Callable[[], Awaitable[T]], operation_name: str) -> T:
     max_attempts = max(1, int(settings.DATABASE_RETRY_MAX_ATTEMPTS))
-    base_delay = max(0.05, float(settings.DATABASE_RETRY_DELAY_SECONDS))
+    base_delay = max(0.05, float(settings.DATABASE_RETRY_DELAY))
 
     for attempt in range(1, max_attempts + 1):
         try:
@@ -80,6 +87,12 @@ async def run_database_transaction(
         async with database.transaction():
             return await operation()
 
+    if settings.DATABASE_TYPE == "sqlite":
+        async with _sqlite_transaction_lock:
+            return await run_database_operation(
+                transaction_operation,
+                operation_name,
+            )
     return await run_database_operation(transaction_operation, operation_name)
 
 
@@ -105,6 +118,230 @@ async def suppress_cache_stats_updates():
 # ===========================
 # Database Setup
 # ===========================
+async def _table_columns(table_name: str) -> set:
+    if settings.DATABASE_TYPE == "sqlite":
+        return {
+            row["name"]
+            for row in await database.fetch_all(
+                f"PRAGMA table_info({table_name})"
+            )
+        }
+    rows = await database.fetch_all(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_schema = current_schema() AND table_name = :table_name",
+        {"table_name": table_name},
+    )
+    return {row["column_name"] for row in rows}
+
+
+def _is_health_history_current_index(index_name: str) -> bool:
+    if index_name == _HEALTH_HISTORY_CURRENT_INDEX:
+        return True
+
+    # pgloader prefixes indexes copied from SQLite with idx_<table OID>_.
+    prefix = "idx_"
+    suffix = f"_{_HEALTH_HISTORY_CURRENT_INDEX}"
+    if not index_name.startswith(prefix) or not index_name.endswith(suffix):
+        return False
+    return index_name[len(prefix):-len(suffix)].isdigit()
+
+
+async def _repair_health_history_current_index() -> None:
+    if settings.DATABASE_TYPE == "sqlite":
+        indexes = await database.fetch_all(
+            "PRAGMA index_list(health_status_history)"
+        )
+    else:
+        indexes = await database.fetch_all(
+            "SELECT index_class.relname AS name, "
+            "index_meta.indisunique AS is_unique, "
+            "index_meta.indpred IS NOT NULL AS is_partial, "
+            "pg_get_indexdef(index_meta.indexrelid, 1, TRUE) AS first_column, "
+            "pg_get_indexdef(index_meta.indexrelid, 2, TRUE) AS second_column "
+            "FROM pg_index AS index_meta "
+            "JOIN pg_class AS table_class "
+            "ON table_class.oid = index_meta.indrelid "
+            "JOIN pg_class AS index_class "
+            "ON index_class.oid = index_meta.indexrelid "
+            "JOIN pg_namespace AS table_schema "
+            "ON table_schema.oid = table_class.relnamespace "
+            "WHERE table_schema.nspname = current_schema() "
+            "AND table_class.relname = :table_name",
+            {"table_name": "health_status_history"},
+        )
+
+    for index in indexes:
+        index_name = str(index["name"] or "")
+        if not _is_health_history_current_index(index_name):
+            continue
+
+        if settings.DATABASE_TYPE == "sqlite":
+            columns = await database.fetch_all(
+                f'PRAGMA index_info("{index_name}")'
+            )
+            column_names = [str(column["name"]) for column in columns]
+            is_unique = bool(index["unique"])
+            is_partial = bool(index["partial"])
+        else:
+            column_names = [
+                str(index["first_column"] or ""),
+                str(index["second_column"] or ""),
+            ]
+            is_unique = bool(index["is_unique"])
+            is_partial = bool(index["is_partial"])
+
+        if not is_unique or is_partial or column_names != ["category", "name"]:
+            continue
+        await database.execute(f'DROP INDEX IF EXISTS "{index_name}"')
+        database_logger.info(
+            "[Migration] Repaired malformed health-status current index"
+        )
+
+
+def _dead_link_expiry_value(first: int, second: int) -> int:
+    if first == -1 or second == -1:
+        return -1
+    return max(first, second)
+
+
+def _integer_value(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _merge_dead_link_records(
+    current: Dict[str, Any], incoming: Dict[str, Any]
+) -> Dict[str, Any]:
+    current_count = _integer_value(current.get("failure_count"))
+    incoming_count = _integer_value(incoming.get("failure_count"))
+    failure_count = max(current_count, incoming_count)
+
+    first_failures = [
+        value
+        for value in (
+            _integer_value(current.get("first_failure_at")),
+            _integer_value(incoming.get("first_failure_at")),
+        )
+        if value > 0
+    ]
+    current_last = _integer_value(current.get("last_failure_at"))
+    incoming_last = _integer_value(incoming.get("last_failure_at"))
+
+    if current_count > incoming_count:
+        expires_at = _integer_value(current.get("expires_at"), -1)
+    elif incoming_count > current_count:
+        expires_at = _integer_value(incoming.get("expires_at"), -1)
+    elif failure_count == DEAD_LINK_STATUS_RECHECKABLE:
+        expires_at = -1
+    else:
+        expires_at = _dead_link_expiry_value(
+            _integer_value(current.get("expires_at"), -1),
+            _integer_value(incoming.get("expires_at"), -1),
+        )
+
+    current_reason = str(current.get("reason") or "")
+    incoming_reason = str(incoming.get("reason") or "")
+    reason = (
+        incoming_reason
+        if incoming_reason and incoming_last >= current_last
+        else current_reason
+    )
+
+    return {
+        "url": incoming.get("url") or current.get("url"),
+        "failure_count": failure_count,
+        "first_failure_at": min(first_failures) if first_failures else 0,
+        "last_failure_at": max(current_last, incoming_last),
+        "expires_at": expires_at,
+        "reason": reason[:200],
+    }
+
+
+async def _write_dead_link_record(values: Dict[str, Any]) -> None:
+    await database.execute(
+        """INSERT INTO dead_links (
+               url, failure_count, first_failure_at,
+               last_failure_at, expires_at, reason
+           ) VALUES (
+               :url, :failure_count, :first_failure_at,
+               :last_failure_at, :expires_at, :reason
+           )
+           ON CONFLICT (url) DO UPDATE SET
+               failure_count = :failure_count,
+               first_failure_at = :first_failure_at,
+               last_failure_at = :last_failure_at,
+               expires_at = :expires_at,
+               reason = :reason""",
+        values,
+    )
+
+
+async def _setup_dead_links_schema() -> None:
+    await database.execute("""CREATE TABLE IF NOT EXISTS dead_links (
+        url TEXT PRIMARY KEY,
+        failure_count INTEGER NOT NULL DEFAULT 1,
+        first_failure_at INTEGER NOT NULL DEFAULT 0,
+        last_failure_at INTEGER NOT NULL DEFAULT 0,
+        expires_at INTEGER NOT NULL,
+        reason TEXT
+    )""")
+
+    columns = await _table_columns("dead_links")
+    additions = {
+        "failure_count": "INTEGER NOT NULL DEFAULT 1",
+        "first_failure_at": "INTEGER NOT NULL DEFAULT 0",
+        "last_failure_at": "INTEGER NOT NULL DEFAULT 0",
+        "reason": "TEXT",
+    }
+    for column, definition in additions.items():
+        if column in columns:
+            continue
+        if settings.DATABASE_TYPE == "sqlite":
+            await database.execute(
+                f"ALTER TABLE dead_links ADD COLUMN {column} {definition}"
+            )
+        else:
+            await database.execute(
+                "ALTER TABLE dead_links "
+                f"ADD COLUMN IF NOT EXISTS {column} {definition}"
+            )
+
+    await database.execute(
+        "UPDATE dead_links SET failure_count = :recheckable_status "
+        "WHERE failure_count IS NULL "
+        "OR failure_count NOT IN (:recheckable_status, :confirmed_status)",
+        {
+            "recheckable_status": DEAD_LINK_STATUS_RECHECKABLE,
+            "confirmed_status": DEAD_LINK_STATUS_CONFIRMED,
+        },
+    )
+    await database.execute(
+        "UPDATE dead_links SET first_failure_at = 0 "
+        "WHERE first_failure_at IS NULL"
+    )
+    await database.execute(
+        "UPDATE dead_links SET last_failure_at = 0 "
+        "WHERE last_failure_at IS NULL"
+    )
+    # Legacy rows have one known failure and remain eligible for one recheck.
+    await database.execute(
+        "UPDATE dead_links SET failure_count = :recheckable_status "
+        "WHERE failure_count = :confirmed_status "
+        "AND first_failure_at = 0 AND last_failure_at = 0",
+        {
+            "recheckable_status": DEAD_LINK_STATUS_RECHECKABLE,
+            "confirmed_status": DEAD_LINK_STATUS_CONFIRMED,
+        },
+    )
+    await database.execute(
+        "UPDATE dead_links SET expires_at = -1 "
+        "WHERE failure_count = :recheckable_status",
+        {"recheckable_status": DEAD_LINK_STATUS_RECHECKABLE},
+    )
+
+
 async def setup_database():
     try:
         database_logger.info(f"Setup {settings.DATABASE_TYPE} database")
@@ -132,7 +369,7 @@ async def setup_database():
                     {"version": settings.DATABASE_VERSION}
                 )
 
-        await database.execute("CREATE TABLE IF NOT EXISTS dead_links (url TEXT PRIMARY KEY, expires_at INTEGER)")
+        await _setup_dead_links_schema()
         await database.execute("CREATE TABLE IF NOT EXISTS scrape_lock (lock_key TEXT PRIMARY KEY, instance_id TEXT, expires_at INTEGER)")
         await database.execute("CREATE TABLE IF NOT EXISTS content_cache (cache_key TEXT PRIMARY KEY, content TEXT NOT NULL, expires_at INTEGER)")
         await database.execute("""CREATE TABLE IF NOT EXISTS users (
@@ -148,6 +385,15 @@ async def setup_database():
             token_hash TEXT PRIMARY KEY,
             created_at INTEGER NOT NULL,
             expires_at INTEGER NOT NULL
+        )""")
+        await database.execute("""CREATE TABLE IF NOT EXISTS health_status_history (
+            event_id TEXT PRIMARY KEY,
+            category TEXT NOT NULL,
+            name TEXT NOT NULL,
+            previous_status TEXT,
+            status TEXT NOT NULL,
+            changed_at INTEGER NOT NULL,
+            is_current INTEGER NOT NULL DEFAULT 1
         )""")
 
         if settings.DATABASE_TYPE == "sqlite":
@@ -187,12 +433,26 @@ async def setup_database():
         await database.execute("CREATE TABLE IF NOT EXISTS settings_overrides (setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL)")
 
         await database.execute("CREATE INDEX IF NOT EXISTS idx_dead_links_expires ON dead_links(expires_at)")
+        await database.execute(
+            "CREATE INDEX IF NOT EXISTS idx_dead_links_status_expires "
+            "ON dead_links(failure_count, expires_at)"
+        )
         await database.execute("CREATE INDEX IF NOT EXISTS idx_scrape_lock_expires ON scrape_lock(expires_at)")
         await database.execute("CREATE INDEX IF NOT EXISTS idx_content_cache_expires ON content_cache(expires_at)")
         await database.execute("CREATE INDEX IF NOT EXISTS idx_users_accessed ON users(accessed_at)")
         await database.execute(
             "CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires "
             "ON admin_sessions(expires_at)"
+        )
+        await database.execute(
+            "CREATE INDEX IF NOT EXISTS idx_health_status_history_changed "
+            "ON health_status_history(changed_at)"
+        )
+        await _repair_health_history_current_index()
+        await database.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS "
+            f"{_HEALTH_HISTORY_CURRENT_INDEX} "
+            "ON health_status_history(category, name) WHERE is_current = 1"
         )
 
         if settings.DATABASE_TYPE == "sqlite":
@@ -290,7 +550,7 @@ async def setup_database():
 
         if settings.DATABASE_TYPE == "sqlite":
             busy_timeout_ms = max(
-                1, int(settings.DATABASE_BUSY_TIMEOUT_SECONDS)
+                1, int(settings.DATABASE_BUSY_TIMEOUT)
             ) * 1000
             await database.execute(f"PRAGMA busy_timeout={busy_timeout_ms}")
             await database.execute("PRAGMA journal_mode=WAL")
@@ -346,27 +606,35 @@ async def migrate_domain_aliases():
 
         like_params = {f"p{index}": f"%{alias}%" for index, alias in enumerate(DOMAIN_ALIASES)}
         where_clause = " OR ".join(f"url LIKE :{key}" for key in like_params)
-        rows = await database.fetch_all(
-            f"SELECT url, expires_at FROM dead_links WHERE {where_clause}",
-            like_params
+        dead_link_rows = await database.fetch_all(
+            "SELECT url, failure_count, first_failure_at, last_failure_at, "
+            f"expires_at, reason FROM dead_links WHERE {where_clause}",
+            like_params,
         )
-        if settings.DATABASE_TYPE == "sqlite":
-            upsert = "INSERT OR REPLACE INTO dead_links (url, expires_at) VALUES (:url, :expires_at)"
-        else:
-            upsert = ("INSERT INTO dead_links (url, expires_at) VALUES (:url, :expires_at) "
-                      "ON CONFLICT (url) DO UPDATE SET expires_at = :expires_at")
 
-        migrated = 0
-        for row in rows:
+        migrated_dead_links = 0
+        for row in dead_link_rows:
             new_url = canonicalize_url(row["url"])
             if new_url == row["url"]:
                 continue
-            await database.execute(upsert, {"url": new_url, "expires_at": row["expires_at"]})
+            existing = await database.fetch_one(
+                "SELECT url, failure_count, first_failure_at, "
+                "last_failure_at, expires_at, reason FROM dead_links "
+                "WHERE url = :url",
+                {"url": new_url},
+            )
+            values = dict(row)
+            values["url"] = new_url
+            if existing:
+                values = _merge_dead_link_records(dict(existing), values)
+            await _write_dead_link_record(values)
             await database.execute("DELETE FROM dead_links WHERE url = :url", {"url": row["url"]})
-            migrated += 1
+            migrated_dead_links += 1
 
-        if migrated:
-            database_logger.info(f"[Migration] Normalized {migrated} dead_links to canonical domains")
+        if migrated_dead_links:
+            database_logger.info(
+                f"[Migration] Normalized {migrated_dead_links} dead links"
+            )
     except Exception as e:
         database_logger.error(f"[Migration] Domain alias normalization failed: {type(e).__name__}: {e}")
 
@@ -399,10 +667,23 @@ async def cleanup_expired_data():
                 {"current_time": current_time}
             )
 
-            if deleted_locks or deleted_links or deleted_cache or deleted_sessions:
+            retention_seconds = max(
+                1,
+                int(settings.HEALTH_STATUS_HISTORY_RETENTION),
+            )
+            history_cutoff = current_time - retention_seconds
+            deleted_history = await database.execute(
+                "DELETE FROM health_status_history "
+                "WHERE is_current = 0 AND changed_at < :history_cutoff",
+                {"history_cutoff": history_cutoff},
+            )
+
+            if (deleted_locks or deleted_links
+                    or deleted_cache or deleted_sessions or deleted_history):
                 database_logger.debug(
                     f"Cleanup: {deleted_locks} locks, {deleted_links} links, "
-                    f"{deleted_cache} cache, {deleted_sessions} admin sessions"
+                    f"{deleted_cache} cache, {deleted_sessions} admin sessions, "
+                    f"{deleted_history} health events"
                 )
 
         except Exception as e:
@@ -565,7 +846,11 @@ async def _rebuild_cache_stats():
         }
 
 
-async def update_cache_stats_on_set(cache_key: str, new_results: list, old_results: list = None):
+async def update_cache_stats_on_set(
+    cache_key: str,
+    new_results: list,
+    old_results: Optional[list] = None,
+):
     async with _cache_stats_lock:
         if cache_stats_updates_suppressed():
             return
@@ -580,7 +865,11 @@ async def update_cache_stats_on_set(cache_key: str, new_results: list, old_resul
             )
 
 
-async def _update_cache_stats_on_set(cache_key: str, new_results: list, old_results: list = None):
+async def _update_cache_stats_on_set(
+    cache_key: str,
+    new_results: list,
+    old_results: Optional[list] = None,
+):
     try:
         stats = await get_cache_stats()
         if not stats:
@@ -650,15 +939,19 @@ async def _update_cache_stats_on_set(cache_key: str, new_results: list, old_resu
 # ===========================
 async def is_dead_link(url: str) -> bool:
     try:
+        url = canonicalize_url(url) or url
         current_time = int(time.time())
         result = await database.fetch_one(
-            "SELECT expires_at FROM dead_links WHERE url = :url",
+            "SELECT failure_count, expires_at FROM dead_links "
+            "WHERE url = :url",
             {"url": url}
         )
         if result is None:
             return False
 
-        expires_at = result[0]
+        if int(result["failure_count"] or 0) < DEAD_LINK_STATUS_RECHECKABLE:
+            return False
+        expires_at = result["expires_at"]
         if expires_at == -1:
             return True
         return expires_at > current_time
@@ -667,89 +960,570 @@ async def is_dead_link(url: str) -> bool:
         return False
 
 
-async def check_dead_links_batch(urls: List[str]) -> Dict[str, bool]:
-    if not urls:
-        return {}
+async def _fetch_local_dead_link_statuses(
+    urls: List[str],
+) -> Dict[str, Dict[str, Any]]:
+    current_time = int(time.time())
+    results = {}
+    for start in range(0, len(urls), _QUERY_BATCH_SIZE):
+        batch = urls[start:start + _QUERY_BATCH_SIZE]
+        placeholders = ", ".join(
+            f":url{i}" for i in range(len(batch))
+        )
+        params: Dict[str, Any] = {
+            **{f"url{i}": url for i, url in enumerate(batch)},
+            "current_time": current_time,
+        }
+        rows = await database.fetch_all(
+            "SELECT url, failure_count, first_failure_at, "
+            "last_failure_at, expires_at, reason FROM dead_links "
+            f"WHERE url IN ({placeholders}) "
+            "AND (expires_at = -1 OR expires_at > :current_time)",
+            params,
+        )
+        for row in rows:
+            results[row["url"]] = dict(row)
+    return results
 
-    try:
-        from wastream.services.remote import fetch_remote_dead_links
 
-        async def check_local():
-            current_time = int(time.time())
-            local_results = {}
-            placeholders = ", ".join([f":url{i}" for i in range(len(urls))])
-            params = {f"url{i}": url for i, url in enumerate(urls)}
-            rows = await database.fetch_all(
-                f"SELECT url, expires_at FROM dead_links WHERE url IN ({placeholders})",
-                params
+async def _fetch_remote_dead_link_statuses(
+    urls: List[str],
+) -> tuple:
+    from wastream.services.remote import fetch_remote_dead_links
+
+    remote_statuses = {}
+    stored_statuses = {}
+    for start in range(0, len(urls), _QUERY_BATCH_SIZE):
+        batch = urls[start:start + _QUERY_BATCH_SIZE]
+        batch_statuses, batch_stored = await fetch_remote_dead_links(batch)
+        for url, failure_count in batch_statuses.items():
+            remote_statuses[url] = max(
+                int(remote_statuses.get(url, DEAD_LINK_STATUS_ALIVE)),
+                int(failure_count),
             )
-            for row in rows:
-                url = row["url"]
-                expires_at = row["expires_at"]
-                if expires_at == -1 or expires_at > current_time:
-                    local_results[url] = True
-            return local_results
+        for url, failure_count in batch_stored.items():
+            stored_statuses[url] = max(
+                int(stored_statuses.get(url, DEAD_LINK_STATUS_ALIVE)),
+                int(failure_count),
+            )
+    return remote_statuses, stored_statuses
 
-        local_result, remote_result = await asyncio.gather(
-            check_local(),
-            fetch_remote_dead_links(urls),
-            return_exceptions=True
+
+def _merge_remote_dead_link_statuses(
+    local_statuses: Dict[str, Dict[str, Any]],
+    remote_result: Any,
+) -> tuple:
+    merged_statuses = {
+        url: dict(state) for url, state in local_statuses.items()
+    }
+    if not isinstance(remote_result, tuple) or len(remote_result) != 2:
+        return merged_statuses, {}
+
+    remote_statuses, stored_statuses = remote_result
+    if not isinstance(remote_statuses, dict):
+        return merged_statuses, {}
+
+    for url, failure_count in remote_statuses.items():
+        if not isinstance(url, str) or not url.strip():
+            continue
+        failure_count = min(
+            DEAD_LINK_STATUS_CONFIRMED,
+            max(DEAD_LINK_STATUS_ALIVE, _integer_value(failure_count)),
+        )
+        if failure_count < DEAD_LINK_STATUS_RECHECKABLE:
+            continue
+        canonical_url = canonicalize_url(url.strip()) or url.strip()
+        incoming = {
+            "url": canonical_url,
+            "failure_count": failure_count,
+            "first_failure_at": 0,
+            "last_failure_at": 0,
+            "expires_at": -1,
+            "reason": (
+                "REMOTE_CONFIRMED"
+                if failure_count >= DEAD_LINK_STATUS_CONFIRMED
+                else "REMOTE_RECHECKABLE"
+            ),
+        }
+        current = merged_statuses.get(canonical_url)
+        merged_statuses[canonical_url] = (
+            _merge_dead_link_records(current, incoming)
+            if current
+            else incoming
         )
 
-        results = {}
+    statuses_to_store = {}
+    if isinstance(stored_statuses, dict):
+        for url, failure_count in stored_statuses.items():
+            if not isinstance(url, str) or not url.strip():
+                continue
+            failure_count = min(
+                DEAD_LINK_STATUS_CONFIRMED,
+                max(DEAD_LINK_STATUS_ALIVE, _integer_value(failure_count)),
+            )
+            if failure_count < DEAD_LINK_STATUS_RECHECKABLE:
+                continue
+            canonical_url = canonicalize_url(url.strip()) or url.strip()
+            local_count = _integer_value(
+                local_statuses.get(canonical_url, {}).get("failure_count")
+            )
+            if failure_count > local_count:
+                statuses_to_store[canonical_url] = max(
+                    statuses_to_store.get(
+                        canonical_url,
+                        DEAD_LINK_STATUS_ALIVE,
+                    ),
+                    failure_count,
+                )
 
-        if isinstance(local_result, dict):
-            results.update(local_result)
+    return merged_statuses, statuses_to_store
 
-        if isinstance(remote_result, tuple):
-            remote_dead, should_store = remote_result
-            for url, is_dead in remote_dead.items():
-                if is_dead and url not in results:
-                    results[url] = True
-                    if should_store:
-                        lancer_tache(_store_remote_dead_link(url))
 
-        return results
+async def _load_dead_link_statuses(
+    canonical_urls: List[str],
+    include_remote: bool,
+) -> Dict[str, Dict[str, Any]]:
+    if include_remote:
+        local_result, remote_result = await asyncio.gather(
+            _fetch_local_dead_link_statuses(canonical_urls),
+            _fetch_remote_dead_link_statuses(canonical_urls),
+            return_exceptions=True,
+        )
+    else:
+        local_result = await _fetch_local_dead_link_statuses(canonical_urls)
+        remote_result = ({}, {})
 
+    local_statuses = local_result if isinstance(local_result, dict) else {}
+    merged_statuses, statuses_to_store = _merge_remote_dead_link_statuses(
+        local_statuses,
+        remote_result,
+    )
+    if statuses_to_store:
+        await _store_remote_dead_link_statuses(statuses_to_store)
+    return merged_statuses
+
+
+async def check_dead_links_batch(
+    urls: List[str],
+    include_remote: bool = True,
+) -> Dict[str, bool]:
+    original_to_canonical = {
+        url: canonicalize_url(url) or url for url in urls if url
+    }
+    if not original_to_canonical:
+        return {}
+
+    try:
+        canonical_urls = list(dict.fromkeys(
+            original_to_canonical.values()
+        ))
+        statuses = await _load_dead_link_statuses(
+            canonical_urls,
+            include_remote,
+        )
+        return {
+            original: True
+            for original, canonical in original_to_canonical.items()
+            if _integer_value(
+                statuses.get(canonical, {}).get("failure_count")
+            ) >= DEAD_LINK_STATUS_RECHECKABLE
+        }
     except Exception as e:
-        database_logger.error(f"Batch dead link check failed: {type(e).__name__}: {e}")
+        database_logger.error(
+            f"Batch dead link check failed: {type(e).__name__}: {e}"
+        )
         return {}
 
 
-async def _store_remote_dead_link(url: str):
+async def _store_remote_dead_link_statuses(
+    statuses: Dict[str, int],
+) -> None:
     try:
-        existing = await database.fetch_one(
-            "SELECT url FROM dead_links WHERE url = :url",
-            {"url": url}
+        normalized_statuses = {}
+        for url, failure_count in statuses.items():
+            if not isinstance(url, str) or not url.strip():
+                continue
+            failure_count = min(
+                DEAD_LINK_STATUS_CONFIRMED,
+                max(DEAD_LINK_STATUS_ALIVE, _integer_value(failure_count)),
+            )
+            if failure_count < DEAD_LINK_STATUS_RECHECKABLE:
+                continue
+            canonical_url = canonicalize_url(url.strip()) or url.strip()
+            normalized_statuses[canonical_url] = max(
+                normalized_statuses.get(
+                    canonical_url,
+                    DEAD_LINK_STATUS_ALIVE,
+                ),
+                failure_count,
+            )
+
+        if not normalized_statuses:
+            return
+
+        async def store_statuses() -> int:
+            local_statuses = await _fetch_local_dead_link_statuses(
+                list(normalized_statuses)
+            )
+            pending_statuses = [
+                (url, failure_count)
+                for url, failure_count in normalized_statuses.items()
+                if failure_count > _integer_value(
+                    local_statuses.get(url, {}).get("failure_count")
+                )
+            ]
+            if not pending_statuses:
+                return 0
+
+            current_time = int(time.time())
+            confirmed_expiry = _dead_link_expiry(
+                settings.DEAD_LINK_TTL,
+                current_time,
+            )
+            stored = 0
+            for start in range(0, len(pending_statuses), _QUERY_BATCH_SIZE):
+                batch = pending_statuses[start:start + _QUERY_BATCH_SIZE]
+
+                async def write_batch() -> int:
+                    written = 0
+                    for url, failure_count in batch:
+                        is_confirmed = (
+                            failure_count >= DEAD_LINK_STATUS_CONFIRMED
+                        )
+                        changed = await _upsert_dead_link_state(
+                            url=url,
+                            failure_count=failure_count,
+                            current_time=current_time,
+                            expires_at=(
+                                confirmed_expiry if is_confirmed else -1
+                            ),
+                            reason=(
+                                "REMOTE_CONFIRMED"
+                                if is_confirmed
+                                else "REMOTE_RECHECKABLE"
+                            ),
+                        )
+                        written += int(changed)
+                    return written
+
+                stored += await run_database_transaction(
+                    write_batch,
+                    "store remote dead-link states",
+                )
+            return stored
+
+        if settings.DATABASE_TYPE == "sqlite":
+            async with _remote_dead_link_store_lock:
+                stored = await store_statuses()
+        else:
+            stored = await store_statuses()
+        if stored:
+            database_logger.debug(
+                f"Stored {stored} remote dead-link states locally"
+            )
+    except Exception as error:
+        database_logger.error(
+            "Remote dead-link storage failed: "
+            f"{type(error).__name__}: {error}"
         )
-        if not existing:
-            await mark_dead_link(url, settings.DEAD_LINK_TTL)
-            database_logger.debug("Stored remote dead link locally")
-    except Exception:
-        pass
 
 
 # ===========================
 # Dead Link Marking
 # ===========================
-async def mark_dead_link(url: str, ttl: int):
+def _dead_link_expiry(ttl: int, current_time: int) -> int:
+    return -1 if ttl == -1 else current_time + max(1, ttl)
+
+
+async def _upsert_dead_link_state(
+    url: str,
+    failure_count: int,
+    current_time: int,
+    expires_at: int,
+    reason: str,
+) -> bool:
+    row = await database.fetch_one(
+        """INSERT INTO dead_links (
+               url, failure_count, first_failure_at,
+               last_failure_at, expires_at, reason
+           ) VALUES (
+               :url, :failure_count, :current_time,
+               :current_time, :expires_at, :reason
+           )
+           ON CONFLICT (url) DO UPDATE SET
+               failure_count = :failure_count,
+               first_failure_at = CASE
+                   WHEN dead_links.expires_at > 0
+                        AND dead_links.expires_at <= :current_time
+                   THEN :current_time
+                   WHEN dead_links.first_failure_at > 0
+                   THEN dead_links.first_failure_at
+                   ELSE :current_time
+               END,
+               last_failure_at = :current_time,
+               expires_at = :expires_at,
+               reason = CASE
+                   WHEN :reason != '' THEN :reason
+                   ELSE dead_links.reason
+               END
+           WHERE (
+               dead_links.expires_at > 0
+               AND dead_links.expires_at <= :current_time
+           ) OR dead_links.failure_count < :failure_count
+           RETURNING url""",
+        {
+            "url": url,
+            "failure_count": failure_count,
+            "current_time": current_time,
+            "expires_at": expires_at,
+            "reason": (reason or "")[:200],
+        },
+    )
+    return row is not None
+
+
+async def _upsert_recheckable_dead_link(
+    url: str,
+    current_time: int,
+    reason: str,
+) -> Dict[str, Any]:
+    await _upsert_dead_link_state(
+        url=url,
+        failure_count=DEAD_LINK_STATUS_RECHECKABLE,
+        current_time=current_time,
+        expires_at=-1,
+        reason=reason,
+    )
+    row = await database.fetch_one(
+        "SELECT url, failure_count, first_failure_at, "
+        "last_failure_at, expires_at, reason FROM dead_links "
+        "WHERE url = :url",
+        {"url": url},
+    )
+    if row is None:
+        raise RuntimeError("Dead-link state was not persisted")
+    return dict(row)
+
+
+async def _upsert_confirmed_dead_link(
+    url: str,
+    current_time: int,
+    expires_at: int,
+    reason: str,
+) -> bool:
+    return await _upsert_dead_link_state(
+        url=url,
+        failure_count=DEAD_LINK_STATUS_CONFIRMED,
+        current_time=current_time,
+        expires_at=expires_at,
+        reason=reason,
+    )
+
+
+async def mark_dead_links(
+    urls: List[str],
+    ttl: int,
+    reason: str = "",
+) -> int:
+    normalized_urls = list(dict.fromkeys(
+        canonicalize_url(url.strip()) or url.strip()
+        for url in urls
+        if isinstance(url, str) and url.strip()
+    ))
+    if not normalized_urls:
+        return 0
+
+    current_time = int(time.time())
+    expires_at = _dead_link_expiry(ttl, current_time)
+
+    written = 0
+    for start in range(0, len(normalized_urls), _QUERY_BATCH_SIZE):
+        batch = normalized_urls[start:start + _QUERY_BATCH_SIZE]
+
+        async def write_batch() -> int:
+            batch_written = 0
+            for url in batch:
+                changed = await _upsert_confirmed_dead_link(
+                    url,
+                    current_time,
+                    expires_at,
+                    reason,
+                )
+                batch_written += int(changed)
+            return batch_written
+
+        written += await run_database_transaction(
+            write_batch,
+            "mark dead links",
+        )
+    return written
+
+
+async def mark_dead_link(url: str, ttl: int, reason: str = "") -> None:
     try:
-        url = canonicalize_url(url)
-        if ttl == -1:
-            expires_at = -1
-        else:
-            current_time = int(time.time())
-            expires_at = current_time + ttl
+        await mark_dead_links([url], ttl, reason)
+    except Exception as error:
+        database_logger.error(
+            f"Mark dead link failed: {type(error).__name__}: {error}"
+        )
 
-        if settings.DATABASE_TYPE == "sqlite":
-            query = "INSERT OR REPLACE INTO dead_links (url, expires_at) VALUES (:url, :expires_at)"
-        else:
-            query = """INSERT INTO dead_links (url, expires_at) VALUES (:url, :expires_at)
-                       ON CONFLICT (url) DO UPDATE SET expires_at = :expires_at"""
 
-        await database.execute(query, {"url": url, "expires_at": expires_at})
-    except Exception as e:
-        database_logger.error(f"Mark dead link failed: {type(e).__name__}: {e}")
+async def get_dead_link_statuses_batch(
+    urls: List[str],
+    include_remote: bool = True,
+) -> Dict[str, Dict[str, Any]]:
+    original_to_canonical = {
+        url: canonicalize_url(url) or url for url in urls if url
+    }
+    if not original_to_canonical:
+        return {}
+
+    canonical_urls = list(dict.fromkeys(
+        original_to_canonical.values()
+    ))
+    try:
+        status_rows = await _load_dead_link_statuses(
+            canonical_urls,
+            include_remote,
+        )
+    except Exception as error:
+        database_logger.error(
+            f"Dead link state check failed: {type(error).__name__}: {error}"
+        )
+        status_rows = {}
+
+    results = {}
+    for original, canonical in original_to_canonical.items():
+        state = status_rows.get(canonical)
+        results[original] = state or {
+            "url": canonical,
+            "failure_count": DEAD_LINK_STATUS_ALIVE,
+            "first_failure_at": 0,
+            "last_failure_at": 0,
+            "expires_at": 0,
+            "reason": "",
+        }
+
+    return results
+
+
+async def get_dead_link_status(url: str) -> Dict[str, Any]:
+    statuses = await get_dead_link_statuses_batch(
+        [url],
+        include_remote=False,
+    )
+    return statuses.get(
+        url,
+        {
+            "url": canonicalize_url(url) or url,
+            "failure_count": DEAD_LINK_STATUS_ALIVE,
+            "first_failure_at": 0,
+            "last_failure_at": 0,
+            "expires_at": 0,
+            "reason": "",
+        },
+    )
+
+
+async def record_dead_link_failure(
+    url: str,
+    reason: str = "",
+) -> Dict[str, Any]:
+    url = canonicalize_url(url) or url
+    current_time = int(time.time())
+
+    async def write_state() -> Dict[str, Any]:
+        return await _upsert_recheckable_dead_link(
+            url,
+            current_time,
+            reason,
+        )
+
+    return await run_database_transaction(
+        write_state,
+        "record dead-link failure",
+    )
+
+
+async def clear_recheckable_dead_link_state(
+    url: str,
+    first_failure_at: int,
+) -> None:
+    url = canonicalize_url(url) or url
+
+    async def clear_state() -> None:
+        await database.execute(
+            "DELETE FROM dead_links "
+            "WHERE url = :url "
+            "AND failure_count = :recheckable_status "
+            "AND first_failure_at = :first_failure_at",
+            {
+                "url": url,
+                "recheckable_status": DEAD_LINK_STATUS_RECHECKABLE,
+                "first_failure_at": first_failure_at,
+            },
+        )
+
+    await run_database_transaction(
+        clear_state,
+        "clear recheckable dead-link state",
+    )
+
+
+async def confirm_recheckable_dead_link_state(
+    url: str,
+    first_failure_at: int,
+    reason: str = "",
+) -> Optional[Dict[str, Any]]:
+    url = canonicalize_url(url) or url
+    current_time = int(time.time())
+    confirmed_expiry = _dead_link_expiry(
+        settings.DEAD_LINK_TTL,
+        current_time,
+    )
+
+    async def confirm_state() -> Optional[Dict[str, Any]]:
+        params = {
+            "url": url,
+            "recheckable_status": DEAD_LINK_STATUS_RECHECKABLE,
+            "confirmed_status": DEAD_LINK_STATUS_CONFIRMED,
+            "first_failure_at": first_failure_at,
+            "current_time": current_time,
+            "confirmed_expiry": confirmed_expiry,
+            "reason": (reason or "")[:200],
+        }
+        await database.execute(
+            "UPDATE dead_links SET "
+            "failure_count = :confirmed_status, "
+            "last_failure_at = :current_time, "
+            "expires_at = :confirmed_expiry, "
+            "reason = :reason "
+            "WHERE url = :url "
+            "AND failure_count = :recheckable_status "
+            "AND first_failure_at = :first_failure_at",
+            params,
+        )
+        row = await database.fetch_one(
+            "SELECT url, failure_count, first_failure_at, "
+            "last_failure_at, expires_at, reason "
+            "FROM dead_links "
+            "WHERE url = :url "
+            "AND failure_count = :confirmed_status "
+            "AND first_failure_at = :first_failure_at",
+            {
+                "url": url,
+                "confirmed_status": DEAD_LINK_STATUS_CONFIRMED,
+                "first_failure_at": first_failure_at,
+            },
+        )
+        if not row:
+            return None
+        return dict(row)
+
+    return await run_database_transaction(
+        confirm_state,
+        "confirm recheckable dead-link state",
+    )
 
 
 # ===========================
@@ -782,7 +1556,10 @@ async def acquire_lock(lock_key: str, instance_id: str, duration: int = settings
             {"lock_key": lock_key}
         )
 
-        return existing_lock and existing_lock["instance_id"] == instance_id
+        return bool(
+            existing_lock
+            and existing_lock["instance_id"] == instance_id
+        )
 
     except Exception as e:
         database_logger.error(f"Lock attempt failed: {type(e).__name__}: {e}")
@@ -807,18 +1584,32 @@ async def release_lock(lock_key: str, instance_id: str):
 # ===========================
 class SearchLock:
     def __init__(self, content_type: str, title: str, year: Optional[str] = None,
-                 timeout: Optional[int] = None, retry_interval: float = 1.0):
+                 timeout: Optional[int] = None, retry_interval: float = 1.0,
+                 wait: bool = True):
         lock_key = build_cache_key(content_type, title, year)
         self.lock_key = lock_key
         self.instance_id = f"{uuid.uuid4()}_{os.getpid()}"
         self.duration = settings.SCRAPE_LOCK_TTL
         self.timeout = timeout if timeout is not None else settings.SCRAPE_WAIT_TIMEOUT
         self.retry_interval = retry_interval
+        self.wait = wait
         self.acquired = False
 
     async def __aenter__(self):
         start_time = time.time()
         attempt = 0
+
+        if not self.wait:
+            self.acquired = await acquire_lock(
+                self.lock_key,
+                self.instance_id,
+                self.duration,
+            )
+            if self.acquired:
+                database_logger.debug(f"Lock acquired: {self.lock_key[:30]}... (no wait)")
+            else:
+                database_logger.debug(f"Lock busy: {self.lock_key[:30]}... (no wait)")
+            return self
 
         while time.time() - start_time < self.timeout:
             attempt += 1

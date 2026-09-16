@@ -13,6 +13,7 @@ HTTP_RETRY_ERRORS = [429, 500, 502, 503, 504]
 # Base Debrid Service Class
 # ===========================
 class BaseDebridService(ABC):
+    AUTHORITATIVE_DEAD_LINK_RESULTS = frozenset()
 
     @abstractmethod
     async def check_cache_and_enrich(self, results: List[Dict], api_key: str, config: Dict, timeout_remaining: float = 0, user_season: Optional[str] = None, user_episode: Optional[str] = None, user_hosts: Optional[List[str]] = None) -> List[Dict]:
@@ -25,6 +26,12 @@ class BaseDebridService(ABC):
     @abstractmethod
     def get_service_name(self) -> str:
         pass
+
+    def is_dead_link_result_authoritative(
+        self,
+        result: Optional[str],
+    ) -> bool:
+        return result in self.AUTHORITATIVE_DEAD_LINK_RESULTS
 
     async def _handle_http_retry_error(
         self,

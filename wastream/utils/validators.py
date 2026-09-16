@@ -3,7 +3,7 @@ import json
 from base64 import b64decode
 from typing import Optional, Dict, List
 
-from pydantic import BaseModel, field_validator, ConfigDict
+from pydantic import BaseModel, field_validator, model_validator, ConfigDict
 
 from wastream.config.settings import settings
 from wastream.utils.logger import api_logger
@@ -50,6 +50,22 @@ class UserConfig(BaseModel):
     max_results_per_resolution: int = 0
     max_size_gb: float = 0.0
     recheck_hoster_status: bool = False
+    recheck_dead_links: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_dead_link_recheck_mode(cls, value):
+        if not isinstance(value, dict) or "recheck_dead_links" in value:
+            return value
+
+        legacy_mode = value.get("dead_link_recheck_mode")
+        if legacy_mode is None:
+            return value
+
+        migrated = value.copy()
+        migrated["recheck_dead_links"] = str(legacy_mode).strip().lower() == "manual"
+        migrated.pop("dead_link_recheck_mode", None)
+        return migrated
 
     @field_validator("tmdb_api_token")
     @classmethod
@@ -118,6 +134,7 @@ def validate_config(config_base64: Optional[str]) -> Optional[Dict]:
 
         validated = UserConfig.model_validate(config_dict)
         result = validated.model_dump()
+        config_dict.pop("dead_link_recheck_mode", None)
 
         # Merge back any extra fields from the original config (sort_order, early_stop, nzbdav_url, etc.)
         for key, value in config_dict.items():

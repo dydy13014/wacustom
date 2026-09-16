@@ -7,7 +7,7 @@ from xml.etree import ElementTree
 from wastream.config.settings import settings
 from wastream.utils.helpers import normalize_size, build_display_name, deduplicate_and_sort_results
 from wastream.utils.languages import extract_language_from_tokens, extract_raw_language_from_tokens
-from wastream.utils.http_client import http_client
+from wastream.utils.http_client import http_client, source_request_headers
 from wastream.utils.logger import scraper_logger
 from wastream.utils.quality import quality_sort_key, extract_quality_from_tokens
 from wastream.utils.release_parser import tokenize_filename
@@ -17,6 +17,7 @@ from wastream.utils.release_parser import tokenize_filename
 # Constants
 # ===========================
 WEBSHARE_PAGE_SIZE = 100
+WEBSHARE_API_HEADERS = source_request_headers()
 
 
 # ===========================
@@ -84,7 +85,8 @@ class BaseWebshare:
         try:
             response = await http_client.post(
                 f"{settings.WEBSHARE_URL}/api/search/",
-                data={"what": query, "sort": "rating", "category": "video", "offset": str(offset), "limit": "100"}
+                data={"what": query, "sort": "rating", "category": "video", "offset": str(offset), "limit": "100"},
+                headers=WEBSHARE_API_HEADERS,
             )
 
             if response.status_code != 200:

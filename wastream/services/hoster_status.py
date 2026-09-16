@@ -6,6 +6,7 @@ from wastream.config.settings import settings
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import debrid_logger
 from wastream.utils.tasks import lancer_tache
+from wastream.utils.urls import url_matches_host
 
 
 # ===========================
@@ -170,20 +171,19 @@ def is_hoster_up(service: str, hoster_name: str) -> bool:
     if service == "alldebrid":
         # Reactive: hosts dict = {name: timestamp_when_marked_down}
         now = time.time()
-        expired_keys = []
-        result = True
-
-        for cached_name, marked_at in cache["hosts"].items():
-            if cached_name in hoster_key or hoster_key in cached_name:
-                if (now - marked_at) < settings.HOSTER_STATUS_CACHE_TTL:
-                    result = False
-                else:
-                    expired_keys.append(cached_name)
-
+        expired_keys = [
+            cached_name
+            for cached_name, marked_at in cache["hosts"].items()
+            if (now - marked_at) >= settings.HOSTER_STATUS_CACHE_TTL
+        ]
         for key in expired_keys:
-            del cache["hosts"][key]
+            cache["hosts"].pop(key, None)
+            _recheck_success_count.pop(key, None)
 
-        if not result:
+        if any(
+            cached_name in hoster_key or hoster_key in cached_name
+            for cached_name in cache["hosts"]
+        ):
             return False
 
         # Proactive : statut serveur + quota critique (/v4.1/user/hosts)
@@ -215,7 +215,7 @@ _recheck_success_count = {}
 
 
 async def _recheck_alldebrid_hoster(link: str, api_key: str, hoster_key: str):
-    is_direct_link = any(host in link for host in ["1fichier.com", "turbobit.net", "rapidgator.net"])
+    is_direct_link = url_matches_host(link, settings.ALLDEBRID_SUPPORTED_HOSTS)
     endpoint = "link/unlock" if is_direct_link else "link/redirector"
 
     try:

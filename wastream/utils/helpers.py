@@ -279,14 +279,38 @@ def build_display_name(title: str, year: Optional[str] = None, language: str = "
 
 
 # ===========================
-# Debrid API Key Retrieval
+# Debrid Service Entry Retrieval
 # ===========================
-def get_debrid_api_key(config: Dict[str, Any], service_name: str) -> str:
+def get_debrid_service_entry(
+    config: Dict[str, Any],
+    service_name: str,
+    service_index: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
     debrid_services = config.get("debrid_services", [])
+    normalized_service = (service_name or "").lower()
+
+    if (
+        isinstance(service_index, int)
+        and not isinstance(service_index, bool)
+        and 0 <= service_index < len(debrid_services)
+    ):
+        entry = debrid_services[service_index]
+        if str(entry.get("service") or "").lower() == normalized_service:
+            return entry
+
     for entry in debrid_services:
-        if entry.get("service") == service_name:
-            return entry.get("api_key", "")
-    return ""
+        if str(entry.get("service") or "").lower() == normalized_service:
+            return entry
+    return None
+
+
+def get_debrid_api_key(
+    config: Dict[str, Any],
+    service_name: str,
+    service_index: Optional[int] = None,
+) -> str:
+    entry = get_debrid_service_entry(config, service_name, service_index)
+    return entry.get("api_key", "") if entry else ""
 
 
 # ===========================

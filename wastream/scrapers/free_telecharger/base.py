@@ -1,16 +1,19 @@
 import asyncio
 import re
+import ssl
 from typing import List, Dict, Optional, Tuple
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
+import httpx
 from selectolax.parser import HTMLParser
 
 from wastream.config.settings import settings
 from wastream.utils.helpers import quote_url_param, normalize_text, build_display_name, normalize_size, format_url
-from wastream.utils.http_client import http_client
+from wastream.utils.http_client import http_client, source_request_headers
 from wastream.utils.logger import scraper_logger
 from wastream.utils.quality import quality_sort_key
 from wastream.utils.release_parser import parse_release_info
+from wastream.utils.urls import get_url_origin
 
 # ===========================
 # Category Mappings
@@ -35,6 +38,9 @@ ANIME_CATEGORIES = [
 # Ignored Qualities
 # ===========================
 IGNORED_QUALITIES = ["cam", "ts", "r5", "dvdscr", "hdcam", "hdts", "telesync", "telecine"]
+INTERMEDIATE_HEADERS = source_request_headers({
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+})
 
 # ===========================
 # "Langue :" Field Vocabulary
@@ -120,6 +126,14 @@ LANGUAGE_TOKEN_SPLIT_RE = re.compile(r"[^0-9A-Za-zÀ-ÖØ-öø-ÿ]+")
 # Base Free-Telecharger Scraper Class
 # ===========================
 class BaseFreeTelecharger:
+
+    async def _get_source_page(self, url: str, **kwargs):
+        return await http_client.get_source(
+            "Free-Telecharger",
+            url,
+            settings.FREE_TELECHARGER_URL,
+            **kwargs,
+        )
 
     def _is_ignored_quality(self, quality: str) -> bool:
         if not quality:
@@ -281,16 +295,117 @@ class BaseFreeTelecharger:
         if not link:
             return False
         parsed = urlparse(link)
-        hostname = parsed.hostname or ""
+        hostname = (parsed.hostname or "").lower().removeprefix("www.")
         if hostname.startswith("liens."):
             return True
         return False
 
-    async def _resolve_intermediate_link(self, link: str) -> List[Tuple[str, str]]:
+    @staticmethod
+    def _is_related_intermediate_host(link: str, source_url: Optional[str] = None) -> bool:
+        link_host = (urlparse(link).hostname or "").lower().removeprefix("www.")
+        if not link_host.startswith("liens."):
+            return False
+
+        configured_host = (
+            urlparse(settings.FREE_TELECHARGER_URL or "").hostname or ""
+        ).lower().removeprefix("www.")
+        source_hosts = {configured_host} if configured_host else set()
+
+        page_host = (urlparse(source_url or "").hostname or "").lower().removeprefix("www.")
+        if page_host and page_host.split(".", 1)[0] == "free-telecharger":
+            source_hosts.add(page_host)
+
+        return any(
+            link_host == f"liens.{host}" or link_host.endswith(f".{host}")
+            for host in source_hosts
+        )
+
+    @staticmethod
+    def _is_certificate_error(error: BaseException) -> bool:
+        current = error
+        seen = set()
+        while current and id(current) not in seen:
+            seen.add(id(current))
+            if isinstance(current, ssl.SSLCertVerificationError):
+                return True
+            message = str(current).lower()
+            if any(marker in message for marker in (
+                "certificate verify failed",
+                "certificate_verify_failed",
+                "cert_verify_failed",
+            )):
+                return True
+            current = current.__cause__ or current.__context__
+        return False
+
+    async def _request_intermediate_secure(self, link: str, headers: Dict[str, str]):
+        for attempt in range(2):
+            try:
+                return await http_client.get(link, headers=headers)
+            except httpx.RemoteProtocolError:
+                if attempt:
+                    raise
+
+    async def _request_intermediate_insecure(
+        self,
+        link: str,
+        headers: Dict[str, str],
+        source_url: Optional[str] = None,
+    ):
+        current_url = link
+        response = None
+
+        for _ in range(5):
+            response = await http_client.get_insecure(current_url, headers=headers)
+            if response.status_code not in {301, 302, 303, 307, 308}:
+                return response
+
+            location = response.headers.get("location")
+            if not location:
+                return response
+            redirected_url = urljoin(current_url, location)
+            if self._is_related_intermediate_host(redirected_url, source_url):
+                current_url = redirected_url
+                continue
+            return await http_client.get(redirected_url, headers=headers)
+
+        return response
+
+    async def _resolve_intermediate_link(
+        self,
+        link: str,
+        source_url: Optional[str] = None,
+    ) -> List[Tuple[str, str]]:
         results = []
         try:
             scraper_logger.debug("[Free-Telecharger] Resolving intermediate link")
-            response = await http_client.get(link)
+            headers = dict(INTERMEDIATE_HEADERS)
+            source_origin = get_url_origin(source_url) or http_client.get_source_origin(
+                "Free-Telecharger", settings.FREE_TELECHARGER_URL
+            )
+            headers["Referer"] = f"{source_origin}/"
+            try:
+                response = await self._request_intermediate_secure(link, headers)
+            except httpx.RequestError as error:
+                failed_url = link
+                try:
+                    failed_url = str(error.request.url)
+                except RuntimeError:
+                    pass
+                is_related_host = self._is_related_intermediate_host(failed_url, source_url)
+                # Keep insecure TLS strictly scoped to source-owned intermediate hosts.
+                if not (is_related_host and self._is_certificate_error(error)):
+                    raise
+                intermediate_host = (urlparse(failed_url).hostname or "").lower()
+                scraper_logger.warning(
+                    "[Free-Telecharger] Retrying related intermediate host "
+                    f"without TLS verification: {intermediate_host}"
+                )
+                response = await self._request_intermediate_insecure(
+                    link,
+                    headers,
+                    source_url,
+                )
             if response.status_code != 200:
                 scraper_logger.debug(f"[Free-Telecharger] Failed to resolve link: {response.status_code}")
                 return results
@@ -361,7 +476,7 @@ class BaseFreeTelecharger:
         scraper_logger.debug(f"[Free-Telecharger] Trying search for: {search_title}")
 
         try:
-            response = await http_client.get(search_url)
+            response = await self._get_source_page(search_url)
             if response.status_code != 200:
                 scraper_logger.debug(f"[Free-Telecharger] Search failed: {response.status_code}")
                 return None
@@ -412,7 +527,7 @@ class BaseFreeTelecharger:
 
             scraper_logger.debug(f"[Free-Telecharger] Trying page {page_num}")
 
-            response = await http_client.get(search_url)
+            response = await self._get_source_page(search_url)
             if response.status_code != 200:
                 return None
 
@@ -513,7 +628,7 @@ class BaseFreeTelecharger:
         movie_url = format_url(page_link, settings.FREE_TELECHARGER_URL)
 
         try:
-            response = await http_client.get(movie_url)
+            response = await self._get_source_page(movie_url)
             if response.status_code == 200:
                 parser = HTMLParser(response.text)
                 quality_nodes = parser.css('div.block1 a[href*=".html"]')
@@ -557,7 +672,7 @@ class BaseFreeTelecharger:
         full_url = format_url(page_path, settings.FREE_TELECHARGER_URL)
 
         try:
-            response = await http_client.get(full_url)
+            response = await self._get_source_page(full_url)
             if response.status_code != 200:
                 return page_results
 
@@ -611,7 +726,10 @@ class BaseFreeTelecharger:
                     )
 
                     if self._is_intermediate_link(download_link):
-                        resolved_links = await self._resolve_intermediate_link(download_link)
+                        resolved_links = await self._resolve_intermediate_link(
+                            download_link,
+                            str(response.url),
+                        )
                         for real_link, real_hoster in resolved_links:
                             result = {
                                 "link": real_link,
@@ -672,7 +790,7 @@ class BaseFreeTelecharger:
 
                 current_url = format_url(current_link, settings.FREE_TELECHARGER_URL)
 
-                response = await http_client.get(current_url)
+                response = await self._get_source_page(current_url)
                 if response.status_code == 200:
                     pages_html[current_link] = response.text
                     parser = HTMLParser(response.text)
@@ -730,10 +848,10 @@ class BaseFreeTelecharger:
             # _extract_series_content : on evite un second telechargement de la
             # meme page. Repli sur une requete si l'appelant ne le fournit pas
             # (page non lue lors de la decouverte, ou appel depuis ailleurs).
+            page_url = format_url(page_path, settings.FREE_TELECHARGER_URL)
             html = page.get("html")
             if html is None:
-                full_url = format_url(page_path, settings.FREE_TELECHARGER_URL)
-                response = await http_client.get(full_url)
+                response = await self._get_source_page(page_url)
                 if response.status_code != 200:
                     return page_results
                 html = response.text
@@ -811,7 +929,10 @@ class BaseFreeTelecharger:
                     )
 
                     if self._is_intermediate_link(download_link):
-                        resolved_links = await self._resolve_intermediate_link(download_link)
+                        resolved_links = await self._resolve_intermediate_link(
+                            download_link,
+                            page_url,
+                        )
                         for real_link, real_hoster in resolved_links:
                             result = {
                                 "link": real_link,

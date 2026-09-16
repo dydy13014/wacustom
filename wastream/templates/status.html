@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#22d3ee">
+    <title>Service status - {{ADDON_NAME}}</title>
+    <link rel="icon" href="/static/wastream-logo.png">
+    <style nonce="{{CSP_NONCE}}">
+        /* ===========================
+           Base and Theme
+           =========================== */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #09090b;
+            --bg-secondary: #0f0f12;
+            --bg-tertiary: #18181b;
+            --bg-elevated: #1f1f23;
+            --bg-hover: #27272a;
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-default: rgba(255, 255, 255, 0.1);
+            --border-strong: rgba(255, 255, 255, 0.15);
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent-primary: #22d3ee;
+            --accent-primary-hover: #06b6d4;
+            --accent-primary-subtle: rgba(34, 211, 238, 0.1);
+            --accent-secondary: #6366f1;
+            --accent-secondary-hover: #4f46e5;
+            --accent-secondary-subtle: rgba(99, 102, 241, 0.1);
+            --accent-gradient: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            --accent-success: #10b981;
+            --accent-success-subtle: rgba(16, 185, 129, 0.1);
+            --accent-warning: #f59e0b;
+            --accent-warning-subtle: rgba(245, 158, 11, 0.1);
+            --accent-danger: #ef4444;
+            --accent-danger-subtle: rgba(239, 68, 68, 0.1);
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --radius-full: 9999px;
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+            --transition-fast: 150ms ease;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        html {
+            color-scheme: dark;
+            font-size: 15px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            line-height: 1.6;
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        button, a {
+            font: inherit;
+        }
+
+        .app {
+            min-height: 100vh;
+        }
+
+        /* ===========================
+           Header and Navigation
+           =========================== */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--border-subtle);
+            background: rgba(9, 9, 11, 0.8);
+            backdrop-filter: blur(12px);
+        }
+
+        .header-content {
+            display: flex;
+            width: 100%;
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 16px 24px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .brand {
+            display: flex;
+            min-width: 0;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .brand-logo {
+            width: 36px;
+            height: 36px;
+            flex: 0 0 auto;
+            border-radius: var(--radius-md);
+            object-fit: contain;
+        }
+
+        .brand-name {
+            overflow: hidden;
+            font-size: 18px;
+            font-weight: 700;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .brand-version,
+        .status-count {
+            border-radius: var(--radius-full);
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .brand-version {
+            padding: 2px 8px;
+        }
+
+        .header-actions {
+            display: flex;
+            flex: 0 0 auto;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-link,
+        .retry-button {
+            min-height: 44px;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-full);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+        }
+
+        .lang-toggle {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 100;
+            display: flex;
+            width: 48px;
+            height: 48px;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-default);
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            box-shadow: var(--shadow-md);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all var(--transition-fast);
+        }
+
+        .lang-toggle:hover {
+            background: var(--bg-elevated);
+            transform: scale(1.1);
+        }
+
+        .back-link {
+            display: inline-flex;
+            min-width: 44px;
+            padding: 7px 14px;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+        }
+
+        .back-link svg {
+            width: 15px;
+            height: 15px;
+            fill: currentColor;
+        }
+
+        .back-link:hover,
+        .retry-button:not(:disabled):hover {
+            border-color: rgba(34, 211, 238, 0.45);
+            background: var(--accent-primary-subtle);
+            color: var(--accent-primary);
+        }
+
+        .lang-toggle:focus-visible,
+        .back-link:focus-visible,
+        .retry-button:focus-visible,
+        .brand:focus-visible {
+            outline: 2px solid var(--accent-primary);
+            outline-offset: 3px;
+        }
+
+        /* ===========================
+           Status Summary
+           =========================== */
+        .status-main {
+            width: 100%;
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 56px 24px 72px;
+        }
+
+        .status-summary {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            padding: 26px;
+            align-items: center;
+            gap: 20px;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            background: var(--bg-secondary);
+        }
+
+        .summary-symbol {
+            display: grid;
+            width: 54px;
+            height: 54px;
+            place-items: center;
+            border-radius: 50%;
+            background: rgba(113, 113, 122, 0.12);
+        }
+
+        .summary-dot {
+            width: 16px;
+            height: 16px;
+            border: 4px solid rgba(161, 161, 170, 0.3);
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .summary-copy h1 {
+            margin: 0 0 4px;
+            font-size: clamp(21px, 3vw, 27px);
+            line-height: 1.3;
+        }
+
+        .summary-copy p,
+        .status-note,
+        .empty-state p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+
+        .summary-updated {
+            display: flex;
+            align-items: center;
+            justify-self: end;
+            gap: 7px;
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.4;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .summary-updated svg {
+            width: 14px;
+            height: 14px;
+            flex: 0 0 auto;
+            fill: currentColor;
+        }
+
+        .status-summary[data-status="operational"] {
+            border-color: rgba(16, 185, 129, 0.28);
+        }
+
+        .status-summary[data-status="operational"] .summary-symbol {
+            background: var(--accent-success-subtle);
+        }
+
+        .status-summary[data-status="operational"] .summary-dot {
+            border-color: rgba(16, 185, 129, 0.25);
+            background: var(--accent-success);
+        }
+
+        .status-summary[data-status="degraded"] {
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .status-summary[data-status="degraded"] .summary-symbol {
+            background: var(--accent-warning-subtle);
+        }
+
+        .status-summary[data-status="degraded"] .summary-dot {
+            border-color: rgba(245, 158, 11, 0.25);
+            background: var(--accent-warning);
+        }
+
+        .status-summary[data-status="outage"] {
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .status-summary[data-status="outage"] .summary-symbol {
+            background: var(--accent-danger-subtle);
+        }
+
+        .status-summary[data-status="outage"] .summary-dot {
+            border-color: rgba(239, 68, 68, 0.25);
+            background: var(--accent-danger);
+        }
+
+        /* ===========================
+           Status Lists
+           =========================== */
+        .status-panel {
+            margin-top: 24px;
+            overflow: hidden;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            background: var(--bg-secondary);
+        }
+
+        .status-panel[hidden] {
+            display: none;
+        }
+
+        .panel-header {
+            display: flex;
+            min-height: 62px;
+            padding: 16px 20px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .panel-title {
+            display: flex;
+            min-width: 0;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .panel-title h2 {
+            margin: 0;
+            overflow: hidden;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-overflow: ellipsis;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .panel-title svg {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 auto;
+            fill: var(--accent-primary);
+        }
+
+        .status-count {
+            padding: 3px 9px;
+        }
+
+        .status-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            min-height: 68px;
+            padding: 15px 20px;
+            align-items: center;
+            gap: 18px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .status-row:not(.has-metric) {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+
+        .status-row:last-child {
+            border-bottom: 0;
+        }
+
+        .status-identity {
+            display: flex;
+            min-width: 0;
+            align-items: center;
+            gap: 11px;
+        }
+
+        .status-dot {
+            width: 9px;
+            height: 9px;
+            flex: 0 0 auto;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .status-name {
+            overflow: hidden;
+            font-weight: 600;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .status-metric {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .status-badge {
+            min-width: 94px;
+            padding: 5px 10px;
+            border-radius: var(--radius-full);
+            background: rgba(113, 113, 122, 0.12);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .status-row[data-status="online"] .status-dot {
+            background: var(--accent-success);
+        }
+
+        .status-row[data-status="online"] .status-badge {
+            background: var(--accent-success-subtle);
+            color: var(--accent-success);
+        }
+
+        .status-row[data-status="offline"] .status-dot {
+            background: var(--accent-danger);
+        }
+
+        .status-row[data-status="offline"] .status-badge {
+            background: var(--accent-danger-subtle);
+            color: var(--accent-danger);
+        }
+
+        .status-row[data-status="unconfigured"] .status-badge {
+            background: var(--bg-hover);
+            color: var(--text-muted);
+        }
+
+        .status-row[data-status="checking"] .status-dot,
+        .status-row[data-status="unknown"] .status-dot {
+            background: var(--accent-warning);
+        }
+
+        .status-row[data-status="checking"] .status-badge,
+        .status-row[data-status="unknown"] .status-badge {
+            background: var(--accent-warning-subtle);
+            color: var(--accent-warning);
+        }
+
+        .history-row {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            min-height: 74px;
+            padding: 15px 20px;
+            align-items: center;
+            gap: 14px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .history-row:last-child {
+            border-bottom: 0;
+        }
+
+        .history-marker {
+            display: grid;
+            width: 30px;
+            height: 30px;
+            place-items: center;
+            border-radius: 50%;
+            background: var(--accent-danger-subtle);
+            color: var(--accent-danger);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .history-row[data-event="recovery"] .history-marker {
+            background: var(--accent-success-subtle);
+            color: var(--accent-success);
+        }
+
+        .history-copy {
+            min-width: 0;
+        }
+
+        .history-heading {
+            display: flex;
+            min-width: 0;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .history-name {
+            overflow: hidden;
+            font-weight: 600;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .history-event {
+            flex: 0 0 auto;
+            color: var(--accent-danger);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .history-row[data-event="recovery"] .history-event {
+            color: var(--accent-success);
+        }
+
+        .history-category,
+        .history-time {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .history-time {
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .history-list .empty-state {
+            min-height: 112px;
+        }
+
+        .empty-state {
+            display: flex;
+            min-height: 150px;
+            padding: 28px;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            text-align: center;
+        }
+
+        .loading-indicator {
+            width: 16px;
+            height: 16px;
+            flex: 0 0 auto;
+            border: 2px solid var(--border-default);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 800ms linear infinite;
+        }
+
+        .retry-button {
+            margin-top: 14px;
+            padding: 7px 14px;
+            cursor: pointer;
+        }
+
+        .retry-button:disabled {
+            opacity: 0.65;
+            cursor: wait;
+        }
+
+        .status-note {
+            margin-top: 18px;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        /* ===========================
+           Animation and Responsive Layout
+           =========================== */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 680px) {
+            .header-content {
+                padding: 13px 16px;
+            }
+
+            .brand-version,
+            .back-link span {
+                display: none;
+            }
+
+            .back-link {
+                padding: 8px 10px;
+            }
+
+            .status-main {
+                padding: 32px 16px 56px;
+            }
+
+            .status-summary {
+                grid-template-columns: auto minmax(0, 1fr);
+                padding: 20px;
+                gap: 15px;
+            }
+
+            .summary-symbol {
+                width: 44px;
+                height: 44px;
+            }
+
+            .summary-updated {
+                grid-column: 1 / -1;
+                justify-self: start;
+                text-align: left;
+            }
+
+            .status-row {
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 10px;
+            }
+
+            .status-identity {
+                grid-column: 1;
+                grid-row: 1;
+            }
+
+            .status-badge {
+                grid-column: 2;
+                grid-row: 1;
+            }
+
+            .status-metric {
+                grid-column: 1 / -1;
+                grid-row: 2;
+                padding-left: 20px;
+            }
+
+            .status-name {
+                overflow-wrap: anywhere;
+                white-space: normal;
+            }
+
+            .history-row {
+                grid-template-columns: auto minmax(0, 1fr);
+            }
+
+            .history-time {
+                grid-column: 2;
+                text-align: left;
+            }
+
+            .history-heading {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 1px;
+            }
+
+            .history-name {
+                overflow-wrap: anywhere;
+                white-space: normal;
+            }
+        }
+
+        @media (max-width: 340px) {
+            .panel-header {
+                flex-wrap: wrap;
+            }
+
+            .panel-title {
+                flex: 1 0 180px;
+            }
+
+            .status-count {
+                margin-left: auto;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                scroll-behavior: auto !important;
+                transition: none !important;
+            }
+
+            .loading-indicator {
+                animation: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <a class="brand" href="/configure" aria-label="{{ADDON_NAME}}">
+                    <img src="/static/wastream-logo.png" alt="" class="brand-logo">
+                    <span class="brand-name">{{ADDON_NAME}}</span>
+                    <span class="brand-version">v{{VERSION}}</span>
+                </a>
+                <div class="header-actions">
+                    <a class="back-link" id="backLink" href="/configure" aria-label="Back to configuration">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
+                        </svg>
+                        <span data-i18n="statusPage.back">Back to configuration</span>
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main class="status-main">
+            <!-- Overall Status -->
+            <section class="status-summary" id="statusSummary" data-status="unknown">
+                <div class="summary-symbol" aria-hidden="true">
+                    <span class="summary-dot"></span>
+                </div>
+                <div class="summary-copy">
+                    <h1 id="statusTitle" data-i18n="statusPage.loading">Checking service availability...</h1>
+                    <p id="statusDescription" data-i18n="statusPage.description">Availability of content sources and supported hosters on this instance.</p>
+                    <button class="retry-button" id="retryButton" type="button" hidden data-i18n="statusPage.retry">Try again</button>
+                </div>
+                <div class="summary-updated">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8.01 8.01 0 0 1-8 8zm1-13h-2v6l5.25 3.15 1-1.64L13 11.96z"/>
+                    </svg>
+                    <span id="lastChecked" data-i18n="statusPage.neverChecked">Waiting for the first health check</span>
+                </div>
+            </section>
+            <p class="visually-hidden" id="statusAnnouncement" role="status" aria-live="polite" aria-atomic="true"></p>
+
+            <!-- Content Sources -->
+            <section class="status-panel" id="sourcesPanel" aria-labelledby="sourcesTitle">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z"/>
+                        </svg>
+                        <h2 id="sourcesTitle" data-i18n="statusPage.sources">Content Sources</h2>
+                    </div>
+                    <span class="status-count" id="sourceCount"></span>
+                </div>
+                <div class="status-list" id="sourceList" aria-busy="true">
+                    <div class="empty-state">
+                        <span class="loading-indicator" aria-hidden="true"></span>
+                        <p data-i18n="statusPage.loading">Checking service availability...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Supported Hosters -->
+            <section class="status-panel" id="hostersPanel" aria-labelledby="hostersTitle">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                        </svg>
+                        <h2 id="hostersTitle" data-i18n="statusPage.hosters">Hoster Status</h2>
+                    </div>
+                    <span class="status-count" id="hosterCount"></span>
+                </div>
+                <div class="status-list" id="hosterList" aria-busy="true">
+                    <div class="empty-state">
+                        <span class="loading-indicator" aria-hidden="true"></span>
+                        <p data-i18n="statusPage.loading">Checking service availability...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Incidents -->
+            <section class="status-panel" id="historyPanel" aria-labelledby="historyTitle">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8.01 8.01 0 0 1-8 8zm1-13h-2v6l5.25 3.15 1-1.64L13 11.96z"/>
+                        </svg>
+                        <h2 id="historyTitle" data-i18n="statusPage.history">Recent incidents</h2>
+                    </div>
+                    <span class="status-count" id="historyCount"></span>
+                </div>
+                <div class="history-list" id="historyList" aria-busy="true">
+                    <div class="empty-state">
+                        <span class="loading-indicator" aria-hidden="true"></span>
+                        <p data-i18n="statusPage.loading">Checking service availability...</p>
+                    </div>
+                </div>
+            </section>
+
+            <p class="status-note" data-i18n="statusPage.note">This page is read-only and refreshes automatically from cached health checks.</p>
+        </main>
+
+        <!-- Language Switcher -->
+        <button class="lang-toggle" id="languageButton" type="button" aria-label="Change language">EN</button>
+    </div>
+
+    <!-- Status Page Scripts -->
+    <script src="/static/translations.js?v={{VERSION}}"></script>
+    <script nonce="{{CSP_NONCE}}">
+        (() => {
+            'use strict';
+
+            // Configuration and state
+            const refreshInterval = 30000;
+            const requestTimeout = 10000;
+            const allowedOverallStatuses = new Set([
+                'operational', 'degraded', 'outage', 'checking', 'unavailable', 'unknown'
+            ]);
+            const allowedHealthStatuses = new Set([
+                'online', 'offline', 'unconfigured', 'unknown', 'checking'
+            ]);
+            const allowedHistoryEvents = new Set(['outage', 'recovery']);
+            const allowedHistoryCategories = new Set(['source', 'hoster']);
+            const state = {
+                language: localStorage.getItem('wastream_language') === 'fr' ? 'fr' : 'en',
+                data: null,
+                failure: null,
+                loading: false,
+                stopped: false,
+                announcedStatus: null
+            };
+
+            const elements = {
+                languageButton: document.getElementById('languageButton'),
+                backLink: document.getElementById('backLink'),
+                statusSummary: document.getElementById('statusSummary'),
+                statusAnnouncement: document.getElementById('statusAnnouncement'),
+                statusTitle: document.getElementById('statusTitle'),
+                statusDescription: document.getElementById('statusDescription'),
+                lastChecked: document.getElementById('lastChecked'),
+                retryButton: document.getElementById('retryButton'),
+                sourcesPanel: document.getElementById('sourcesPanel'),
+                sourceCount: document.getElementById('sourceCount'),
+                sourceList: document.getElementById('sourceList'),
+                hostersPanel: document.getElementById('hostersPanel'),
+                hosterCount: document.getElementById('hosterCount'),
+                hosterList: document.getElementById('hosterList'),
+                historyPanel: document.getElementById('historyPanel'),
+                historyCount: document.getElementById('historyCount'),
+                historyList: document.getElementById('historyList')
+            };
+
+            // Translation and formatting helpers
+            function strings() {
+                return translations[state.language].statusPage;
+            }
+
+            function format(template, values) {
+                return Object.entries(values).reduce(
+                    (text, [key, value]) => text.replace(`{${key}}`, value),
+                    template
+                );
+            }
+
+            function applyLanguage() {
+                const values = strings();
+                document.documentElement.lang = state.language;
+                document.title = `${values.title} - ${document.querySelector('.brand-name').textContent}`;
+                elements.languageButton.textContent = state.language.toUpperCase();
+                elements.languageButton.setAttribute(
+                    'aria-label',
+                    state.language === 'fr' ? 'Changer la langue' : 'Change language'
+                );
+                elements.backLink.setAttribute('aria-label', values.back);
+
+                document.querySelectorAll('[data-i18n]').forEach((element) => {
+                    const key = element.dataset.i18n.split('.')[1];
+                    if (values[key]) element.textContent = values[key];
+                });
+
+                if (state.data) {
+                    renderStatus(state.data);
+                } else if (state.failure) {
+                    renderFailure(state.failure === 'disabled');
+                }
+            }
+
+            function formatDate(timestamp) {
+                if (!Number.isFinite(timestamp)) return strings().neverChecked;
+                const locale = state.language === 'fr' ? 'fr-FR' : 'en-US';
+                const date = new Intl.DateTimeFormat(locale, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                }).format(new Date(timestamp * 1000));
+                return format(strings().lastChecked, { date });
+            }
+
+            function formatEventDate(timestamp) {
+                if (!Number.isFinite(timestamp)) return '';
+                const locale = state.language === 'fr' ? 'fr-FR' : 'en-US';
+                return new Intl.DateTimeFormat(locale, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                }).format(new Date(timestamp * 1000));
+            }
+
+            function itemStatus(item) {
+                return item && allowedHealthStatuses.has(item.status)
+                    ? item.status
+                    : 'unknown';
+            }
+
+            function statusLabel(status) {
+                if (status === 'online') return strings().online;
+                if (status === 'offline') return strings().offline;
+                if (status === 'unconfigured') return strings().unconfigured;
+                return strings().pending;
+            }
+
+            // Status list rendering
+            function createStatusRow(item, includeResponseTime) {
+                const status = itemStatus(item);
+                const row = document.createElement('div');
+                row.className = 'status-row';
+                row.setAttribute('role', 'listitem');
+                row.dataset.status = status;
+
+                const identity = document.createElement('div');
+                identity.className = 'status-identity';
+                const dot = document.createElement('span');
+                dot.className = 'status-dot';
+                dot.setAttribute('aria-hidden', 'true');
+                const name = document.createElement('span');
+                name.className = 'status-name';
+                name.textContent = typeof item.name === 'string' ? item.name : '';
+                identity.append(dot, name);
+
+                const badge = document.createElement('span');
+                badge.className = 'status-badge';
+                badge.textContent = statusLabel(status);
+
+                row.appendChild(identity);
+                if (includeResponseTime && Number.isFinite(item.response_time)) {
+                    const responseTime = document.createElement('span');
+                    responseTime.className = 'status-metric';
+                    responseTime.textContent = format(strings().responseTime, {
+                        time: Math.max(0, Math.round(item.response_time))
+                    });
+                    row.classList.add('has-metric');
+                    row.appendChild(responseTime);
+                }
+                row.appendChild(badge);
+                return row;
+            }
+
+            function renderMessage(target, message) {
+                target.removeAttribute('role');
+                const container = document.createElement('div');
+                container.className = 'empty-state';
+                const text = document.createElement('p');
+                text.textContent = message;
+                container.appendChild(text);
+                target.replaceChildren(container);
+            }
+
+            function renderList(target, items, emptyMessage, includeResponseTime) {
+                if (items.length === 0) {
+                    renderMessage(target, emptyMessage);
+                } else {
+                    target.setAttribute('role', 'list');
+                    target.replaceChildren(
+                        ...items.map((item) => createStatusRow(item, includeResponseTime))
+                    );
+                }
+                target.setAttribute('aria-busy', 'false');
+            }
+
+            function createHistoryRow(item) {
+                const event = allowedHistoryEvents.has(item.event) ? item.event : 'outage';
+                const category = allowedHistoryCategories.has(item.category) ? item.category : 'source';
+                const changedAt = Number(item.changed_at);
+                const parsedDate = Number.isFinite(changedAt) && changedAt > 0
+                    ? new Date(changedAt * 1000)
+                    : null;
+                const eventDate = parsedDate && !Number.isNaN(parsedDate.getTime())
+                    ? parsedDate
+                    : null;
+                const row = document.createElement('div');
+                row.className = 'history-row';
+                row.dataset.event = event;
+                row.setAttribute('role', 'listitem');
+
+                const marker = document.createElement('span');
+                marker.className = 'history-marker';
+                marker.setAttribute('aria-hidden', 'true');
+                marker.textContent = event === 'recovery' ? '✓' : '!';
+
+                const copy = document.createElement('div');
+                copy.className = 'history-copy';
+                const heading = document.createElement('div');
+                heading.className = 'history-heading';
+                const name = document.createElement('span');
+                name.className = 'history-name';
+                name.textContent = typeof item.name === 'string' ? item.name : '';
+                const eventLabel = document.createElement('span');
+                eventLabel.className = 'history-event';
+                eventLabel.textContent = event === 'recovery'
+                    ? strings().incidentResolved
+                    : strings().incidentStarted;
+                const categoryLabel = document.createElement('div');
+                categoryLabel.className = 'history-category';
+                categoryLabel.textContent = category === 'hoster'
+                    ? strings().hosterCategory
+                    : strings().sourceCategory;
+                heading.append(name, eventLabel);
+                copy.append(heading, categoryLabel);
+
+                const time = document.createElement('time');
+                time.className = 'history-time';
+                if (eventDate) {
+                    time.dateTime = eventDate.toISOString();
+                    time.textContent = formatEventDate(changedAt);
+                }
+
+                row.append(marker, copy, time);
+                return row;
+            }
+
+            function renderHistory(events, retentionDays, available) {
+                if (!available) {
+                    elements.historyList.removeAttribute('role');
+                    renderMessage(elements.historyList, strings().historyLoadError);
+                } else if (events.length === 0) {
+                    elements.historyList.removeAttribute('role');
+                    renderMessage(
+                        elements.historyList,
+                        format(strings().historyEmpty, { days: retentionDays })
+                    );
+                } else {
+                    elements.historyList.setAttribute('role', 'list');
+                    elements.historyList.replaceChildren(
+                        ...events.map((event) => createHistoryRow(event))
+                    );
+                }
+                elements.historyList.setAttribute('aria-busy', 'false');
+            }
+
+            // Page state rendering
+            function announceStatus(key, title, description) {
+                const announcementKey = `${state.language}:${key}`;
+                if (state.announcedStatus === announcementKey) return;
+
+                state.announcedStatus = announcementKey;
+                const normalizedTitle = title.trim();
+                const separator = /[.!?…]$/.test(normalizedTitle) ? ' ' : '. ';
+                elements.statusAnnouncement.textContent = `${normalizedTitle}${separator}${description}`;
+            }
+
+            function setPanelsVisible(visible) {
+                elements.sourcesPanel.hidden = !visible;
+                elements.hostersPanel.hidden = !visible;
+                elements.historyPanel.hidden = !visible;
+            }
+
+            function updateRetryButton(visible) {
+                elements.retryButton.hidden = !visible;
+                elements.retryButton.disabled = state.loading;
+                elements.retryButton.textContent = state.loading ? strings().pending : strings().retry;
+                if (state.loading) {
+                    elements.retryButton.setAttribute('aria-busy', 'true');
+                } else {
+                    elements.retryButton.removeAttribute('aria-busy');
+                }
+            }
+
+            function renderStatus(data) {
+                const status = allowedOverallStatuses.has(data.status) ? data.status : 'unknown';
+                const titleKey = status;
+                const descriptionKey = `${status}Description`;
+                const sources = Array.isArray(data.sources) ? data.sources : [];
+                const hosters = Array.isArray(data.hosters) ? data.hosters : [];
+                const history = Array.isArray(data.history)
+                    ? data.history.filter((event) => (
+                        event
+                        && allowedHistoryEvents.has(event.event)
+                        && allowedHistoryCategories.has(event.category)
+                    ))
+                    : [];
+                const historyHasMore = data.history_has_more === true;
+                const historyAvailable = data.history_available !== false;
+                const retentionDays = Number.isFinite(data.history_retention_seconds)
+                    ? Math.max(1, Math.round(data.history_retention_seconds / 86400))
+                    : 30;
+
+                state.failure = null;
+                setPanelsVisible(true);
+                updateRetryButton(false);
+                elements.statusSummary.dataset.status = status;
+                elements.statusTitle.textContent = strings()[titleKey];
+                elements.statusDescription.textContent = strings()[descriptionKey];
+                elements.lastChecked.textContent = formatDate(data.last_check);
+                elements.sourceCount.textContent = sources.length === 1
+                    ? strings().oneSource
+                    : format(strings().sourceCount, { count: sources.length });
+                elements.hosterCount.textContent = hosters.length === 1
+                    ? strings().oneHoster
+                    : format(strings().hosterCount, { count: hosters.length });
+                elements.historyCount.textContent = historyAvailable
+                    ? (history.length === 1 && !historyHasMore
+                        ? strings().oneHistoryEvent
+                        : format(
+                            historyHasMore
+                                ? strings().historyLatestCount
+                                : strings().historyCount,
+                            { count: history.length }
+                        ))
+                    : '';
+
+                renderList(elements.sourceList, sources, strings().empty, true);
+                renderList(elements.hosterList, hosters, strings().hostersEmpty, false);
+                renderHistory(history, retentionDays, historyAvailable);
+
+                const monitoredItems = [...sources, ...hosters];
+                const statusSignature = monitoredItems
+                    .map((item) => `${item && item.name}:${itemStatus(item)}`)
+                    .join('|');
+                const unavailableNames = monitoredItems
+                    .filter((item) => itemStatus(item) === 'offline')
+                    .map((item) => (
+                        item && typeof item.name === 'string' ? item.name : ''
+                    ))
+                    .filter(Boolean);
+                const announcementDescription = unavailableNames.length
+                    ? `${strings()[descriptionKey]} ${format(
+                        strings().unavailableServices,
+                        { names: unavailableNames.join(', ') }
+                    )}`
+                    : strings()[descriptionKey];
+                announceStatus(
+                    `status:${status}:${statusSignature}`,
+                    strings()[titleKey],
+                    announcementDescription
+                );
+            }
+
+            function renderFailure(disabled) {
+                const status = disabled ? 'unavailable' : 'unknown';
+                state.data = null;
+                state.failure = disabled ? 'disabled' : 'error';
+                elements.statusSummary.dataset.status = status;
+                elements.statusTitle.textContent = disabled ? strings().disabled : strings().loadError;
+                elements.statusDescription.textContent = disabled
+                    ? strings().disabledDescription
+                    : strings().loadErrorDescription;
+                elements.lastChecked.textContent = strings().neverChecked;
+                elements.sourceCount.textContent = '';
+                elements.hosterCount.textContent = '';
+                elements.historyCount.textContent = '';
+                setPanelsVisible(false);
+                updateRetryButton(!disabled);
+                elements.sourceList.setAttribute('aria-busy', 'false');
+                elements.hosterList.setAttribute('aria-busy', 'false');
+                elements.historyList.setAttribute('aria-busy', 'false');
+                announceStatus(
+                    `failure:${state.failure}`,
+                    elements.statusTitle.textContent,
+                    elements.statusDescription.textContent
+                );
+            }
+
+            // Status loading and refresh
+            async function loadStatus() {
+                if (state.loading || state.stopped) return;
+                state.loading = true;
+                updateRetryButton(state.failure === 'error');
+                const controller = new AbortController();
+                const timeout = window.setTimeout(() => controller.abort(), requestTimeout);
+
+                try {
+                    const response = await fetch('/api/status', {
+                        headers: { 'Accept': 'application/json' },
+                        cache: 'no-store',
+                        signal: controller.signal
+                    });
+                    if (response.status === 404) {
+                        state.stopped = true;
+                        state.data = null;
+                        renderFailure(true);
+                        return;
+                    }
+                    if (!response.ok) throw new Error('status request failed');
+
+                    const data = await response.json();
+                    state.data = data;
+                    renderStatus(data);
+                } catch (error) {
+                    renderFailure(false);
+                } finally {
+                    window.clearTimeout(timeout);
+                    state.loading = false;
+                    updateRetryButton(state.failure === 'error');
+                }
+            }
+
+            elements.languageButton.addEventListener('click', () => {
+                state.language = state.language === 'en' ? 'fr' : 'en';
+                localStorage.setItem('wastream_language', state.language);
+                applyLanguage();
+            });
+
+            elements.retryButton.addEventListener('click', loadStatus);
+
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) loadStatus();
+            });
+
+            applyLanguage();
+            loadStatus();
+            window.setInterval(() => {
+                if (!document.hidden) loadStatus();
+            }, refreshInterval);
+        })();
+    </script>
+</body>
+</html>

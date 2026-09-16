@@ -16,6 +16,15 @@ from wastream.utils.tasks import lancer_tache
 # ===========================
 class BaseMovix:
 
+    async def _get_api(self, url: str, **kwargs):
+        return await http_client.get_source(
+            "Movix",
+            url,
+            settings.MOVIX_URL,
+            rewrite_url=False,
+            **kwargs,
+        )
+
     def _get_headers(self) -> Dict[str, str]:
         if not settings.MOVIX_URL:
             return {}
@@ -72,7 +81,7 @@ class BaseMovix:
                 search_url = f"{settings.MOVIX_API_URL}/api/search"
                 params = {"title": search_title}
 
-                response = await http_client.get(search_url, params=params, headers=headers)
+                response = await self._get_api(search_url, params=params, headers=headers)
 
                 if response.status_code != 200:
                     scraper_logger.debug(f"[Movix] Search failed: {response.status_code}")
@@ -119,7 +128,7 @@ class BaseMovix:
                 search_url = f"{settings.MOVIX_API_URL}/api/search"
                 params = {"title": search_title}
 
-                response = await http_client.get(search_url, params=params, headers=headers)
+                response = await self._get_api(search_url, params=params, headers=headers)
 
                 if response.status_code != 200:
                     scraper_logger.debug(f"[Movix] Search failed: {response.status_code}")
@@ -192,7 +201,7 @@ class BaseMovix:
 
             scraper_logger.debug(f"[Movix] Fetching links for {api_type} {title_id}")
 
-            response = await http_client.get(links_url, params=params, headers=headers)
+            response = await self._get_api(links_url, params=params, headers=headers)
 
             if response.status_code != 200:
                 scraper_logger.debug(f"[Movix] Links request failed: {response.status_code}")
@@ -217,7 +226,7 @@ class BaseMovix:
         decode_url = f"{settings.MOVIX_API_URL}/api/darkiworld/decode/{link_id}"
         headers = self._get_headers()
 
-        response = await http_client.get(decode_url, headers=headers)
+        response = await self._get_api(decode_url, headers=headers)
 
         if response.status_code != 200:
             scraper_logger.debug(f"[Movix] Decode failed: {response.status_code} for ID {link_id}")
@@ -416,7 +425,7 @@ class BaseMovix:
                 url = f"{settings.MOVIX_API_URL}/api/darkiworld/seasons/{title_id}"
                 params = {"page": page, "perPage": 8}
 
-                response = await http_client.get(url, params=params, headers=headers)
+                response = await self._get_api(url, params=params, headers=headers)
 
                 if response.status_code != 200:
                     scraper_logger.debug(f"[Movix] Seasons fetch failed: {response.status_code}")

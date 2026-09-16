@@ -14,8 +14,38 @@ from wastream.utils.quality import quality_sort_key
 # 1fichier Service Class
 # ===========================
 class OneFichierService(BaseDebridService):
+    AUTHORITATIVE_DEAD_LINK_RESULTS = frozenset({"LINK_DOWN"})
+    _DEAD_MESSAGE_MARKERS = (
+        "resource not found",
+        "file not found",
+        "link not found",
+        "file deleted",
+        "file removed",
+    )
+    _UNSUPPORTED_MESSAGE_MARKERS = (
+        "bad url",
+        "invalid url",
+    )
+
     def get_service_name(self) -> str:
         return "1fichier"
+
+    @staticmethod
+    def _clean_link(link: str) -> str:
+        cleaned_link = re.sub(r"[?&]af=[^&]*", "", link)
+        return cleaned_link.replace("?&", "?").rstrip("?&")
+
+    @classmethod
+    def _is_dead_message(cls, message: str) -> bool:
+        message = message.lower()
+        return any(marker in message for marker in cls._DEAD_MESSAGE_MARKERS)
+
+    @classmethod
+    def _is_unsupported_message(cls, message: str) -> bool:
+        message = message.lower()
+        return any(
+            marker in message for marker in cls._UNSUPPORTED_MESSAGE_MARKERS
+        )
 
     async def check_cache_and_enrich(self, results: List[Dict], api_key: str, config: Dict, timeout_remaining: float, user_season: Optional[str] = None, user_episode: Optional[str] = None, user_hosts: Optional[List[str]] = None) -> List[Dict]:
         start_time = time.time()
@@ -70,8 +100,7 @@ class OneFichierService(BaseDebridService):
             debrid_logger.error("[1Fichier] Empty API key")
             return "FATAL_ERROR"
 
-        cleaned_link = re.sub(r"[?&]af=[^&]*", "", link)
-        cleaned_link = cleaned_link.replace("?&", "?").rstrip("?&")
+        cleaned_link = self._clean_link(link)
 
         debrid_logger.debug("[1Fichier] Converting link")
 
@@ -122,15 +151,21 @@ class OneFichierService(BaseDebridService):
                     debrid_logger.error(f"[1Fichier] HTTP {response.status_code}")
                     if attempt >= settings.DEBRID_MAX_RETRIES - 1:
                         return "FATAL_ERROR"
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
                 data = response.json()
 
                 if data.get("status") == "KO":
-                    message = data.get("message", "Unknown error")
-                    debrid_logger.debug(f"[1Fichier] LINK_DOWN: {message}")
-                    return "LINK_DOWN"
+                    message = str(data.get("message") or "Unknown error")
+                    if self._is_dead_message(message):
+                        debrid_logger.debug(f"[1Fichier] LINK_DOWN: {message}")
+                        return "LINK_DOWN"
+                    if self._is_unsupported_message(message):
+                        debrid_logger.debug(f"[1Fichier] Unsupported link: {message}")
+                        return "LINK_UNSUPPORTED"
+                    debrid_logger.error(f"[1Fichier] API error: {message}")
+                    return "RETRY_ERROR"
 
                 direct_link = data.get("url")
 
@@ -141,13 +176,13 @@ class OneFichierService(BaseDebridService):
                     debrid_logger.error("[1Fichier] No direct link in response")
                     if attempt >= settings.DEBRID_MAX_RETRIES - 1:
                         return "FATAL_ERROR"
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
             except Exception as e:
                 debrid_logger.error(f"[1Fichier] Attempt {attempt + 1} failed: {type(e).__name__}: {e}")
                 if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
         debrid_logger.error(f"[1Fichier] Failed after {settings.DEBRID_MAX_RETRIES} attempts")

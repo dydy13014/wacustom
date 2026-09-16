@@ -21,7 +21,7 @@ RETRY_CODES = [
     "service_limit_reached",
 ]
 
-LINK_DOWN_CODES = [
+LINK_UNAVAILABLE_CODES = [
     "not_found",
 ]
 
@@ -39,9 +39,11 @@ class PremiumizeService(BaseDebridService):
         message: str,
         attempt: int
     ) -> str:
-        if error_code in LINK_DOWN_CODES:
-            debrid_logger.debug(f"[Premiumize] LINK_DOWN: {error_code} - {message}")
-            return "LINK_DOWN"
+        if error_code in LINK_UNAVAILABLE_CODES:
+            debrid_logger.debug(
+                f"[Premiumize] Link unavailable: {error_code} - {message}"
+            )
+            return "LINK_SERVICE_DOWN"
 
         if error_code in RETRY_CODES:
             debrid_logger.error(f"[Premiumize] RETRY: {error_code} - {message}")
@@ -157,7 +159,7 @@ class PremiumizeService(BaseDebridService):
                     debrid_logger.error(f"[Premiumize] HTTP {response.status_code}")
                     if attempt >= settings.DEBRID_MAX_RETRIES - 1:
                         return "FATAL_ERROR"
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
                 data = response.json()
@@ -167,14 +169,14 @@ class PremiumizeService(BaseDebridService):
                     message = data.get("message", "Unknown error")
 
                     api_error_result = self._handle_api_error(error_code, message, attempt)
-                    if api_error_result == "LINK_DOWN":
-                        return "LINK_DOWN"
+                    if api_error_result in {"LINK_DOWN", "LINK_SERVICE_DOWN"}:
+                        return api_error_result
                     elif api_error_result == "FATAL_ERROR":
                         return "FATAL_ERROR"
                     elif api_error_result == "RETRY_ERROR":
                         return "RETRY_ERROR"
                     elif api_error_result == "RETRY":
-                        await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                        await sleep(settings.DEBRID_RETRY_DELAY)
                         continue
 
                 content_list = data.get("content")
@@ -191,13 +193,13 @@ class PremiumizeService(BaseDebridService):
                     debrid_logger.error("[Premiumize] No direct link in response")
                     if attempt >= settings.DEBRID_MAX_RETRIES - 1:
                         return "FATAL_ERROR"
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
             except Exception as e:
                 debrid_logger.error(f"[Premiumize] Attempt {attempt + 1} failed: {type(e).__name__}: {e}")
                 if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
         debrid_logger.error(f"[Premiumize] Failed after {settings.DEBRID_MAX_RETRIES} attempts")

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ADDON_NAME}} - Admin Login</title>
-    <meta name="theme-color" content="#ff7a1c">
+    <meta name="theme-color" content="#22d3ee">
     <link rel="icon" href="/static/wastream-logo.png">
 
     <style>
@@ -31,9 +31,12 @@
             --text-secondary: #a1a1aa;
             --text-muted: #71717a;
 
-            --accent-primary: #ff7a1c;
-            --accent-primary-hover: #e86a10;
-            --accent-primary-subtle: rgba(255, 122, 28, 0.14);
+            --accent-primary: #22d3ee;
+            --accent-primary-hover: #06b6d4;
+            --accent-primary-subtle: rgba(34, 211, 238, 0.14);
+            --accent-secondary: #6366f1;
+            --accent-secondary-hover: #4f46e5;
+            --accent-gradient: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
 
             --accent-success: #10b981;
             --accent-danger: #ef4444;
@@ -59,7 +62,7 @@
             font-family: var(--font-sans);
             /* Memes halos que /configure et le tableau de bord. */
             background:
-                radial-gradient(1100px 480px at 85% -10%, rgba(255, 122, 28, .08), transparent 60%),
+                radial-gradient(1100px 480px at 85% -10%, rgba(34, 211, 238, .08), transparent 60%),
                 radial-gradient(900px 480px at -10% 10%, rgba(16, 185, 129, .05), transparent 60%),
                 var(--bg-primary);
             background-attachment: fixed;
@@ -96,7 +99,7 @@
         }
 
         .login-title span {
-            background: linear-gradient(135deg, var(--accent-primary), #fb923c);
+            background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -160,7 +163,7 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover));
+            background: var(--accent-gradient);
             border: none;
             border-radius: var(--radius-md);
             color: white;
@@ -174,7 +177,7 @@
 
         .login-btn:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(249, 115, 22, 0.3);
+            box-shadow: 0 8px 30px rgba(34, 211, 238, 0.3);
         }
 
         .login-btn:disabled {

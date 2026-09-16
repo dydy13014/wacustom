@@ -6,10 +6,11 @@ from dataclasses import dataclass, field
 from urllib.parse import urlparse
 
 from wastream.config.settings import settings
-from wastream.utils.http_client import http_client
+from wastream.utils.http_client import http_client, is_rejected_source_page
 from wastream.utils.logger import api_logger
 from wastream.services.remote import get_remote_instances, check_remote_instance
 from wastream.services.hoster_status import _hoster_status_cache, get_hoster_status
+from wastream.services.health_history import record_health_status_snapshot
 from wastream.utils.helpers import normalize_tracker_url
 
 
@@ -245,15 +246,19 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
                 headers["Origin"] = settings.MOVIX_URL
                 headers["Referer"] = f"{settings.MOVIX_URL}/"
 
-            response = await http_client.get(
+            response = await http_client.get_source(
+                "Movix",
                 f"{url}/api/search",
+                settings.MOVIX_URL,
+                rewrite_url=False,
                 params={"title": "test"},
                 headers=headers,
                 timeout=settings.HEALTH_CHECK_TIMEOUT
             )
             response_time = int((time.time() - start_time) * 1000)
 
-            if response.status_code < 400:
+            rejected = is_rejected_source_page(str(response.url), response.text)
+            if response.status_code < 400 and not rejected:
                 return SourceStatus(
                     name=name,
                     url=url,
@@ -268,7 +273,7 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
                     status="offline",
                     response_time=response_time,
                     last_check=time.time(),
-                    error=f"HTTP {response.status_code}"
+                    error="blocked or login page" if rejected else f"HTTP {response.status_code}"
                 )
         elif name in ["YggReborn", "Tr4ker", "Torr9", "C411"]:
             tracker_url = normalize_tracker_url(name, url)
@@ -309,13 +314,31 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
                     error=f"HTTP {response.status_code}"
                 )
         else:
-            response = await http_client.get(
-                url,
-                timeout=settings.HEALTH_CHECK_TIMEOUT
-            )
+            source_urls = {
+                "Wawacity": settings.WAWACITY_URL,
+                "Free-Telecharger": settings.FREE_TELECHARGER_URL,
+                "Webshare": settings.WEBSHARE_URL,
+                "Zone-Telechargement": settings.ZONE_TELECHARGEMENT_URL,
+            }
+            source_url = source_urls.get(name)
+            if source_url:
+                response = await http_client.get_source(
+                    name,
+                    url,
+                    source_url,
+                    timeout=settings.HEALTH_CHECK_TIMEOUT,
+                )
+            else:
+                response = await http_client.get(
+                    url,
+                    timeout=settings.HEALTH_CHECK_TIMEOUT,
+                )
             response_time = int((time.time() - start_time) * 1000)
 
-            if response.status_code < 400:
+            rejected = bool(
+                source_url and is_rejected_source_page(str(response.url), response.text)
+            )
+            if response.status_code < 400 and not rejected:
                 return SourceStatus(
                     name=name,
                     url=url,
@@ -330,7 +353,7 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
                     status="offline",
                     response_time=response_time,
                     last_check=time.time(),
-                    error=f"HTTP {response.status_code}"
+                    error="blocked or login page" if rejected else f"HTTP {response.status_code}"
                 )
     except Exception as e:
         response_time = int((time.time() - start_time) * 1000)
@@ -371,6 +394,7 @@ async def check_sources_and_services(force: bool = False) -> Dict[str, Any]:
         _health_state.last_auto_check = now
         _health_state.last_services_check = now
         _health_state.last_sources_check = now
+        await record_public_health_history(include_hosters=False)
         api_logger.debug(f"Health check completed for {len(source_results)} sources, {len(service_results)} services")
 
     except Exception as e:
@@ -409,6 +433,7 @@ async def check_sources_only() -> Dict[str, Any]:
             _queue_domain_recheck(status)
 
         _health_state.last_sources_check = time.time()
+        await record_public_health_history(include_hosters=False)
         api_logger.debug(f"Sources check completed for {len(source_results)} sources")
 
     except Exception as e:
@@ -464,6 +489,21 @@ def _build_hosters_list() -> list:
         })
 
     return hosters
+
+
+async def record_public_health_history(
+    include_sources: bool = True,
+    include_hosters: bool = True,
+) -> None:
+    snapshots = {}
+    if include_sources:
+        snapshots["source"] = [
+            {"name": status.name, "status": status.status}
+            for status in _health_state.sources.values()
+        ]
+    if include_hosters:
+        snapshots["hoster"] = _build_hosters_list()
+    await record_health_status_snapshot(snapshots)
 
 
 def get_health_status() -> Dict[str, Any]:
@@ -550,6 +590,86 @@ def get_health_status() -> Dict[str, Any]:
     }
 
 
+def get_public_health_status() -> Dict[str, Any]:
+    sources = []
+    allowed_statuses = {
+        "online", "offline", "unconfigured", "unknown", "checking"
+    }
+
+    for name, url in _get_sources_config().items():
+        source = _health_state.sources.get(name)
+        if not url:
+            status = "unconfigured"
+        else:
+            status = source.status if source else "unknown"
+            if status == "unconfigured":
+                status = "unknown"
+        if status not in allowed_statuses:
+            status = "unknown"
+
+        sources.append({
+            "name": name,
+            "status": status,
+            "response_time": source.response_time if source and url else None,
+            "last_check": source.last_check if source and url else None,
+        })
+
+    sources.sort(key=lambda source: source["name"])
+    hosters = [
+        {
+            "name": hoster["name"],
+            "status": hoster["status"]
+            if hoster["status"] in allowed_statuses else "unknown",
+            "last_check": hoster["last_check"],
+        }
+        for hoster in _build_hosters_list()
+    ]
+    configured_sources = [
+        source for source in sources if source["status"] != "unconfigured"
+    ]
+    source_statuses = [source["status"] for source in configured_sources]
+    hoster_statuses = [hoster["status"] for hoster in hosters]
+    monitored_statuses = [
+        status
+        for status in (*source_statuses, *hoster_statuses)
+        if status in {"online", "offline"}
+    ]
+    pending_statuses = {
+        status
+        for status in (*source_statuses, *hoster_statuses)
+        if status in {"unknown", "checking"}
+    }
+    is_checking = (
+        _health_state.checking or "checking" in pending_statuses
+    )
+    offline_count = monitored_statuses.count("offline")
+
+    if not monitored_statuses:
+        if is_checking:
+            overall_status = "checking"
+        elif "unknown" in pending_statuses:
+            overall_status = "unknown"
+        else:
+            overall_status = "unavailable"
+    elif offline_count == len(monitored_statuses) and not pending_statuses:
+        overall_status = "outage"
+    elif offline_count:
+        overall_status = "degraded"
+    elif pending_statuses:
+        overall_status = "checking" if is_checking else "unknown"
+    else:
+        overall_status = "operational"
+
+    return {
+        "status": overall_status,
+        "version": settings.ADDON_MANIFEST["version"],
+        "sources": sources,
+        "hosters": hosters,
+        "last_check": _health_state.last_sources_check,
+        "checking": _health_state.checking,
+    }
+
+
 def is_source_online(source_name: str) -> bool:
     status = _health_state.sources.get(source_name)
     if not status:
@@ -586,6 +706,10 @@ async def start_background_health_check():
     await check_sources_and_services()
     await check_remote_instances()
     await get_hoster_status("torbox")
+    await record_public_health_history(
+        include_sources=False,
+        include_hosters=True,
+    )
 
     while True:
         await asyncio.sleep(max(1, settings.HEALTH_CHECK_INTERVAL))
@@ -593,5 +717,9 @@ async def start_background_health_check():
             await check_sources_and_services()
             await check_remote_instances()
             await get_hoster_status("torbox")
+            await record_public_health_history(
+                include_sources=False,
+                include_hosters=True,
+            )
         except Exception as e:
             api_logger.error(f"Background health check error: {type(e).__name__}: {e}")

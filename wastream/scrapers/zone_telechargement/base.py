@@ -8,11 +8,11 @@ from selectolax.parser import HTMLParser, Node
 
 from wastream.config.settings import settings
 from wastream.utils.helpers import normalize_text, normalize_size, format_url, build_display_name
-from wastream.utils.http_client import http_client
+from wastream.utils.http_client import http_client, source_request_headers
 from wastream.utils.logger import scraper_logger
 from wastream.utils.quality import quality_sort_key
 from wastream.utils.release_parser import parse_release_info
-from wastream.utils.urls import canonicalize_url
+from wastream.utils.urls import canonicalize_url, same_source_host
 
 # ===========================
 # Constants
@@ -24,7 +24,7 @@ CONTENT_NAME_MAPPING = {"movies": "movie", "films": "movie", "series": "series",
 # Base Zone-Telechargement Scraper Class
 # ===========================
 class BaseZoneTelechargement:
-    _zoneurs_semaphores: Dict = {}
+    _zoneurs_semaphore_entry = None
 
     async def search_content_by_titles(self, title: str, year: Optional[str], metadata: Optional[Dict],
                                        content_type: str, page_cache: Dict) -> Optional[Dict]:
@@ -197,8 +197,10 @@ class BaseZoneTelechargement:
         params = {"mod": "filter", "catid": "0", "q": query, "categorie[]": category_id,
                   "art": "0", "AiffchageMode": "0", "inputTirePar": "0", "cstart": str(page)}
         try:
-            response = await http_client.get(
+            response = await http_client.get_source(
+                "Zone-Telechargement",
                 f"{base}/engine/ajax/controller.php",
+                base,
                 params=params,
                 headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{base}/"},
             )
@@ -231,10 +233,10 @@ class BaseZoneTelechargement:
         else:
             full = format_url(href, origin)
         parsed = urlparse(full)
-        allowed_hosts = {page.hostname}
-        if alternate_url:
-            allowed_hosts.add(urlparse(alternate_url).hostname)
-        if parsed.scheme not in {"http", "https"} or parsed.hostname not in allowed_hosts:
+        is_internal = same_source_host(full, page_url)
+        if alternate_url and not is_internal:
+            is_internal = same_source_host(full, alternate_url)
+        if parsed.scheme not in {"http", "https"} or not is_internal:
             return None
         return full
 
@@ -244,7 +246,11 @@ class BaseZoneTelechargement:
             return page_cache[url]
         html_text = None
         try:
-            response = await http_client.get(url)
+            response = await http_client.get_source(
+                "Zone-Telechargement",
+                url,
+                settings.ZONE_TELECHARGEMENT_URL,
+            )
             if response.status_code == 200:
                 html_text = response.text
         except Exception as e:
@@ -366,22 +372,25 @@ class BaseZoneTelechargement:
             results.append(item)
         return results
 
-    @classmethod
-    def _get_zoneurs_semaphore(cls) -> asyncio.Semaphore:
+    @staticmethod
+    def _get_zoneurs_semaphore() -> asyncio.Semaphore:
         loop = asyncio.get_running_loop()
         limit = max(1, settings.ZONE_TELECHARGEMENT_MAX_CONCURRENCY)
-        entry = cls._zoneurs_semaphores.get(loop)
-        if entry is None or entry[0] != limit:
-            entry = (limit, asyncio.Semaphore(limit))
-            cls._zoneurs_semaphores[loop] = entry
-        return entry[1]
+        entry = BaseZoneTelechargement._zoneurs_semaphore_entry
+        if entry is None or entry[0] is not loop or entry[1] != limit:
+            entry = (loop, limit, asyncio.Semaphore(limit))
+            BaseZoneTelechargement._zoneurs_semaphore_entry = entry
+        return entry[2]
 
     async def _resolve_zoneurs(self, link_url: str, expected_host: str) -> Optional[str]:
         if link_url.startswith("//"):
             link_url = "https:" + link_url
         try:
             async with self._get_zoneurs_semaphore():
-                response = await http_client.get(link_url)
+                response = await http_client.get(
+                    link_url,
+                    headers=source_request_headers(),
+                )
             if response.status_code != 200:
                 return None
             final_url = canonicalize_url(str(getattr(response, "url", "") or ""))

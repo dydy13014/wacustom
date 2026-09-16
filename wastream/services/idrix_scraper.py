@@ -24,7 +24,7 @@ from wastream.services.scraper_importer import (
     resolve_tmdb_id,
     size_to_bytes,
 )
-from wastream.utils.http_client import http_client
+from wastream.utils.http_client import http_client, source_request_headers
 from wastream.utils.helpers import normalize_text
 from wastream.utils.languages import RELEASE_LANGUAGE_MARKERS
 from wastream.utils.logger import scraper_logger
@@ -34,8 +34,6 @@ from wastream.utils.urls import canonicalize_url
 # ===========================
 # Constants
 # ===========================
-IDRIX_USER_AGENT = "Mozilla/5.0 (compatible; WAStream/1.0)"
-
 RENTRY_HOSTS = {"rentry.co", "www.rentry.co"}
 TEXTUP_HOSTS = {"textup.fr", "www.textup.fr"}
 PRIVATEBIN_HOSTS = {"bin.idrix.fr", "www.bin.idrix.fr"}
@@ -44,6 +42,7 @@ ONEFICHIER_URL_RE = re.compile(
     r"https?://(?:[a-z0-9.-]+\.)?1fichier\.com/[^\s\"<>]+",
     re.IGNORECASE,
 )
+URL_ONLY_LABEL_RE = re.compile(r"(?:https?:)?//\S+", re.IGNORECASE)
 YEAR_RE = re.compile(r"(?<!\d)(19\d{2}|20\d{2})(?!\d)")
 EPISODE_RE = re.compile(r"\bS(\d{1,2})\s*E(\d{1,3})\b", re.IGNORECASE)
 SIZE_RE = re.compile(
@@ -191,6 +190,23 @@ def _anchor_to_text(match: re.Match) -> str:
     return f" {inner} "
 
 
+def _extract_anchor_label(anchor: Any) -> str:
+    label = re.sub(r"\s+", " ", anchor.text(separator=" ", strip=True)).strip()
+    if not URL_ONLY_LABEL_RE.fullmatch(label):
+        return label
+
+    for start_node in (anchor.prev, anchor.parent.prev if anchor.parent else None):
+        node = start_node
+        while node is not None:
+            context = re.sub(r"\s+", " ", node.text(separator=" ", strip=True)).strip()
+            if context:
+                if not URL_ONLY_LABEL_RE.fullmatch(context):
+                    return f"{context} {label}"
+                break
+            node = node.prev
+    return label
+
+
 def _html_to_text(content: str) -> str:
     if not re.search(r"<[^>]+>", content):
         return html.unescape(content)
@@ -249,7 +265,7 @@ def _extract_page_links(content: str, base_url: str) -> List[Tuple[str, str]]:
         url = _normalize_url(href, base_url)
         if not url or not _is_supported_page_url(url):
             continue
-        label = re.sub(r"\s+", " ", anchor.text(separator=" ", strip=True)).strip()
+        label = _extract_anchor_label(anchor)
         key = (url, label.lower())
         if key in seen:
             continue
@@ -287,6 +303,8 @@ def decrypt_privatebin(payload: str, fragment_key: str) -> str:
         raise ValueError("response is not valid PrivateBin JSON") from exc
     if not isinstance(data, dict):
         raise ValueError("response is not a PrivateBin object")
+    if data.get("status", 0) not in (0, "0", None):
+        raise ValueError("PrivateBin server returned an error status")
 
     adata = data.get("adata")
     ciphertext_value = data.get("ct")
@@ -555,7 +573,7 @@ async def _wait_for_request_slot(
     if host in request_context.setdefault("blocked_hosts", set()):
         return False
 
-    interval = max(0.0, float(settings.IDRIX_SCRAPER_REQUEST_DELAY_SECONDS))
+    interval = max(0.0, float(settings.IDRIX_SCRAPER_REQUEST_DELAY))
     last_request_at = request_context.setdefault("last_request_at", {})
     previous_request = last_request_at.get(host)
     if previous_request is not None:
@@ -574,16 +592,16 @@ async def _fetch_page(
     parsed = urlsplit(url)
     host = _rate_limit_host(_host(url))
     fetch_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, parsed.query, ""))
-    headers = {"User-Agent": IDRIX_USER_AGENT}
+    headers = source_request_headers()
     if _is_privatebin_url(url):
         headers["X-Requested-With"] = "JSONHttpRequest"
 
     try:
         max_attempts = max(1, int(settings.IDRIX_SCRAPER_RETRY_MAX_ATTEMPTS))
-        base_delay = max(0.0, float(settings.IDRIX_SCRAPER_RETRY_DELAY_SECONDS))
+        base_delay = max(0.0, float(settings.IDRIX_SCRAPER_RETRY_DELAY))
         max_retry_delay = max(
             0.0,
-            float(settings.IDRIX_SCRAPER_MAX_RETRY_DELAY_SECONDS),
+            float(settings.IDRIX_SCRAPER_MAX_RETRY_DELAY),
         )
         retryable_statuses = {429, 500, 502, 503, 504}
         for attempt in range(max_attempts):
@@ -934,8 +952,21 @@ async def run_idrix_scraper() -> None:
 # ===========================
 # Manual Control
 # ===========================
+def _get_run_blocked_reason() -> Optional[str]:
+    if not settings.IDRIX_SCRAPER_URLS:
+        return "no_urls"
+    if not settings.TMDB_API_KEY:
+        return "no_tmdb_key"
+    return None
+
+
 def get_idrix_scraper_status() -> Dict[str, Any]:
-    return dict(_scraper_state)
+    blocked_reason = _get_run_blocked_reason()
+    return {
+        **_scraper_state,
+        "can_run": blocked_reason is None,
+        "blocked_reason": blocked_reason,
+    }
 
 
 def _log_manual_task_result(task) -> None:
@@ -952,10 +983,9 @@ def _log_manual_task_result(task) -> None:
 async def trigger_idrix_scraper() -> str:
     if _scraper_state["running"]:
         return "already_running"
-    if not settings.IDRIX_SCRAPER_URLS:
-        return "no_urls"
-    if not settings.TMDB_API_KEY:
-        return "no_tmdb_key"
+    blocked_reason = _get_run_blocked_reason()
+    if blocked_reason:
+        return blocked_reason
 
     global _manual_scrape_task
     _manual_scrape_task = asyncio.create_task(run_idrix_scraper())

@@ -24,6 +24,8 @@ VIDEO_EXTENSIONS = {
 # NZBDav Service Class
 # ===========================
 class NZBDavService(BaseDebridService):
+    AUTHORITATIVE_DEAD_LINK_RESULTS = frozenset({"LINK_DOWN"})
+
     def get_service_name(self) -> str:
         return "NZBDav"
 
@@ -92,7 +94,7 @@ class NZBDavService(BaseDebridService):
                         debrid_logger.error(f"[NZBDav] NZB download HTTP {nzb_response.status_code}")
                         return "FATAL_ERROR"
                     if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                        await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                        await sleep(settings.DEBRID_RETRY_DELAY)
                         continue
                     return "FATAL_ERROR"
 
@@ -124,7 +126,7 @@ class NZBDavService(BaseDebridService):
                 if response.status_code != 200:
                     debrid_logger.error(f"[NZBDav] SABnzbd HTTP {response.status_code}")
                     if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                        await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                        await sleep(settings.DEBRID_RETRY_DELAY)
                         continue
                     return "FATAL_ERROR"
 
@@ -132,7 +134,7 @@ class NZBDavService(BaseDebridService):
                 if not data.get("status"):
                     debrid_logger.error("[NZBDav] SABnzbd status false")
                     if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                        await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                        await sleep(settings.DEBRID_RETRY_DELAY)
                         continue
                     return "FATAL_ERROR"
 
@@ -140,7 +142,7 @@ class NZBDavService(BaseDebridService):
                 if not nzo_ids:
                     debrid_logger.error("[NZBDav] No nzo_ids returned")
                     if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                        await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                        await sleep(settings.DEBRID_RETRY_DELAY)
                         continue
                     return "FATAL_ERROR"
 
@@ -150,20 +152,20 @@ class NZBDavService(BaseDebridService):
 
                 if webdav_url == "NZB_FAILED":
                     debrid_logger.debug("[NZBDav] NZB failed")
-                    return "LINK_DOWN"
+                    return "RETRY_ERROR"
                 if webdav_url:
                     debrid_logger.debug("[NZBDav] Converted")
                     return webdav_url
 
                 if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
                 return "FATAL_ERROR"
 
             except Exception as e:
                 debrid_logger.error(f"[NZBDav] Attempt {attempt + 1} failed: {type(e).__name__}: {e}")
                 if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
 
         debrid_logger.error(f"[NZBDav] Failed after {settings.DEBRID_MAX_RETRIES} attempts")
         return "FATAL_ERROR"

@@ -13,6 +13,7 @@ from wastream.utils.helpers import select_episode_file
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import debrid_logger, cache_logger
 from wastream.utils.quality import quality_sort_key
+from wastream.utils.urls import url_matches_host
 
 # ===========================
 # AllDebrid Error Constants
@@ -26,7 +27,7 @@ RETRY_ERRORS = [
     "REDIRECTOR_ERROR",
 ]
 
-DEAD_LINK_ERRORS = [
+UNSUPPORTED_LINK_ERRORS = [
     "LINK_PASS_PROTECTED",
 ]
 
@@ -55,8 +56,101 @@ def _flatten_magnet_files(entries: List[Dict], prefix: str = "") -> List[Dict]:
 # AllDebrid Service Class
 # ===========================
 class AllDebridService(BaseDebridService):
+    AUTHORITATIVE_DEAD_LINK_RESULTS = frozenset({"LINK_DOWN"})
+
     def get_service_name(self) -> str:
         return "AllDebrid"
+
+    @staticmethod
+    def _is_direct_hoster_link(link: str) -> bool:
+        return url_matches_host(link, settings.ALLDEBRID_SUPPORTED_HOSTS)
+
+    @staticmethod
+    def _link_info_is_available(info: Dict) -> bool:
+        return bool(
+            not info.get("error")
+            and info.get("link")
+            and (
+                info.get("filename") is not None
+                or info.get("host")
+                or info.get("hostDomain")
+            )
+        )
+
+    async def _request_hoster_link_infos(
+        self,
+        links: List[str],
+        api_key: str,
+    ) -> List[Dict]:
+        links = list(dict.fromkeys(
+            link for link in links if isinstance(link, str) and link
+        ))
+        if not links:
+            return []
+
+        response = await http_client.post(
+            f"{settings.ALLDEBRID_API_URL}/link/infos",
+            params={"agent": settings.ADDON_NAME, "apikey": api_key},
+            data={"link[]": links},
+            timeout=settings.DEBRID_CACHE_CHECK_HTTP_TIMEOUT,
+        )
+        if response.status_code != 200:
+            return []
+
+        data = response.json()
+        if data.get("status") != "success":
+            return []
+
+        infos = data.get("data", {}).get("infos", [])
+        if (
+            not isinstance(infos, list)
+            or len(infos) != len(links)
+            or not all(isinstance(info, dict) for info in infos)
+        ):
+            return []
+        return infos
+
+    @staticmethod
+    def _info_matches_hoster(info: Dict, hoster: Optional[str]) -> bool:
+        if not hoster:
+            return False
+        for key in ("hostDomain", "host"):
+            value = str(info.get(key) or "").strip()
+            if not value:
+                continue
+            host_url = value if "://" in value else f"https://{value}"
+            if url_matches_host(host_url, [hoster]):
+                return True
+        return False
+
+    async def _select_redirected_link(
+        self,
+        links: List[str],
+        api_key: str,
+        hoster: Optional[str],
+    ) -> Optional[str]:
+        links = list(dict.fromkeys(
+            link for link in links if isinstance(link, str) and link
+        ))
+        if not links:
+            return None
+        if len(links) == 1:
+            return links[0]
+
+        infos = await self._request_hoster_link_infos(links, api_key)
+        if not infos:
+            return links[0]
+
+        available = [
+            (link, info)
+            for link, info in zip(links, infos)
+            if self._link_info_is_available(info)
+        ]
+        if hoster:
+            for link, info in available:
+                if self._info_matches_hoster(info, hoster):
+                    return link
+        return available[0][0] if available else links[0]
 
     async def check_cache_and_enrich(self, results: List[Dict], api_key: str, config: Dict, timeout_remaining: float, user_season: Optional[str] = None, user_episode: Optional[str] = None, user_hosts: Optional[List[str]] = None) -> List[Dict]:
         start_time = time.time()
@@ -296,7 +390,7 @@ class AllDebridService(BaseDebridService):
 
         debrid_logger.debug("[AllDebrid] Converting DDL link")
 
-        is_direct_link = any(host in link for host in ["1fichier.com", "turbobit.net", "rapidgator.net", "alldebrid.com"])
+        is_direct_link = self._is_direct_hoster_link(link)
         http_error_count = 0
 
         for attempt in range(settings.DEBRID_MAX_RETRIES):
@@ -328,7 +422,7 @@ class AllDebridService(BaseDebridService):
                     debrid_logger.error(f"[AllDebrid] Redirector HTTP {response1.status_code}")
                     if attempt >= settings.DEBRID_MAX_RETRIES - 1:
                         return "FATAL_ERROR"
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
                 data1 = response1.json()
@@ -338,11 +432,11 @@ class AllDebridService(BaseDebridService):
 
                     if error_code == "LINK_DOWN":
                         debrid_logger.debug(f"[AllDebrid] {error_code}")
-                        return "LINK_DOWN"
+                        return "LINK_DOWN" if is_direct_link else "LINK_SERVICE_DOWN"
 
-                    if error_code in DEAD_LINK_ERRORS:
-                        debrid_logger.debug(f"[AllDebrid] {error_code} - link is password-protected (universally undebridable)")
-                        return "LINK_DOWN"
+                    if error_code in UNSUPPORTED_LINK_ERRORS:
+                        debrid_logger.debug(f"[AllDebrid] {error_code} - link is password-protected")
+                        return "LINK_UNSUPPORTED"
 
                     if error_code == "NO_SERVER":
                         debrid_logger.warning("[AllDebrid] NO_SERVER - server blocked by AllDebrid (VPN/datacenter detected)")
@@ -355,7 +449,7 @@ class AllDebridService(BaseDebridService):
                         debrid_logger.error(f"[AllDebrid] {error_code}")
                         if attempt >= settings.DEBRID_MAX_RETRIES - 1:
                             return "RETRY_ERROR"
-                        await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                        await sleep(settings.DEBRID_RETRY_DELAY)
                         continue
 
                     debrid_logger.error(f"[AllDebrid] Fatal: {error_code}")
@@ -372,19 +466,30 @@ class AllDebridService(BaseDebridService):
                         return direct_link
                     else:
                         debrid_logger.error("[AllDebrid] No direct link")
-                        await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                        await sleep(settings.DEBRID_RETRY_DELAY)
                         continue
 
                 redirected_links = data1.get("data", {}).get("links", [])
-                if not redirected_links:
+                if not isinstance(redirected_links, list) or not redirected_links:
                     debrid_logger.error("[AllDebrid] No redirected links")
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
-                first_link = redirected_links[0]
+                selected_link = await self._select_redirected_link(
+                    redirected_links,
+                    api_key,
+                    hoster,
+                )
+                if not selected_link:
+                    debrid_logger.error("[AllDebrid] No usable redirected link")
+                    return "LINK_UNSUPPORTED"
                 response2 = await http_client.get(
                     f"{settings.ALLDEBRID_API_URL}/link/unlock",
-                    params={"agent": settings.ADDON_NAME, "apikey": api_key, "link": first_link}
+                    params={
+                        "agent": settings.ADDON_NAME,
+                        "apikey": api_key,
+                        "link": selected_link,
+                    },
                 )
 
                 should_retry, http_error_count = await self._handle_http_retry_error(
@@ -403,7 +508,7 @@ class AllDebridService(BaseDebridService):
                     debrid_logger.error(f"[AllDebrid] Unlock HTTP {response2.status_code}")
                     if attempt >= settings.DEBRID_MAX_RETRIES - 1:
                         return "FATAL_ERROR"
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
                     continue
 
                 data2 = response2.json()
@@ -413,11 +518,11 @@ class AllDebridService(BaseDebridService):
 
                     if error_code2 == "LINK_DOWN":
                         debrid_logger.debug(f"[AllDebrid] {error_code2}")
-                        return "LINK_DOWN"
+                        return "LINK_SERVICE_DOWN"
 
-                    if error_code2 in DEAD_LINK_ERRORS:
-                        debrid_logger.debug(f"[AllDebrid] {error_code2} - link is password-protected (universally undebridable)")
-                        return "LINK_DOWN"
+                    if error_code2 in UNSUPPORTED_LINK_ERRORS:
+                        debrid_logger.debug(f"[AllDebrid] {error_code2} - link is password-protected")
+                        return "LINK_UNSUPPORTED"
 
                     if error_code2 == "NO_SERVER":
                         debrid_logger.warning("[AllDebrid] NO_SERVER - server blocked by AllDebrid (VPN/datacenter detected)")
@@ -430,7 +535,7 @@ class AllDebridService(BaseDebridService):
                         debrid_logger.error(f"[AllDebrid] {error_code2}")
                         if attempt >= settings.DEBRID_MAX_RETRIES - 1:
                             return "RETRY_ERROR"
-                        await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                        await sleep(settings.DEBRID_RETRY_DELAY)
                         continue
 
                     debrid_logger.error(f"[AllDebrid] Fatal: {error_code2}")
@@ -448,7 +553,7 @@ class AllDebridService(BaseDebridService):
             except Exception as e:
                 debrid_logger.error(f"[AllDebrid] Attempt {attempt + 1} failed: {type(e).__name__}: {e}")
                 if attempt < settings.DEBRID_MAX_RETRIES - 1:
-                    await sleep(settings.DEBRID_RETRY_DELAY_SECONDS)
+                    await sleep(settings.DEBRID_RETRY_DELAY)
 
         debrid_logger.error(f"[AllDebrid] Failed after {settings.DEBRID_MAX_RETRIES} attempts")
         return "FATAL_ERROR"

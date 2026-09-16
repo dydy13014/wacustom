@@ -6,7 +6,7 @@
     <title>{{ADDON_NAME}} - Configuration</title>
     <meta property="og:title" content="{{ADDON_NAME}}" />
     <meta property="og:description" content="Stremio addon to convert DDL to streams via debrid services" />
-    <meta name="theme-color" content="#ff7a1c">
+    <meta name="theme-color" content="#22d3ee">
     <link rel="icon" href="/static/wastream-logo.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/themes/dark.css" />
     <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/shoelace-autoloader.js"></script>
@@ -37,10 +37,17 @@
             --text-secondary: #a1a1aa;
             --text-muted: #71717a;
 
-            --accent-primary: #ff7a1c;
-            --accent-primary-hover: #e86a10;
-            --accent-primary-subtle: rgba(255, 122, 28, 0.14);
-            --accent-primary-glow: rgba(255, 122, 28, 0.18);
+            --accent-primary: #22d3ee;
+            --accent-primary-hover: #06b6d4;
+            --accent-primary-subtle: rgba(34, 211, 238, 0.14);
+            --accent-primary-glow: rgba(34, 211, 238, 0.18);
+            --accent-primary-dark: #28008c;
+
+            --accent-secondary: #6366f1;
+            --accent-secondary-hover: #4f46e5;
+            --accent-secondary-subtle: rgba(99, 102, 241, 0.14);
+
+            --accent-gradient: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
 
             --accent-success: #10b981;
             --accent-success-hover: #059669;
@@ -97,7 +104,7 @@
             /* Halos discrets (orange en haut a droite, vert en haut a gauche) :
                cassent l'aplat sombre sans nuire a la lisibilite. */
             background:
-                radial-gradient(1100px 480px at 85% -10%, rgba(255, 122, 28, .08), transparent 60%),
+                radial-gradient(1100px 480px at 85% -10%, rgba(34, 211, 238, .08), transparent 60%),
                 radial-gradient(900px 480px at -10% 10%, rgba(16, 185, 129, .05), transparent 60%),
                 var(--bg-primary);
             background-attachment: fixed;
@@ -177,7 +184,10 @@
         .logo-text {
             font-size: 18px;
             font-weight: 700;
-            color: var(--text-primary);
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .logo-version {
@@ -364,7 +374,7 @@
         }
 
         .hero-title span {
-            background: linear-gradient(135deg, var(--accent-primary), #fb923c);
+            background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -386,11 +396,12 @@
         }
 
         .hero-links {
-            display: flex;
+            display: inline-grid;
+            grid-template-columns: repeat(2, max-content);
             align-items: center;
             justify-content: center;
             gap: 14px;
-            flex-wrap: wrap;
+            max-width: 100%;
         }
 
         .hero-link {
@@ -404,6 +415,7 @@
             color: var(--text-secondary);
             font-size: 14px;
             font-weight: 500;
+            justify-content: center;
             text-decoration: none;
             transition: all var(--transition-fast);
         }
@@ -419,6 +431,31 @@
             width: 16px;
             height: 16px;
             fill: currentColor;
+        }
+
+        .hero-link-status {
+            grid-column: 1 / -1;
+            min-height: 44px;
+            background: var(--accent-primary-subtle);
+            border-color: rgba(34, 211, 238, 0.35);
+            color: var(--accent-primary);
+        }
+
+        .hero-link-status svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            stroke: none;
+        }
+
+        .hero-link-status:hover {
+            background: var(--accent-primary-dark);
+            border-color: var(--accent-primary-dark);
+            color: white;
+        }
+
+        .hero-link-status[hidden] {
+            display: none;
         }
 
         /* ===========================
@@ -650,7 +687,7 @@
         }
 
         sl-select::part(tag__base) {
-            background: var(--accent-primary);
+            background: var(--accent-primary-dark);
             color: white;
             border: none;
             border-radius: var(--radius-sm);
@@ -1106,7 +1143,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--accent-primary);
+            background: var(--accent-primary-dark);
             border: none;
             border-radius: var(--radius-md);
             color: white;
@@ -1187,7 +1224,7 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            background: linear-gradient(135deg, var(--accent-success), var(--accent-success-hover));
+            background: var(--accent-gradient);
             border: none;
             border-radius: var(--radius-lg);
             color: white;
@@ -1196,13 +1233,13 @@
             font-family: inherit;
             cursor: pointer;
             transition: all var(--transition-base);
-            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+            box-shadow: 0 4px 20px rgba(34, 211, 238, 0.3);
             margin-top: 32px;
         }
 
         .btn:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(16, 185, 129, 0.4);
+            box-shadow: 0 8px 30px rgba(34, 211, 238, 0.4);
         }
 
         .btn:disabled {
@@ -1787,6 +1824,12 @@
                             </svg>
                             Discord
                         </a>
+                        <a href="/status" class="hero-link hero-link-status" id="publicHealthLink" hidden>
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z"/>
+                            </svg>
+                            <span data-i18n="buttons.serviceStatus">Service status</span>
+                        </a>
                     </div>
                 </div>
 
@@ -2043,6 +2086,23 @@
                             </div>
                             <input type="checkbox" id="recheckHosterStatus" style="display: none;" />
                             <span class="field-help" data-i18n="help.recheckHosterStatusInfo">Automatically recheck if a down hoster is back up in background</span>
+                        </div>
+                        <div class="form-field">
+                            <div class="toggle-wrapper" id="recheckDeadLinksToggle">
+                                <div class="toggle" id="recheckDeadLinksToggleBtn">
+                                    <svg class="toggle-icon left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                    <svg class="toggle-icon right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                    </svg>
+                                </div>
+                                <span class="toggle-label" data-i18n="toggles.recheckDeadLinks">Recheck dead links</span>
+                            </div>
+                            <input type="checkbox" id="recheckDeadLinks" style="display: none;" />
+                            <span class="field-help" data-i18n="help.recheckDeadLinksInfo">Keep links marked dead after their first failed check visible so the next click can recheck them</span>
                         </div>
                         <div class="form-field">
                             <div class="early-stop-container">
@@ -2466,6 +2526,7 @@
         // ===========================
         const els = {
             languageSelect: null,
+            publicHealthLink: null,
             resolutionSelect: null,
             maxResults: null,
             maxSize: null,
@@ -2487,6 +2548,9 @@
             recheckHosterStatusToggle: null,
             recheckHosterStatusToggleBtn: null,
             recheckHosterStatusField: null,
+            recheckDeadLinks: null,
+            recheckDeadLinksToggle: null,
+            recheckDeadLinksToggleBtn: null,
             earlyStop: null,
             earlyStopToggle: null,
             earlyStopToggleBtn: null,
@@ -3508,6 +3572,7 @@
                 show_only_cached: els.showOnlyCached.checked,
                 deduplicate_results: els.deduplicateResults.checked,
                 recheck_hoster_status: els.recheckHosterStatus.checked,
+                recheck_dead_links: els.recheckDeadLinks.checked,
                 early_stop: els.earlyStop.checked,
                 early_stop_min_streams: parseInt(els.earlyStopMinStreams.value) || 0,
                 early_stop_min_hosts: parseInt(els.earlyStopMinHosts.value) || 0,
@@ -3935,6 +4000,11 @@
                 els.recheckHosterStatusToggleBtn.classList.toggle('active', els.recheckHosterStatus.checked);
             });
 
+            els.recheckDeadLinksToggle.addEventListener('click', () => {
+                els.recheckDeadLinks.checked = !els.recheckDeadLinks.checked;
+                els.recheckDeadLinksToggleBtn.classList.toggle('active', els.recheckDeadLinks.checked);
+            });
+
             els.earlyStopToggle.addEventListener('click', () => {
                 els.earlyStop.checked = !els.earlyStop.checked;
                 els.earlyStopToggleBtn.classList.toggle('active', els.earlyStop.checked);
@@ -4242,6 +4312,20 @@
         // preservee de la config chargee au demarrage.
         const WACUSTOM_ONLY_KEYS = ['stream_type_preference', 'preferred_keywords'];
 
+        const loadPublicHealthLink = async () => {
+            if (!els.publicHealthLink) return;
+
+            try {
+                const response = await fetch('/api/status', {
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-store'
+                });
+                els.publicHealthLink.hidden = !response.ok;
+            } catch (error) {
+                els.publicHealthLink.hidden = true;
+            }
+        };
+
         const applyConfigToForm = (config) => {
             WACUSTOM_ONLY_KEYS.forEach(k => {
                 if (config[k] !== undefined) wacustomOnlyFields[k] = config[k];
@@ -4307,6 +4391,12 @@
                 els.recheckHosterStatus.checked = !!config.recheck_hoster_status;
                 els.recheckHosterStatusToggleBtn.classList.toggle('active', !!config.recheck_hoster_status);
             }
+
+            const recheckDeadLinks = config.recheck_dead_links !== undefined
+                ? config.recheck_dead_links === true || String(config.recheck_dead_links).toLowerCase() === 'true'
+                : config.dead_link_recheck_mode === 'manual';
+            els.recheckDeadLinks.checked = recheckDeadLinks;
+            els.recheckDeadLinksToggleBtn.classList.toggle('active', recheckDeadLinks);
 
             if (config.early_stop !== undefined) {
                 els.earlyStop.checked = !!config.early_stop;
@@ -4564,6 +4654,7 @@
 
             const savedLang = localStorage.getItem('wastream_language') || 'en';
             switchLanguage(savedLang);
+            loadPublicHealthLink();
         };
 
         // ===========================

@@ -43,7 +43,18 @@ from wastream.services.tmdb import tmdb_service
 from wastream.utils.cache import get_cache, get_cache_with_status, get_cache_parallel, set_cache, set_cache_if_not_exists
 from wastream.services.remote import fetch_remote_cache
 from wastream.services.health import is_source_online
-from wastream.utils.database import SearchLock, mark_dead_link, check_dead_links_batch, database
+from wastream.services.dead_link_recheck import (
+    PLAYBACK_SENTINELS,
+    dead_link_recheck_service,
+    is_dead_link_recheck_enabled,
+)
+from wastream.utils.database import (
+    DEAD_LINK_STATUS_CONFIRMED,
+    DEAD_LINK_STATUS_RECHECKABLE,
+    SearchLock,
+    database,
+    get_dead_link_statuses_batch,
+)
 from wastream.utils.filters import apply_all_filters, filter_excluded_keywords, filter_archive_files
 from wastream.utils.helpers import (
     encode_config_to_base64, encode_playback_token, quote_path_segment,
@@ -58,16 +69,15 @@ from wastream.utils.validators import extract_media_info
 from wastream.utils.tasks import lancer_tache
 
 
-# ===========================
-# Playback Sentinels
-# ===========================
-PLAYBACK_SENTINELS = ("LINK_DOWN", "RETRY_ERROR", "FATAL_ERROR", "LINK_UNCACHED")
-
-
-# ===========================
-# Playback Sentinels
-# ===========================
-PLAYBACK_SENTINELS = ("LINK_DOWN", "RETRY_ERROR", "FATAL_ERROR", "LINK_UNCACHED")
+# Si le verrou anti-doublon (SearchLock) n'est pas obtenu après
+# SCRAPE_WAIT_TIMEOUT (8s), un autre worker est probablement en train de
+# scraper la même clé (jusqu'à SCRAPE_LOCK_TTL=60s). Plutôt que de dupliquer
+# immédiatement ce scrape — ce qui ajoute de la charge sur une source déjà
+# lente et peut faire dépasser le budget de l'appelant (20s côté AIOStreams)
+# — on patiente encore un peu en revérifiant le cache, pour récupérer le
+# résultat du worker en cours au lieu de refaire le travail.
+_LOCK_MISS_POLL_ATTEMPTS = 4
+_LOCK_MISS_POLL_INTERVAL = 1.5
 
 
 # ===========================
@@ -274,15 +284,30 @@ class StreamService:
         streams = []
         dead_links_count = 0
 
-        all_links = [r.get("link") for r in results if r.get("link")]
-        dead_links_map = await check_dead_links_batch(all_links)
+        state_links = [
+            str(result["link"])
+            for result in results
+            if isinstance(result.get("link"), str) and result.get("link")
+        ]
+        dead_link_statuses = await get_dead_link_statuses_batch(state_links)
+        recheck_dead_links = is_dead_link_recheck_enabled(config)
+
+        def state_for(result: Dict) -> Dict:
+            link = result.get("link")
+            if not isinstance(link, str):
+                return {"failure_count": 0}
+            return dead_link_statuses.get(
+                link,
+                {"failure_count": 0},
+            )
 
         resilient_config = self._get_resilient_config(config)
         if resilient_config["enabled"]:
             excluded_keywords = config.get("excluded_keywords", [])
             live_results = [
                 r for r in results
-                if r.get("link") and not dead_links_map.get(r.get("link"))
+                if r.get("link")
+                and int(state_for(r).get("failure_count", 0)) == 0
                 and not (r.get("model_type") == "nzb" and not is_source_online(r.get("source", "")))
                 and not self._is_archive_result(r)
                 and not self._matches_excluded_keyword(r, excluded_keywords)
@@ -296,7 +321,13 @@ class StreamService:
             if not link:
                 continue
 
-            if dead_links_map.get(link):
+            dead_link_state = state_for(result)
+            failure_count = int(dead_link_state.get("failure_count", 0))
+            if failure_count >= DEAD_LINK_STATUS_CONFIRMED:
+                dead_links_count += 1
+                continue
+            is_recheckable = failure_count == DEAD_LINK_STATUS_RECHECKABLE
+            if is_recheckable and not recheck_dead_links:
                 dead_links_count += 1
                 continue
 
@@ -706,10 +737,17 @@ class StreamService:
                         lancer_tache(_background_refresh())
                         return _maybe_filter(remote_data)
 
-            async with SearchLock(lock_type, title, year):
+            async with SearchLock(lock_type, title, year) as lock:
                 cached_results = await get_cache(database, cache_type, title, year)
                 if cached_results is not None:
                     return _maybe_filter(cached_results)
+
+                if not lock.acquired:
+                    for _ in range(_LOCK_MISS_POLL_ATTEMPTS):
+                        await asyncio.sleep(_LOCK_MISS_POLL_INTERVAL)
+                        cached_results = await get_cache(database, cache_type, title, year)
+                        if cached_results is not None:
+                            return _maybe_filter(cached_results)
 
                 results = await do_search()
 
@@ -719,13 +757,20 @@ class StreamService:
                 return _maybe_filter(results)
 
         # Background cache mode (default)
-        async with SearchLock(lock_type, title, year):
+        async with SearchLock(lock_type, title, year) as lock:
             cached_results, should_store = await get_cache_parallel(database, cache_type, title, year)
             if cached_results is not None:
                 stream_logger.debug(f"Using cached results for {content_type}")
                 if should_store:
                     await set_cache_if_not_exists(database, cache_type, title, year, cached_results, settings.CONTENT_CACHE_TTL)
                 return _maybe_filter(cached_results)
+
+            if not lock.acquired:
+                for _ in range(_LOCK_MISS_POLL_ATTEMPTS):
+                    await asyncio.sleep(_LOCK_MISS_POLL_INTERVAL)
+                    cached_results, _ = await get_cache_parallel(database, cache_type, title, year)
+                    if cached_results is not None:
+                        return _maybe_filter(cached_results)
 
             results = await do_search()
 
@@ -1480,7 +1525,7 @@ class StreamService:
                                                  title, year, metadata, season, episode, config, use_episode_cache=True)
 
     async def resolve_link(self, link: str, config: Dict, season: Optional[str] = None, episode: Optional[str] = None, service: Optional[str] = None, content_type: Optional[str] = None, title: Optional[str] = None, source: Optional[str] = None, hoster: Optional[str] = None, mark_dead: bool = True) -> Optional[str]:
-        link = canonicalize_url(link)
+        link = canonicalize_url(link) or link
         if service:
             debrid_service = self._get_debrid_service(service)
             debrid_api_key = get_debrid_api_key(config, service)
@@ -1495,24 +1540,38 @@ class StreamService:
                 debrid_service = alldebrid_service
                 debrid_api_key = ""
 
-        if service == "nzbdav":
-            nzbdav_url = config.get("nzbdav_url", "")
-            webdav_user = config.get("webdav_user", "")
-            webdav_password = config.get("webdav_password", "")
-            category = "Movies" if content_type == "movie" else "TV"
-            result = await debrid_service.convert_link(link, debrid_api_key, season, episode, nzbdav_url, webdav_user, webdav_password, category, title, hoster=hoster)
-        else:
-            result = await debrid_service.convert_link(link, debrid_api_key, season, episode, hoster=hoster)
+        async with dead_link_recheck_service.guard_playback(
+            link,
+            config,
+        ) as playback_guard:
+            if playback_guard.blocked_result:
+                return playback_guard.blocked_result
 
-        if result == "LINK_DOWN" and mark_dead:
-            await mark_dead_link(link, settings.DEAD_LINK_TTL)
+            if service == "nzbdav":
+                nzbdav_url = config.get("nzbdav_url", "")
+                webdav_user = config.get("webdav_user", "")
+                webdav_password = config.get("webdav_password", "")
+                category = "Movies" if content_type == "movie" else "TV"
+                result = await debrid_service.convert_link(link, debrid_api_key, season, episode, nzbdav_url, webdav_user, webdav_password, category, title, hoster=hoster)
+            else:
+                result = await debrid_service.convert_link(link, debrid_api_key, season, episode, hoster=hoster)
 
-        return result
+            await dead_link_recheck_service.record_playback_result(
+                link,
+                result,
+                record_failure=(
+                    mark_dead
+                    and debrid_service.is_dead_link_result_authoritative(result)
+                ),
+                is_recheck=playback_guard.is_recheck,
+                recheck_started_at=playback_guard.recheck_started_at,
+            )
+            return result
 
     def _build_link_response(self, direct_link: Optional[str]):
         if direct_link and direct_link not in PLAYBACK_SENTINELS:
             return RedirectResponse(url=direct_link, status_code=302)
-        elif direct_link == "LINK_DOWN":
+        elif direct_link in ("LINK_DOWN", "LINK_SERVICE_DOWN", "LINK_UNSUPPORTED"):
             return FileResponse("wastream/public/link_down.mp4")
         elif direct_link == "LINK_UNCACHED":
             return FileResponse("wastream/public/uncached.mp4")

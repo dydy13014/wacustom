@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import AliasChoices, Field, computed_field, field_validator
+from pydantic import AliasChoices, Field, computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,12 +9,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Version du fork, indépendante de celle d'upstream : c'est elle qui identifie
 # ce qui tourne réellement (nos sources, nos correctifs), et elle avance à un
 # rythme qui n'est pas celui de WAStream.
-WACUSTOM_VERSION = "1.1.1"
+WACUSTOM_VERSION = "1.2.0"
 
 # Version WAStream servant de base au fork. Mise à jour uniquement lors d'un
 # rebase sur une nouvelle version upstream — sert à savoir d'où l'on part quand
 # on compare un comportement avec le projet d'origine.
-WASTREAM_BASE_VERSION = "3.8.2"
+WASTREAM_BASE_VERSION = "3.9.1"
 
 
 class Settings(BaseSettings):
@@ -69,9 +69,21 @@ class Settings(BaseSettings):
     DATABASE_TYPE: str = "sqlite"
     DATABASE_PATH: str = "/app/data/wastream.db"
     DATABASE_URL: str = ""
-    DATABASE_BUSY_TIMEOUT_SECONDS: int = 30
+    DATABASE_BUSY_TIMEOUT: int = Field(
+        default=30,
+        validation_alias=AliasChoices(
+            "DATABASE_BUSY_TIMEOUT",
+            "DATABASE_BUSY_TIMEOUT_SECONDS",
+        ),
+    )
     DATABASE_RETRY_MAX_ATTEMPTS: int = 8
-    DATABASE_RETRY_DELAY_SECONDS: float = 0.25
+    DATABASE_RETRY_DELAY: float = Field(
+        default=0.25,
+        validation_alias=AliasChoices(
+            "DATABASE_RETRY_DELAY",
+            "DATABASE_RETRY_DELAY_SECONDS",
+        ),
+    )
 
     # ===========================
     # Cache Configuration
@@ -121,7 +133,13 @@ class Settings(BaseSettings):
     # ===========================
     DEBRID_SERVICES: List[str] = ["alldebrid", "torbox", "premiumize", "1fichier", "nzbdav"]
     DEBRID_MAX_RETRIES: int = 5
-    DEBRID_RETRY_DELAY_SECONDS: int = 4
+    DEBRID_RETRY_DELAY: int = Field(
+        default=4,
+        validation_alias=AliasChoices(
+            "DEBRID_RETRY_DELAY",
+            "DEBRID_RETRY_DELAY_SECONDS",
+        ),
+    )
     STREAM_REQUEST_TIMEOUT: int = 20
     DEBRID_CACHE_CHECK_HTTP_TIMEOUT: int = 3
     DEBRID_HTTP_ERROR_MAX_RETRIES: int = 5
@@ -132,7 +150,12 @@ class Settings(BaseSettings):
     # ===========================
     ALLDEBRID_API_URL: str = "https://api.alldebrid.com/v4"
     ALLDEBRID_BATCH_SIZE: int = 12
-    ALLDEBRID_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "vidoza", "alldebrid", "torrent"]
+    # "alldebrid" retiré (2026-09-05) : ce sont des liens de partage
+    # alldebrid.com/f/... (page web, pas un lien final) scrapés par WASource.
+    # /link/unlock les rejette systématiquement avec LINK_HOST_NOT_SUPPORTED,
+    # peu importe l'ancienneté du lien (confirmé par appel API direct) — ce
+    # n'est pas un hébergeur DDL utilisable via cette API.
+    ALLDEBRID_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "vidoza", "torrent"]
     ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio"]
 
     # ===========================
@@ -234,9 +257,27 @@ class Settings(BaseSettings):
     IDRIX_SCRAPER_MAX_DEPTH: int = 5
     IDRIX_SCRAPER_MAX_PAGES: int = 1000
     IDRIX_SCRAPER_RETRY_MAX_ATTEMPTS: int = 3
-    IDRIX_SCRAPER_RETRY_DELAY_SECONDS: int = 2
-    IDRIX_SCRAPER_REQUEST_DELAY_SECONDS: float = 0.15
-    IDRIX_SCRAPER_MAX_RETRY_DELAY_SECONDS: float = 30.0
+    IDRIX_SCRAPER_RETRY_DELAY: int = Field(
+        default=2,
+        validation_alias=AliasChoices(
+            "IDRIX_SCRAPER_RETRY_DELAY",
+            "IDRIX_SCRAPER_RETRY_DELAY_SECONDS",
+        ),
+    )
+    IDRIX_SCRAPER_REQUEST_DELAY: float = Field(
+        default=1.5,
+        validation_alias=AliasChoices(
+            "IDRIX_SCRAPER_REQUEST_DELAY",
+            "IDRIX_SCRAPER_REQUEST_DELAY_SECONDS",
+        ),
+    )
+    IDRIX_SCRAPER_MAX_RETRY_DELAY: float = Field(
+        default=30.0,
+        validation_alias=AliasChoices(
+            "IDRIX_SCRAPER_MAX_RETRY_DELAY",
+            "IDRIX_SCRAPER_MAX_RETRY_DELAY_SECONDS",
+        ),
+    )
 
     # ===========================
     # TMDB Configuration
@@ -296,7 +337,19 @@ class Settings(BaseSettings):
     # Internal Configuration
     # ===========================
     CLEANUP_INTERVAL: int = 60
+
+    # ===========================
+    # Health Check Configuration
+    # ===========================
+    PUBLIC_HEALTH_PAGE_ENABLED: bool = False
     HEALTH_CHECK_INTERVAL: int = 60
+    HEALTH_STATUS_HISTORY_RETENTION: int = 2592000
+    LEGACY_HEALTH_STATUS_HISTORY_RETENTION: Optional[int] = Field(
+        default=None,
+        validation_alias="HEALTH_STATUS_HISTORY_RETENTION_DAYS",
+        exclude=True,
+        repr=False,
+    )
 
     # ===========================
     # Domain Synchronization
@@ -304,7 +357,13 @@ class Settings(BaseSettings):
     DOMAIN_SYNC_ENABLED: bool = False
     DOMAIN_SYNC_INTERVAL: int = 7200
     DOMAIN_SYNC_RECHECK_ON_HEALTH_ERROR: bool = True
-    DOMAIN_SYNC_HEALTH_ERROR_RECHECK_DELAY_SECONDS: int = 900
+    DOMAIN_SYNC_HEALTH_ERROR_RECHECK_DELAY: int = Field(
+        default=900,
+        validation_alias=AliasChoices(
+            "DOMAIN_SYNC_HEALTH_ERROR_RECHECK_DELAY",
+            "DOMAIN_SYNC_HEALTH_ERROR_RECHECK_DELAY_SECONDS",
+        ),
+    )
     DOMAIN_SYNC_WAWACITY_TELEGRAM_URL: Optional[str] = None
     DOMAIN_SYNC_FREE_TELECHARGER_TELEGRAM_URL: Optional[str] = None
     DOMAIN_SYNC_MOVIX_TELEGRAM_URL: Optional[str] = None
@@ -319,6 +378,21 @@ class Settings(BaseSettings):
     # ===========================
     # Field Validators
     # ===========================
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_health_history_retention(cls, values):
+        if (
+            isinstance(values, dict)
+            and "HEALTH_STATUS_HISTORY_RETENTION" not in values
+            and "HEALTH_STATUS_HISTORY_RETENTION_DAYS" in values
+        ):
+            migrated = values.copy()
+            migrated["HEALTH_STATUS_HISTORY_RETENTION"] = (
+                int(values["HEALTH_STATUS_HISTORY_RETENTION_DAYS"]) * 86400
+            )
+            return migrated
+        return values
+
     @field_validator(
         "WAWACITY_URL", "FREE_TELECHARGER_URL", "DARKI_API_URL", "MOVIX_URL",
         "WEBSHARE_URL", "ZONE_TELECHARGEMENT_URL", "PROXY_URL",
@@ -356,7 +430,13 @@ class Settings(BaseSettings):
             return None
         from urllib.parse import urlparse
         parsed = urlparse(self.MOVIX_URL)
-        return f"{parsed.scheme}://api.{parsed.netloc}"
+        hostname = (parsed.hostname or "").removeprefix("www.")
+        if not parsed.scheme or not hostname:
+            return None
+        netloc = f"api.{hostname}"
+        if parsed.port is not None:
+            netloc += f":{parsed.port}"
+        return f"{parsed.scheme}://{netloc}"
 
     @computed_field
     @property

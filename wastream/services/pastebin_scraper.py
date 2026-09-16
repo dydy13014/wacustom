@@ -14,7 +14,7 @@ from wastream.services.scraper_importer import (
     resolve_imdb_id as _resolve_imdb_id,
     resolve_source_url,
 )
-from wastream.utils.http_client import http_client
+from wastream.utils.http_client import http_client, source_request_headers
 from wastream.utils.logger import scraper_logger
 
 
@@ -51,8 +51,21 @@ _manual_scrape_task = None
 # ===========================
 # Scraper State
 # ===========================
+def _get_run_blocked_reason() -> Optional[str]:
+    if not settings.PASTEBIN_SCRAPER_URLS:
+        return "no_urls"
+    if not settings.TMDB_API_KEY:
+        return "no_tmdb_key"
+    return None
+
+
 def get_pastebin_scraper_status() -> Dict[str, Any]:
-    return dict(_scraper_state)
+    blocked_reason = _get_run_blocked_reason()
+    return {
+        **_scraper_state,
+        "can_run": blocked_reason is None,
+        "blocked_reason": blocked_reason,
+    }
 
 
 build_pastebin_release_name = build_release_name
@@ -71,12 +84,6 @@ def parse_series_urls(urls_raw: str) -> List[Tuple[int, str]]:
 resolve_pastebin_url = resolve_source_url
 
 
-# ===========================
-# TMDB → IMDB Resolution
-# ===========================
-# ===========================
-# Size Parsing
-# ===========================
 # ===========================
 # Parse Pastebin Content
 # ===========================
@@ -180,7 +187,11 @@ def parse_pastebin_content(content: str) -> tuple:
 # ===========================
 async def _fetch_pastebin(url: str) -> Optional[str]:
     try:
-        response = await http_client.get(url, timeout=30)
+        response = await http_client.get(
+            url,
+            headers=source_request_headers(),
+            timeout=30,
+        )
         if response.status_code != 200:
             scraper_logger.error(f"[PastebinScraper] Failed to fetch {url}: HTTP {response.status_code}")
             return None
@@ -352,10 +363,9 @@ def _log_manual_task_result(task):
 async def trigger_pastebin_scraper() -> str:
     if _scraper_state["running"]:
         return "already_running"
-    if not settings.PASTEBIN_SCRAPER_URLS:
-        return "no_urls"
-    if not settings.TMDB_API_KEY:
-        return "no_tmdb_key"
+    blocked_reason = _get_run_blocked_reason()
+    if blocked_reason:
+        return blocked_reason
     global _manual_scrape_task
     _manual_scrape_task = asyncio.create_task(run_pastebin_scraper())
     _manual_scrape_task.add_done_callback(_log_manual_task_result)
