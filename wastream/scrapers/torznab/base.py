@@ -4,6 +4,7 @@ import re
 from typing import List, Dict, Optional, Tuple
 
 from wastream.config.settings import settings
+from wastream.services.torrent_files import remember_torrent_url
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import scraper_logger
 from wastream.utils.release_parser import tokenize_filename
@@ -223,7 +224,10 @@ class BaseTorznab:
                 if not display_name:
                     display_name = release_name
 
-                # Construct magnet link if we have infohash
+                # Le resultat ne porte qu'un magnet nu ; le vrai .torrent reste
+                # cote serveur pour la lecture hors cache (cf. torrent_files).
+                if torrent_url and not torrent_url.startswith("magnet:"):
+                    remember_torrent_url(infohash, self.name, torrent_url)
                 magnet_link = f"magnet:?xt=urn:btih:{infohash}"
 
                 result = {

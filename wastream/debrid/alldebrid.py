@@ -9,6 +9,7 @@ from wastream.debrid.base import BaseDebridService, HTTP_RETRY_ERRORS
 from wastream.services.hoster_status import (
     get_hoster_status, mark_hoster_down, is_hoster_up, schedule_alldebrid_hoster_recheck
 )
+from wastream.services.torrent_files import fetch_torrent_file, torrent_source
 from wastream.utils.helpers import select_episode_file
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import debrid_logger, cache_logger
@@ -250,6 +251,60 @@ class AllDebridService(BaseDebridService):
         cache_logger.debug(f"[AllDebrid] Done in {elapsed:.1f}s: {len(cached_results)} results")
         return cached_results
 
+    async def _replace_bare_magnet_with_torrent(self, magnet_info: Dict, magnet: str, api_key: str) -> None:
+        """Hors cache, un magnet nu d'un tracker privé ne trouvera jamais de pair
+        (DHT désactivé) : on le remplace par le vrai .torrent, qui embarque
+        l'annonce avec passkey. Un magnet sans taille n'a jamais obtenu ses
+        métadonnées — donc jamais un vrai téléchargement en cours, le supprimer
+        ne coûte rien. Un magnet avec taille est laissé tel quel."""
+        match = re.search(r"btih:([a-zA-Z0-9]+)", magnet)
+        infohash = (magnet_info.get("hash") or (match.group(1) if match else "")).lower()
+        source = torrent_source(infohash) or "source inconnue"
+
+        if magnet_info.get("size"):
+            debrid_logger.info(f"[AllDebrid] Hors cache, téléchargement en cours : {infohash} ({source})")
+            return
+
+        torrent = await fetch_torrent_file(infohash)
+        if not torrent:
+            debrid_logger.info(f"[AllDebrid] Hors cache, magnet nu sans .torrent connu : {infohash} ({source})")
+            return
+
+        try:
+            delete_resp = await http_client.post(
+                f"{settings.ALLDEBRID_API_URL}/magnet/delete",
+                params={"agent": settings.ADDON_NAME, "apikey": api_key, "id": magnet_info["id"]},
+                timeout=settings.HTTP_TIMEOUT
+            )
+            deleted = delete_resp.status_code == 200 and delete_resp.json().get("status") == "success"
+        except Exception as e:
+            debrid_logger.error(f"[AllDebrid] Magnet delete error: {type(e).__name__}")
+            deleted = False
+        if not deleted:
+            # Sans suppression, AllDebrid renverrait le même magnet nu (dédup par hash).
+            debrid_logger.info(f"[AllDebrid] Hors cache, magnet nu non remplacé (suppression refusée) : {infohash} ({source})")
+            return
+
+        try:
+            upload_resp = await http_client.post(
+                f"{settings.ALLDEBRID_API_URL}/magnet/upload/file",
+                params={"agent": settings.ADDON_NAME, "apikey": api_key},
+                files={"files[0]": (f"{infohash}.torrent", torrent, "application/x-bittorrent")},
+                timeout=settings.HTTP_TIMEOUT
+            )
+            data = upload_resp.json() if upload_resp.status_code == 200 else {}
+        except Exception as e:
+            debrid_logger.error(f"[AllDebrid] Torrent file upload error: {type(e).__name__}")
+            data = {}
+
+        uploaded = (data.get("data") or {}).get("files") or []
+        if data.get("status") == "success" and uploaded and not uploaded[0].get("error"):
+            debrid_logger.info(f"[AllDebrid] Hors cache, .torrent envoyé à la place du magnet nu : {infohash} ({source})")
+        else:
+            error = (uploaded[0].get("error") if uploaded else None) or data.get("error") or "HTTP error"
+            code = error.get("code") if isinstance(error, dict) else error
+            debrid_logger.error(f"[AllDebrid] Torrent file upload failed for {infohash} ({source}): {code}")
+
     async def _convert_torrent_link(self, magnet: str, api_key: str, season: Optional[str] = None, episode: Optional[str] = None) -> Optional[str]:
         """Convertit un magnet en lien direct : upload → ready → files → unlock.
         Si le torrent n'est pas en cache AllDebrid, le magnet reste sur le compte
@@ -297,7 +352,7 @@ class AllDebridService(BaseDebridService):
 
         # 2. Pas en cache → le téléchargement démarre côté AllDebrid
         if not magnet_info.get("ready", False):
-            debrid_logger.debug("[AllDebrid] Torrent uncached - download started on AllDebrid")
+            await self._replace_bare_magnet_with_torrent(magnet_info, magnet, api_key)
             return "LINK_UNCACHED"
 
         # 3. Récupérer les fichiers (format n/s/l, dossiers imbriqués via "e")
