@@ -578,11 +578,34 @@ class StreamService:
         # (2026-07-20). Seuil pragmatique : le titre principal a déjà de quoi
         # proposer un choix correct au-delà de ce nombre, l'exhaustivité
         # cross-titre ne vaut plus le coût en charge/latence.
+        #
+        # Deuxième trou comblé (2026-09-18, cas réel "Surveillant !" / titre
+        # TMDB "Minimum Security") : un DDL généraliste (Wawacity...) peut à
+        # lui seul dépasser le seuil avec de vraies variantes utilisables,
+        # alors qu'AUCUN torrent tracker n'a rien trouvé pour ce titre —
+        # `_is_relevant` (torznab/base.py) rejette alors à raison un résultat
+        # de repli "tendance" du tracker, mais le retry cross-titre qui
+        # aurait pu lui donner sa chance avec le bon titre ne se déclenche
+        # jamais, masqué par le volume DDL. On force donc aussi le retry si
+        # zéro résultat torrent n'est encore présent, indépendamment du
+        # volume DDL déjà trouvé — les trackers sont rapides à re-solliciter
+        # (Torznab, pas de scraping HTML), le risque de latence du cas
+        # Doctor Strange 2 ne s'applique pas à ce sous-ensemble.
         ALT_TITLE_RESULT_THRESHOLD = 15
+        # Complément (2026-09-19, même cas "Surveillant !") : un seul torrent
+        # V3X (qui matche par IMDb/titre alternatif) suffisait à faire croire
+        # que les trackers avaient répondu, alors que C411/Tr4ker/YggReborn/
+        # Torr9 (requêtés sur le titre principal) étaient à zéro. On ne compte
+        # donc que les torrents issus de ces quatre trackers.
+        RETRY_TRACKER_SOURCES = {"C411", "Tr4ker", "YggReborn", "Torr9"}
+        has_torrent_results = any(
+            r.get("model_type") == "torrent" and r.get("source") in RETRY_TRACKER_SOURCES
+            for r in results
+        )
         alt_titles = [
             t for t in (metadata.get("enhanced") or {}).get("titles", [])
             if t != metadata["title"]
-        ] if len(results) < ALT_TITLE_RESULT_THRESHOLD else []
+        ] if (len(results) < ALT_TITLE_RESULT_THRESHOLD or not has_torrent_results) else []
         if alt_titles:
             alt_results_list = await asyncio.gather(*(
                 self._search_content(
