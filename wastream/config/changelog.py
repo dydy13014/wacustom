@@ -11,6 +11,14 @@ change à l'usage, pas le détail d'implémentation.
 
 CHANGELOG = [
     {
+        "version": "1.3.1",
+        "date": "2026-09-23",
+        "changes": [
+            "Torrents des trackers privés (C411, Tr4ker, YggReborn, V3X) pas encore en cache : le téléchargement démarre désormais vraiment chez le service debrid, grâce à l'envoi du vrai fichier .torrent au lieu d'un simple lien magnet qui ne trouvait jamais de source",
+            "Recherche avec les titres alternatifs (titre français différent du titre original) : relancée aussi quand seuls les trackers torrent n'ont rien trouvé, et limitée à ces trackers pour ne pas ralentir la réponse",
+        ],
+    },
+    {
         "version": "1.3.0",
         "date": "2026-09-16",
         "changes": [
