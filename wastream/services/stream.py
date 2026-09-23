@@ -80,6 +80,10 @@ from wastream.utils.tasks import lancer_tache
 _LOCK_MISS_POLL_ATTEMPTS = 4
 _LOCK_MISS_POLL_INTERVAL = 1.5
 
+# Trackers Torznab interrogés sur le titre : seuls concernés par la relance
+# sur titres alternatifs. V3X exclu, il retrouve déjà le contenu par IMDb.
+TITLE_SEARCH_TRACKERS = ("yggreborn", "tr4ker", "torr9", "c411")
+
 
 # ===========================
 # Stream Service Class
@@ -189,6 +193,21 @@ class StreamService:
         if service_entry and "hosts" in service_entry and service_entry["hosts"]:
             return service_entry["hosts"]
         return self._get_default_hosts_for_service(service_name)
+
+    def _restrict_to_sources(self, config: Dict, keep: tuple) -> Optional[Dict]:
+        """Copie de `config` limitée aux sources `keep` que l'utilisateur a
+        activées, ou None s'il n'en a activé aucune (une liste `sources` vide
+        signifierait « toutes les sources par défaut », d'où le retrait des
+        services sans source restante)."""
+        services = []
+        for entry in get_debrid_services(config):
+            allowed = [
+                s for s in self._get_sources_for_service(entry.get("service", "alldebrid"), entry)
+                if s in keep
+            ]
+            if allowed:
+                services.append({**entry, "sources": allowed})
+        return {**config, "debrid_services": services} if services else None
 
     def _get_supported_sources(self, config: Dict) -> List[str]:
         debrid_services = get_debrid_services(config)
@@ -594,18 +613,27 @@ class StreamService:
         ALT_TITLE_RESULT_THRESHOLD = 15
         # Complément (2026-09-19, même cas "Surveillant !") : un seul torrent
         # V3X (qui matche par IMDb/titre alternatif) suffisait à faire croire
-        # que les trackers avaient répondu, alors que C411/Tr4ker/YggReborn/
-        # Torr9 (requêtés sur le titre principal) étaient à zéro. On ne compte
-        # donc que les torrents issus de ces quatre trackers.
-        RETRY_TRACKER_SOURCES = {"C411", "Tr4ker", "YggReborn", "Torr9"}
+        # que les trackers avaient répondu, alors que les trackers requêtés
+        # sur le titre principal étaient à zéro. On ne compte donc que ceux-là.
+        tracker_labels = {SOURCE_DISPLAY_NAMES[k] for k in TITLE_SEARCH_TRACKERS}
         has_torrent_results = any(
-            r.get("model_type") == "torrent" and r.get("source") in RETRY_TRACKER_SOURCES
+            r.get("model_type") == "torrent" and r.get("source") in tracker_labels
             for r in results
         )
+        # Peu de résultats : relance complète (toutes les sources). Assez de
+        # résultats mais aucun des trackers : relance limitée à ces trackers —
+        # relancer aussi les DDL sur chaque titre alternatif recréait le risque
+        # de timeout AIOStreams (Doctor Strange 2), surtout quand un tracker
+        # est en 429 et laisse has_torrent_results à faux à chaque requête.
+        retry_config = None
+        if len(results) < ALT_TITLE_RESULT_THRESHOLD:
+            retry_config = search_config
+        elif not has_torrent_results:
+            retry_config = self._restrict_to_sources(search_config, TITLE_SEARCH_TRACKERS)
         alt_titles = [
             t for t in (metadata.get("enhanced") or {}).get("titles", [])
             if t != metadata["title"]
-        ] if (len(results) < ALT_TITLE_RESULT_THRESHOLD or not has_torrent_results) else []
+        ] if retry_config else []
         if alt_titles:
             alt_results_list = await asyncio.gather(*(
                 self._search_content(
@@ -615,7 +643,7 @@ class StreamService:
                     media_info.get("season"),
                     media_info.get("episode"),
                     metadata.get("enhanced"),
-                    search_config
+                    retry_config
                 )
                 for alt_title in alt_titles
             ))
