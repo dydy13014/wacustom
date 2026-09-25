@@ -17,6 +17,8 @@ CHANGELOG = [
             "AIOSources et Lumio ne remontaient plus aucun résultat depuis un moment, à cause d'un bug silencieux dans la transmission de l'identifiant IMDB aux sources — corrigé, ces deux sources fonctionnent de nouveau normalement",
             "Recherche plus précise sur C411, Tr4ker et V3X : la correspondance se fait désormais par identifiant exact (IMDB/TMDB) plutôt que par simple recherche de mots-clés, ce qui réduit les faux résultats sur les titres ambigus",
             "Détection plus fiable des pannes de tracker (clé expirée, quota dépassé) plutôt qu'un silence indiscernable d'un simple \"aucun résultat\"",
+            "Stremio se souvient maintenant de la source/qualité choisie et la reprend automatiquement à l'épisode suivant, sans avoir à rechoisir à chaque fois",
+            "Taille du fichier transmise à Stremio quand elle est connue (torrents), utile pour l'affichage et le tri côté application",
         ],
     },
     {
