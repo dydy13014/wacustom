@@ -8,8 +8,10 @@ class YggRebornScraper:
                      config: Optional[Dict] = None) -> List[Dict]:
         if not settings.YGGREBORN_API_KEY or not settings.YGGREBORN_URL:
             return []
-        # Caps verifiees le 2026-09-25 : ni imdbid ni tmdbid supportes (juste
-        # q/season/ep) -- reste en recherche texte, pas de gain possible ici.
+        # Pas d'override : les identifiants exacts supportes (imdbid/tmdbid/
+        # tvdbid) sont auto-decouverts via ?t=caps et mis en cache (cf.
+        # _CapsCache dans base.py) -- YggReborn n'en supporte aucun a ce jour
+        # (verifie le 2026-09-25), reste donc naturellement en recherche texte.
         scraper = BaseTorznab("YggReborn", settings.YGGREBORN_URL, settings.YGGREBORN_API_KEY, auth_type="query")
         return await scraper.search(title, year, metadata, season, episode, config)
 
@@ -20,13 +22,7 @@ class Tr4kerScraper:
                      config: Optional[Dict] = None) -> List[Dict]:
         if not settings.TR4KER_API_KEY or not settings.TR4KER_URL:
             return []
-        # Caps verifiees le 2026-09-25 : movie-search q,imdbid,tmdbid ;
-        # tv-search q,season,ep,tvdbid,imdbid (tvdbid non recupere par Wacustom
-        # actuellement -- imdbid en repli suffit, deja disponible).
-        scraper = BaseTorznab(
-            "Tr4ker", settings.TR4KER_URL, settings.TR4KER_API_KEY, auth_type="query",
-            movie_id_params=["imdbid", "tmdbid"], tv_id_params=["imdbid"],
-        )
+        scraper = BaseTorznab("Tr4ker", settings.TR4KER_URL, settings.TR4KER_API_KEY, auth_type="query")
         return await scraper.search(title, year, metadata, season, episode, config)
 
 
@@ -46,12 +42,7 @@ class V3XScraper:
                      config: Optional[Dict] = None) -> List[Dict]:
         if not settings.V3X_API_KEY or not settings.V3X_URL:
             return []
-        # Caps verifiees le 2026-09-25 : movie-search q,tmdbid uniquement (pas
-        # d'imdbid en film) ; tv-search q,season,ep,tmdbid,tvdbid.
-        scraper = BaseTorznab(
-            "V3X", settings.V3X_URL, settings.V3X_API_KEY, auth_type="query",
-            movie_id_params=["tmdbid"], tv_id_params=["tmdbid"],
-        )
+        scraper = BaseTorznab("V3X", settings.V3X_URL, settings.V3X_API_KEY, auth_type="query")
         return await scraper.search(title, year, metadata, season, episode, config)
 
 
@@ -61,12 +52,7 @@ class C411Scraper:
                      config: Optional[Dict] = None) -> List[Dict]:
         if not settings.C411_API_KEY or not settings.C411_URL:
             return []
-        # Caps verifiees le 2026-09-25 : movie-search q,imdbid,tmdbid ;
-        # tv-search q,season,ep,tmdbid,imdbid.
-        scraper = BaseTorznab(
-            "C411", settings.C411_URL, settings.C411_API_KEY, auth_type="query",
-            movie_id_params=["imdbid", "tmdbid"], tv_id_params=["tmdbid", "imdbid"],
-        )
+        scraper = BaseTorznab("C411", settings.C411_URL, settings.C411_API_KEY, auth_type="query")
         return await scraper.search(title, year, metadata, season, episode, config)
 
 

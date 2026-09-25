@@ -1,4 +1,5 @@
 import asyncio
+import time
 import xml.etree.ElementTree as ET
 import re
 from typing import List, Dict, Optional, Tuple
@@ -59,6 +60,82 @@ def _is_relevant(title: str, release_name: str) -> bool:
     return (matched / len(title_tokens)) >= _MIN_RELEVANCE_RATIO
 
 
+_KNOWN_ID_PARAMS = ("imdbid", "tmdbid", "tvdbid")
+
+
+def _parse_caps_id_params(caps_xml: bytes) -> Tuple[List[str], List[str]]:
+    """Extrait les identifiants exacts (imdbid/tmdbid/tvdbid) qu'un tracker
+    annonce supporter dans sa reponse ?t=caps, pour t=movie et t=tvsearch.
+    Renvoie ([] , []) si le XML est invalide ou si le mode n'est pas
+    `available="yes"` -- fail-open vers la recherche texte, jamais une
+    exception qui casserait le scraper."""
+    try:
+        root = ET.fromstring(caps_xml)
+    except ET.ParseError:
+        return [], []
+
+    def extract(tag: str) -> List[str]:
+        node = root.find(f".//{tag}")
+        if node is None or node.attrib.get("available") != "yes":
+            return []
+        supported = node.attrib.get("supportedParams", "")
+        # Ordre de declaration du tracker preserve (sert d'ordre de preference).
+        return [p for p in supported.split(",") if p in _KNOWN_ID_PARAMS]
+
+    return extract("movie-search"), extract("tv-search")
+
+
+class _CapsCache:
+    """Cache en memoire des capacites Torznab par URL de tracker. Succes mis
+    en cache longtemps (les capacites d'un tracker changent rarement) ; echec/
+    vide mis en cache brievement pour reessayer bientot sans matraquer un
+    tracker temporairement indisponible a chaque recherche."""
+    _entries: Dict[str, Tuple[float, List[str], List[str]]] = {}
+    _locks: Dict[str, asyncio.Lock] = {}
+    _TTL_SUCCESS = 86400
+    _TTL_EMPTY = 600
+
+    @classmethod
+    async def get(cls, name: str, url: str, api_key: str, auth_type: str) -> Tuple[List[str], List[str]]:
+        now = time.monotonic()
+        cached = cls._entries.get(url)
+        if cached and now - cached[0] < (cls._TTL_SUCCESS if (cached[1] or cached[2]) else cls._TTL_EMPTY):
+            return cached[1], cached[2]
+
+        lock = cls._locks.setdefault(url, asyncio.Lock())
+        async with lock:
+            cached = cls._entries.get(url)
+            if cached and now - cached[0] < (cls._TTL_SUCCESS if (cached[1] or cached[2]) else cls._TTL_EMPTY):
+                return cached[1], cached[2]
+
+            movie_params, tv_params = await cls._fetch(name, url, api_key, auth_type)
+            cls._entries[url] = (now, movie_params, tv_params)
+            return movie_params, tv_params
+
+    @staticmethod
+    async def _fetch(name: str, url: str, api_key: str, auth_type: str) -> Tuple[List[str], List[str]]:
+        headers = {"User-Agent": "WAStream/1.0"}
+        params = {"t": "caps"}
+        if auth_type == "header":
+            headers["Authorization"] = f"Bearer {api_key}"
+        else:
+            params["apikey"] = api_key
+        try:
+            response = await http_client.get(url, headers=headers, params=params, timeout=10)
+            if response.status_code != 200:
+                scraper_logger.debug(f"[{name}] caps HTTP {response.status_code}, recherche texte par defaut")
+                return [], []
+            movie_params, tv_params = _parse_caps_id_params(response.content)
+            if movie_params or tv_params:
+                scraper_logger.debug(
+                    f"[{name}] caps: movie={movie_params or '-'} tv={tv_params or '-'}"
+                )
+            return movie_params, tv_params
+        except Exception as e:
+            scraper_logger.debug(f"[{name}] caps fetch failed ({type(e).__name__}), recherche texte par defaut")
+            return [], []
+
+
 class BaseTorznab:
     def __init__(self, name: str, url: str, api_key: str, auth_type: str = "query",
                  movie_id_params: Optional[List[str]] = None,
@@ -67,11 +144,13 @@ class BaseTorznab:
         self.url = normalize_tracker_url(name, url)
         self.api_key = api_key
         self.auth_type = auth_type  # "query" or "header"
-        # Ordre de preference des identifiants exacts que ce tracker accepte en
-        # t=movie/t=tvsearch (verifie via son endpoint ?t=caps), ex. ["imdbid",
-        # "tmdbid"]. Vide = le tracker ne supporte que la recherche texte (t=search).
-        self.movie_id_params = movie_id_params or []
-        self.tv_id_params = tv_id_params or []
+        # Override manuel optionnel. Si non fourni (None), les identifiants
+        # exacts supportes par ce tracker sont auto-decouverts et mis en cache
+        # via son endpoint ?t=caps (cf. _CapsCache) -- pas besoin de les
+        # maintenir a la main par tracker, ni de les deviner si le tracker
+        # change un jour son implementation Torznab.
+        self._movie_id_params_override = movie_id_params
+        self._tv_id_params_override = tv_id_params
 
     @staticmethod
     def _metadata_value(metadata: Dict, id_param: str) -> Optional[str]:
@@ -87,7 +166,16 @@ class BaseTorznab:
 
         is_tv = bool(season and episode)
         metadata = metadata or {}
-        id_prefs = self.tv_id_params if is_tv else self.movie_id_params
+
+        if self._movie_id_params_override is not None or self._tv_id_params_override is not None:
+            movie_id_params = self._movie_id_params_override or []
+            tv_id_params = self._tv_id_params_override or []
+        else:
+            movie_id_params, tv_id_params = await _CapsCache.get(
+                self.name, self.url, self.api_key, self.auth_type
+            )
+
+        id_prefs = tv_id_params if is_tv else movie_id_params
         id_param = id_value = None
         for candidate in id_prefs:
             value = self._metadata_value(metadata, candidate)
@@ -131,7 +219,11 @@ class BaseTorznab:
         headers = {
             "User-Agent": "WAStream/1.0"
         }
-        params = {"t": mode, "q": search_query}
+        # limit proche du max habituel (100) : recupere davantage de resultats
+        # en un seul appel plutot que de se limiter au defaut du tracker
+        # (ex. 25 sur C411) -- pas de vraie pagination multi-pages, une
+        # recherche par titre precis depasse rarement 100 releases.
+        params = {"t": mode, "q": search_query, "limit": "100"}
         if id_param:
             params[id_param] = str(id_value)
             if is_tv:
@@ -171,6 +263,20 @@ class BaseTorznab:
 
             # 3. Parse XML response
             root = ET.fromstring(response.content)
+
+            # La spec Torznab autorise un HTTP 200 avec un <error> a la racine
+            # au lieu du <channel> habituel (cle invalide, parametre incorrect,
+            # rate limit...) -- sans ce controle, une clé API expirée remonte
+            # silencieusement comme "0 resultat", indiscernable d'un titre
+            # reellement absent du tracker.
+            error_node = root if root.tag == "error" else root.find(".//error")
+            if error_node is not None:
+                scraper_logger.error(
+                    f"[{self.name}] Torznab error {error_node.attrib.get('code', '?')}: "
+                    f"{error_node.attrib.get('description', 'no description')}"
+                )
+                return []
+
             results = []
 
             for item in root.findall(".//item"):
@@ -188,6 +294,9 @@ class BaseTorznab:
                 # Parse custom Torznab attributes
                 size = 0
                 infohash = None
+                seeders = None
+                peers = None
+                freeleech = False
                 for attr in item.findall(".//{http://torznab.com/schemas/2015/feed}attr"):
                     attr_name = attr.attrib.get("name")
                     attr_value = attr.attrib.get("value")
@@ -197,6 +306,24 @@ class BaseTorznab:
                         try:
                             size = int(attr_value)
                         except ValueError:
+                            pass
+                    elif attr_name == "seeders":
+                        try:
+                            seeders = int(attr_value)
+                        except (ValueError, TypeError):
+                            pass
+                    elif attr_name == "peers":
+                        try:
+                            peers = int(attr_value)
+                        except (ValueError, TypeError):
+                            pass
+                    elif attr_name == "downloadvolumefactor":
+                        # 0.0 = freeleech (le telechargement ne compte pas dans
+                        # le ratio du tracker prive) -- utile pour prioriser un
+                        # torrent equivalent sans risquer le ratio de l'utilisateur.
+                        try:
+                            freeleech = float(attr_value) == 0.0
+                        except (ValueError, TypeError):
                             pass
 
                 # Extract magnet or enclosure link
@@ -282,8 +409,13 @@ class BaseTorznab:
                     "hoster": "Torrent",
                     "size": size_str,
                     "display_name": display_name,
-                    "model_type": "torrent"
+                    "model_type": "torrent",
+                    "freeleech": freeleech,
                 }
+                if seeders is not None:
+                    result["seeders"] = seeders
+                if peers is not None:
+                    result["peers"] = peers
 
                 if season:
                     result["season"] = str(season)
