@@ -19,6 +19,7 @@ CHANGELOG = [
             "Détection plus fiable des pannes de tracker (clé expirée, quota dépassé) plutôt qu'un silence indiscernable d'un simple \"aucun résultat\"",
             "Stremio se souvient maintenant de la source/qualité choisie et la reprend automatiquement à l'épisode suivant, sans avoir à rechoisir à chaque fois",
             "Taille du fichier transmise à Stremio quand elle est connue (torrents), utile pour l'affichage et le tri côté application",
+            "Meilleure couverture des séries sur Tr4ker : utilise maintenant le bon identifiant (TheTVDB) qu'il attend en priorité, plutôt qu'un identifiant de repli — plus de résultats trouvés sur certains titres",
         ],
     },
     {
