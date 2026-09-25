@@ -488,12 +488,27 @@ class StreamService:
             else:  # ddl_first
                 stream_type_priority = 1 if is_torrent else 0
 
+            # bingeGroup (spec Stremio) : meme identifiant source+resolution
+            # d'un episode a l'autre pour que Stremio reselectionne
+            # automatiquement le meme choix a l'episode suivant plutot que de
+            # redemander a chaque fois. AIOSources (addon tiers lu en amont)
+            # le fait deja (ex. "aio-<titre>-<groupe>"), Wacustom ne le
+            # renseignait pas sur ses propres flux.
+            binge_source = (result.get("source") or "wacustom").lower().replace(" ", "-")
+            binge_resolution = (resolution or "unknown").lower()
+            binge_group = f"wacustom-{binge_source}-{binge_resolution}"
+
+            behavior_hints = {
+                "filename": display_name,
+                "bingeGroup": binge_group,
+            }
+            if size_bytes > 0:
+                behavior_hints["videoSize"] = size_bytes
+
             streams.append({
                 "name": stream_name,
                 "description": "\r\n".join(description_parts),
-                "behaviorHints": {
-                    "filename": display_name
-                },
+                "behaviorHints": behavior_hints,
                 "url": playback_url,
                 "_sort_values": {
                     "cached": 0 if cache_status == "cached" else 1,
