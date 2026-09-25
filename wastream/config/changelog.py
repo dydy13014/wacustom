@@ -20,6 +20,7 @@ CHANGELOG = [
             "Stremio se souvient maintenant de la source/qualité choisie et la reprend automatiquement à l'épisode suivant, sans avoir à rechoisir à chaque fois",
             "Taille du fichier transmise à Stremio quand elle est connue (torrents), utile pour l'affichage et le tri côté application",
             "Meilleure couverture des séries sur Tr4ker : utilise maintenant le bon identifiant (TheTVDB) qu'il attend en priorité, plutôt qu'un identifiant de repli — plus de résultats trouvés sur certains titres",
+            "Zilean : la taille des fichiers s'affichait comme \"Inconnu\" sur tous les résultats — corrigé. Recherche également plus précise, par identifiant IMDB exact",
         ],
     },
     {
