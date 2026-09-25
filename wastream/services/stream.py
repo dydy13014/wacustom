@@ -595,6 +595,10 @@ class StreamService:
         # texte libre. Absent si get_enhanced_metadata a echoue (repli
         # get_metadata, pas de cle "enhanced").
         metadata["tmdb_id"] = metadata.get("enhanced", {}).get("tmdb_id")
+        # tvdbid : premier choix de Tr4ker pour t=tvsearch (cf. caps), absent
+        # pour les films (pas de notion de TVDB) -- .get() renvoie None sans
+        # erreur dans ce cas, la recherche par ID retombe alors sur imdbid.
+        metadata["tvdb_id"] = metadata.get("enhanced", {}).get("tvdb_id")
 
         search_config = {
             **config,

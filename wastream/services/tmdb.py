@@ -108,7 +108,7 @@ class TMDBService:
                 tv_show = data["tv_results"][0]
                 tv_id = tv_show["id"]
 
-                details_url = f"{self.BASE_URL}/tv/{tv_id}?append_to_response=translations,keywords,alternative_titles"
+                details_url = f"{self.BASE_URL}/tv/{tv_id}?append_to_response=translations,keywords,alternative_titles,external_ids"
                 details_response = await http_client.get(details_url, headers=headers, timeout=settings.METADATA_TIMEOUT)
 
                 if details_response.status_code != 200:
@@ -194,6 +194,11 @@ class TMDBService:
                     return {
                         "imdb_id": imdb_id,
                         "tmdb_id": tv_id,
+                        # tvdbid est le premier choix de certains trackers Torznab
+                        # (Tr4ker) pour t=tvsearch -- recupere via external_ids,
+                        # deja ajoute au meme appel append_to_response ci-dessus,
+                        # aucune requete TMDB supplementaire.
+                        "tvdb_id": details.get("external_ids", {}).get("tvdb_id"),
                         "titles": titles,
                         "original_titles": original_titles,
                         "cz_title": cz_title,
