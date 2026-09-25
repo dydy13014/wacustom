@@ -116,10 +116,11 @@ class _CapsCache:
     async def _fetch(name: str, url: str, api_key: str, auth_type: str) -> Tuple[List[str], List[str]]:
         headers = {"User-Agent": "WAStream/1.0"}
         params = {"t": "caps"}
-        if auth_type == "header":
-            headers["Authorization"] = f"Bearer {api_key}"
-        else:
-            params["apikey"] = api_key
+        if api_key:
+            if auth_type == "header":
+                headers["Authorization"] = f"Bearer {api_key}"
+            else:
+                params["apikey"] = api_key
         try:
             response = await http_client.get(url, headers=headers, params=params, timeout=10)
             if response.status_code != 200:
@@ -139,11 +140,16 @@ class _CapsCache:
 class BaseTorznab:
     def __init__(self, name: str, url: str, api_key: str, auth_type: str = "query",
                  movie_id_params: Optional[List[str]] = None,
-                 tv_id_params: Optional[List[str]] = None):
+                 tv_id_params: Optional[List[str]] = None,
+                 require_api_key: bool = True):
         self.name = name
         self.url = normalize_tracker_url(name, url)
         self.api_key = api_key
         self.auth_type = auth_type  # "query" or "header"
+        # Certains trackers Torznab (Zilean) n'exigent aucune authentification
+        # (endpoint public, AllowAnonymous cote serveur) -- sans ce flag, le
+        # scraper serait toujours saute faute de cle API a fournir.
+        self.require_api_key = require_api_key
         # Override manuel optionnel. Si non fourni (None), les identifiants
         # exacts supportes par ce tracker sont auto-decouverts et mis en cache
         # via son endpoint ?t=caps (cf. _CapsCache) -- pas besoin de les
@@ -160,7 +166,7 @@ class BaseTorznab:
     async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
                      season: Optional[str] = None, episode: Optional[str] = None,
                      config: Optional[Dict] = None) -> List[Dict]:
-        if not self.api_key or not self.url:
+        if not self.url or (self.require_api_key and not self.api_key):
             scraper_logger.debug(f"[{self.name}] URL or API key not configured, skipping")
             return []
 
@@ -234,10 +240,11 @@ class BaseTorznab:
                 # Le filtrage client (episode_matches) se charge de retrouver
                 # le bon episode dans le pack de saison remonte.
                 params["season"] = str(season)
-        if self.auth_type == "header":
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        else:
-            params["apikey"] = self.api_key
+        if self.api_key:
+            if self.auth_type == "header":
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            else:
+                params["apikey"] = self.api_key
 
         if id_param:
             scraper_logger.debug(f"[{self.name}] Querying by {id_param}={id_value} (t={mode})")
@@ -328,6 +335,24 @@ class BaseTorznab:
 
                 # Extract magnet or enclosure link
                 enclosure = item.find("enclosure")
+
+                # Certains trackers (Zilean, verifie le 2026-09-25) ne mettent
+                # pas la taille en torznab:attr comme C411/Tr4ker/V3X/YggReborn,
+                # mais dans l'element RSS brut <size> et/ou enclosure@length --
+                # repli sur ces deux sources avant d'abandonner a "Unknown".
+                if size == 0:
+                    size_node = item.find("size")
+                    if size_node is not None and size_node.text:
+                        try:
+                            size = int(size_node.text)
+                        except ValueError:
+                            pass
+                if size == 0 and enclosure is not None:
+                    try:
+                        size = int(enclosure.attrib.get("length", 0))
+                    except ValueError:
+                        pass
+
                 torrent_url = None
                 if enclosure is not None:
                     torrent_url = enclosure.attrib.get("url")
