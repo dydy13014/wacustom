@@ -574,6 +574,12 @@ class StreamService:
         # l'URL de son addon Stremio et s'arrete silencieusement sans lui,
         # meme quand cet id a servi a resoudre les metadonnees TMDB juste au-dessus.
         metadata["imdb_id"] = media_info["imdb_id"]
+        # tmdb_id existe deja mais reste enterre dans metadata["enhanced"] --
+        # requis par certains trackers Torznab (C411/Tr4ker/V3X, cf. leurs caps)
+        # pour une recherche par ID exact (t=movie/t=tvsearch) plutot qu'en
+        # texte libre. Absent si get_enhanced_metadata a echoue (repli
+        # get_metadata, pas de cle "enhanced").
+        metadata["tmdb_id"] = metadata.get("enhanced", {}).get("tmdb_id")
 
         search_config = {
             **config,

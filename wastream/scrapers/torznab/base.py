@@ -60,11 +60,23 @@ def _is_relevant(title: str, release_name: str) -> bool:
 
 
 class BaseTorznab:
-    def __init__(self, name: str, url: str, api_key: str, auth_type: str = "query"):
+    def __init__(self, name: str, url: str, api_key: str, auth_type: str = "query",
+                 movie_id_params: Optional[List[str]] = None,
+                 tv_id_params: Optional[List[str]] = None):
         self.name = name
         self.url = normalize_tracker_url(name, url)
         self.api_key = api_key
         self.auth_type = auth_type  # "query" or "header"
+        # Ordre de preference des identifiants exacts que ce tracker accepte en
+        # t=movie/t=tvsearch (verifie via son endpoint ?t=caps), ex. ["imdbid",
+        # "tmdbid"]. Vide = le tracker ne supporte que la recherche texte (t=search).
+        self.movie_id_params = movie_id_params or []
+        self.tv_id_params = tv_id_params or []
+
+    @staticmethod
+    def _metadata_value(metadata: Dict, id_param: str) -> Optional[str]:
+        key = {"imdbid": "imdb_id", "tmdbid": "tmdb_id", "tvdbid": "tvdb_id"}.get(id_param)
+        return metadata.get(key) if key else None
 
     async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
                      season: Optional[str] = None, episode: Optional[str] = None,
@@ -73,24 +85,41 @@ class BaseTorznab:
             scraper_logger.debug(f"[{self.name}] URL or API key not configured, skipping")
             return []
 
+        is_tv = bool(season and episode)
+        metadata = metadata or {}
+        id_prefs = self.tv_id_params if is_tv else self.movie_id_params
+        id_param = id_value = None
+        for candidate in id_prefs:
+            value = self._metadata_value(metadata, candidate)
+            if value:
+                id_param, id_value = candidate, value
+                break
+
         # 1. Formulate search query
         search_query = title
-        if season and episode:
-            # Saison seule dans la requête, pas l'épisode : certains trackers
-            # (constaté sur C411, 2026-07-20) ne remontent JAMAIS un pack de
-            # saison ("...S03.VFF...") si la requête contient "S03E01" — leur
-            # moteur de recherche fait un matching textuel qui ne trouve pas
-            # "E01" dans un nom de pack, donc le pack n'apparaît même pas dans
-            # les résultats. Le filtrage client (episode_matches, plus bas)
-            # sait déjà repérer un pack de la bonne saison ou l'épisode exact
-            # dans un ensemble de résultats plus large — inutile de
-            # sur-préciser la requête envoyée au tracker.
-            try:
-                search_query += f" S{int(season):02d}"
-            except (ValueError, TypeError):
-                search_query += f" S{season}"
-        elif year:
-            search_query += f" {year}"
+        if id_param:
+            # Recherche par ID exact (t=movie/t=tvsearch) : season/ep passent
+            # en parametres dedies, q reste un simple filet de securite pour
+            # les trackers qui font quand meme un matching texte en plus de l'ID.
+            mode = "tvsearch" if is_tv else "movie"
+        else:
+            mode = "search"
+            if season and episode:
+                # Saison seule dans la requête, pas l'épisode : certains trackers
+                # (constaté sur C411, 2026-07-20) ne remontent JAMAIS un pack de
+                # saison ("...S03.VFF...") si la requête contient "S03E01" — leur
+                # moteur de recherche fait un matching textuel qui ne trouve pas
+                # "E01" dans un nom de pack, donc le pack n'apparaît même pas dans
+                # les résultats. Le filtrage client (episode_matches, plus bas)
+                # sait déjà repérer un pack de la bonne saison ou l'épisode exact
+                # dans un ensemble de résultats plus large — inutile de
+                # sur-préciser la requête envoyée au tracker.
+                try:
+                    search_query += f" S{int(season):02d}"
+                except (ValueError, TypeError):
+                    search_query += f" S{season}"
+            elif year:
+                search_query += f" {year}"
 
         # 2. Build request
         # La cle passe par `params` plutot que par une URL assemblee a la main :
@@ -102,13 +131,26 @@ class BaseTorznab:
         headers = {
             "User-Agent": "WAStream/1.0"
         }
-        params = {"t": "search", "q": search_query}
+        params = {"t": mode, "q": search_query}
+        if id_param:
+            params[id_param] = str(id_value)
+            if is_tv:
+                # Season seul, jamais "ep" : verifie en direct sur C411 le
+                # 2026-09-25, le parametre "ep" fait systematiquement remonter
+                # 0 resultat (meme torrent trouve sans lui) -- identique au
+                # piège deja documente plus bas pour la recherche texte libre.
+                # Le filtrage client (episode_matches) se charge de retrouver
+                # le bon episode dans le pack de saison remonte.
+                params["season"] = str(season)
         if self.auth_type == "header":
             headers["Authorization"] = f"Bearer {self.api_key}"
         else:
             params["apikey"] = self.api_key
 
-        scraper_logger.debug(f"[{self.name}] Querying: {search_query}")
+        if id_param:
+            scraper_logger.debug(f"[{self.name}] Querying by {id_param}={id_value} (t={mode})")
+        else:
+            scraper_logger.debug(f"[{self.name}] Querying: {search_query}")
 
         try:
             response = await http_client.get(self.url, headers=headers, params=params)
