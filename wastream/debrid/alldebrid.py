@@ -34,6 +34,16 @@ UNSUPPORTED_LINK_ERRORS = [
 
 VIDEO_EXTENSIONS = ('.mkv', '.mp4', '.avi', '.mov', '.wmv', '.m4v', '.ts', '.webm')
 
+# ===========================
+# AllDebrid "delayed" unlock (DDL asynchrone cote hebergeur)
+# ===========================
+# Doc officielle : repoller /link/delayed toutes les 5s ou plus jusqu'a
+# status=2 (pret, "link" fourni) ou status=3 (echec definitif). Bornee a 3
+# tentatives (~15s) pour rester dans le budget STREAM_REQUEST_TIMEOUT (20s
+# par defaut) qui couvre tout l'appel resolve_link() declenche au clic play.
+ALLDEBRID_DELAYED_POLL_INTERVAL = 5
+ALLDEBRID_DELAYED_MAX_POLLS = 3
+
 
 def _flatten_magnet_files(entries: List[Dict], prefix: str = "") -> List[Dict]:
     """Aplatit l'arborescence de fichiers renvoyée par /magnet/files.
@@ -65,6 +75,48 @@ class AllDebridService(BaseDebridService):
     @staticmethod
     def _is_direct_hoster_link(link: str) -> bool:
         return url_matches_host(link, settings.ALLDEBRID_SUPPORTED_HOSTS)
+
+    @staticmethod
+    async def _wait_for_delayed_link(api_key: str, delayed_id) -> Optional[str]:
+        """Poll /link/delayed jusqu'a obtention du lien final, echec (status 3)
+        ou epuisement du budget de tentatives. Renvoie None dans tous les cas
+        d'echec/abandon -- l'appelant retombe alors sur LINK_UNCACHED comme
+        avant, sans rien casser si ce mecanisme pose probleme un jour."""
+        for _ in range(ALLDEBRID_DELAYED_MAX_POLLS):
+            await sleep(ALLDEBRID_DELAYED_POLL_INTERVAL)
+            try:
+                resp = await http_client.get(
+                    f"{settings.ALLDEBRID_API_URL}/link/delayed",
+                    params={"agent": settings.ADDON_NAME, "apikey": api_key, "id": delayed_id},
+                    timeout=settings.HTTP_TIMEOUT
+                )
+            except Exception as e:
+                debrid_logger.error(f"[AllDebrid] Delayed poll error: {e}")
+                return None
+
+            if resp.status_code != 200:
+                debrid_logger.error(f"[AllDebrid] Delayed poll HTTP {resp.status_code}")
+                return None
+
+            data = resp.json()
+            if data.get("status") != "success":
+                error_code = data.get("error", {}).get("code", "")
+                debrid_logger.debug(f"[AllDebrid] Delayed poll failed: {error_code}")
+                return None
+
+            delayed_status = data.get("data", {}).get("status")
+            if delayed_status == 2:
+                link = data.get("data", {}).get("link")
+                if link:
+                    debrid_logger.debug("[AllDebrid] Delayed link ready")
+                return link
+            if delayed_status == 3:
+                debrid_logger.debug("[AllDebrid] Delayed link failed (status 3)")
+                return None
+            # status == 1 : toujours en cours, on repolle
+
+        debrid_logger.debug(f"[AllDebrid] Delayed link still not ready after {ALLDEBRID_DELAYED_MAX_POLLS} polls - giving up")
+        return None
 
     @staticmethod
     def _link_info_is_available(info: Dict) -> bool:
@@ -421,8 +473,12 @@ class AllDebridService(BaseDebridService):
                 return "RETRY_ERROR"
             return "FATAL_ERROR"
 
-        if "delayed" in unlock_data.get("data", {}):
-            debrid_logger.debug("[AllDebrid] Unlock delayed - uncached")
+        delayed_id = unlock_data.get("data", {}).get("delayed")
+        if delayed_id:
+            debrid_logger.debug("[AllDebrid] Unlock delayed - polling /link/delayed")
+            delayed_link = await self._wait_for_delayed_link(api_key, delayed_id)
+            if delayed_link:
+                return delayed_link
             return "LINK_UNCACHED"
 
         direct_link = unlock_data.get("data", {}).get("link")
@@ -511,8 +567,12 @@ class AllDebridService(BaseDebridService):
                     return "FATAL_ERROR"
 
                 if is_direct_link:
-                    if "delayed" in data1.get("data", {}):
-                        debrid_logger.debug("[AllDebrid] Delayed - uncached")
+                    delayed_id = data1.get("data", {}).get("delayed")
+                    if delayed_id:
+                        debrid_logger.debug("[AllDebrid] Delayed - polling /link/delayed")
+                        delayed_link = await self._wait_for_delayed_link(api_key, delayed_id)
+                        if delayed_link:
+                            return delayed_link
                         return "LINK_UNCACHED"
 
                     direct_link = data1.get("data", {}).get("link")
@@ -596,8 +656,12 @@ class AllDebridService(BaseDebridService):
                     debrid_logger.error(f"[AllDebrid] Fatal: {error_code2}")
                     return "FATAL_ERROR"
 
-                if "delayed" in data2.get("data", {}):
-                    debrid_logger.debug("[AllDebrid] Delayed - uncached")
+                delayed_id = data2.get("data", {}).get("delayed")
+                if delayed_id:
+                    debrid_logger.debug("[AllDebrid] Delayed - polling /link/delayed")
+                    delayed_link = await self._wait_for_delayed_link(api_key, delayed_id)
+                    if delayed_link:
+                        return delayed_link
                     return "LINK_UNCACHED"
 
                 direct_link = data2.get("data", {}).get("link")
