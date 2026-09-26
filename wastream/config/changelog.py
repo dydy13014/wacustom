@@ -17,6 +17,7 @@ CHANGELOG = [
             "Nombre de sources (seeders) et de leechers désormais affiché sur les résultats torrent quand l'information est disponible (Torznab, Nyaa), utile pour choisir la source la plus rapide",
             "Nyaa : badges \"Trusted\" et \"Remake\" affichés sur les résultats, quand le tracker les signale comme tels",
             "Les torrents en freeleech (déjà détectés en interne depuis la 1.4.0) sont maintenant vraiment signalés par un badge, au lieu de rester invisibles",
+            "Correction : les animes cherchés normalement dans Stremio (hors catalogue \"Anime\" dédié) ne recevaient jamais de résultats Nyaa — Nyaa ne cherchait que dans sa catégorie dramas/variétés pour ce type de recherche, jamais dans sa catégorie Anime",
         ],
     },
     {

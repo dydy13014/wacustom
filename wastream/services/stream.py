@@ -1528,6 +1528,56 @@ class StreamService:
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("nyaa", coro))
 
+        # Nyaa Anime : un vrai anime (content_name == "anime", detecte via
+        # genre TMDB 16 + mot-cle 210024 dans tmdb.py) ne recevait jusqu'ici
+        # AUCUN resultat Nyaa quand il est cherche via un ID IMDB/TVDB
+        # classique (_search_anime -> ici), car le bloc Live Action ci-dessus
+        # exclut explicitement "anime" (categorie 4_0 = dramas/variete, pas
+        # les vrais animes) -- seul le catalogue anime Kitsu de Stremio
+        # (_handle_kitsu_request) interrogeait Nyaa en categorie Anime
+        # (1_0). Meme strategie multi-titres que Live Action (titres
+        # alternatifs/romaji), simplement en categorie Anime.
+        if (
+            "nyaa" in supported_sources
+            and content_name == "anime"
+            and metadata
+            and self._is_source_allowed_for_content("nyaa", content_name, config)
+        ):
+            candidate_titles = [title]
+            for extra_title in (metadata.get("nyaa_candidate_titles") or [])[:5]:
+                if extra_title and extra_title not in candidate_titles:
+                    candidate_titles.append(extra_title)
+
+            async def _search_nyaa_anime_multi_title():
+                results_lists = await asyncio.gather(
+                    *(nyaa_scraper.search(t, year, metadata, season, episode, config, category="1_0")
+                      for t in candidate_titles),
+                    return_exceptions=True
+                )
+                seen_hashes = set()
+                merged = []
+                for r in results_lists:
+                    if not isinstance(r, list):
+                        continue
+                    for item in r:
+                        infohash = item.get("infohash")
+                        if infohash and infohash in seen_hashes:
+                            continue
+                        if infohash:
+                            seen_hashes.add(infohash)
+                        merged.append(item)
+                return merged
+
+            if use_episode_cache:
+                coro = self._search_source_with_cache(
+                    "nyaa", content_type, _search_nyaa_anime_multi_title,
+                    title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
+            else:
+                coro = self._search_source_with_cache(
+                    "nyaa", content_type, _search_nyaa_anime_multi_title,
+                    title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
+            tasks_with_sources.append(("nyaa", coro))
+
         # Source d'appoint optionnelle (absente du depot public) : lancee en
         # parallele des autres, sur chaque recherche. Elle n'apporte QUE des
         # torrents deja verifies en cache, donc lisibles immediatement — c'est
