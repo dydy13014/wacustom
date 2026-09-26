@@ -450,7 +450,7 @@ class Settings(BaseSettings):
             "id": self.ADDON_ID,
             "name": self.ADDON_NAME,
             "version": WACUSTOM_VERSION,
-            "description": "Stremio addon to convert DDL to streams via debrid services",
+            "description": "Stremio addon to convert DDL links and torrents to streams via debrid services",
             "catalogs": [],
             "resources": ["stream"],
             "types": ["movie", "series", "anime"],

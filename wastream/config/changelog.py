@@ -19,6 +19,7 @@ CHANGELOG = [
             "Les torrents en freeleech (déjà détectés en interne depuis la 1.4.0) sont maintenant vraiment signalés par un badge, au lieu de rester invisibles",
             "Correction : les animes cherchés normalement dans Stremio (hors catalogue \"Anime\" dédié) ne recevaient jamais de résultats Nyaa — Nyaa ne cherchait que dans sa catégorie dramas/variétés pour ce type de recherche, jamais dans sa catégorie Anime",
             "Correction : le logo affiché par Stremio à l'installation de l'addon était encore celui de WAStream (projet d'origine) au lieu du logo Wacustom",
+            "Correction : la description de l'addon (visible à l'installation dans Stremio) ne mentionnait que le DDL, alors que Wacustom gère aussi les torrents",
         ],
     },
     {
