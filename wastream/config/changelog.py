@@ -17,7 +17,6 @@ CHANGELOG = [
             "Nombre de sources (seeders) et de leechers désormais affiché sur les résultats torrent quand l'information est disponible (Torznab, Nyaa), utile pour choisir la source la plus rapide",
             "Nyaa : badges \"Trusted\" et \"Remake\" affichés sur les résultats, quand le tracker les signale comme tels",
             "Les torrents en freeleech (déjà détectés en interne depuis la 1.4.0) sont maintenant vraiment signalés par un badge, au lieu de rester invisibles",
-            "AllDebrid : certains liens DDL nécessitant un traitement différé côté hébergeur ne sont plus abandonnés instantanément — Wacustom attend maintenant jusqu'à 15 secondes que le lien soit prêt avant de renoncer",
         ],
     },
     {
