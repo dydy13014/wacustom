@@ -11,6 +11,15 @@ change à l'usage, pas le détail d'implémentation.
 
 CHANGELOG = [
     {
+        "version": "1.4.1",
+        "date": "2026-09-26",
+        "changes": [
+            "Nombre de sources (seeders) et de leechers désormais affiché sur les résultats torrent quand l'information est disponible (Torznab, Nyaa), utile pour choisir la source la plus rapide",
+            "Nyaa : badges \"Trusted\" et \"Remake\" affichés sur les résultats, quand le tracker les signale comme tels",
+            "Les torrents en freeleech (déjà détectés en interne depuis la 1.4.0) sont maintenant vraiment signalés par un badge, au lieu de rester invisibles",
+        ],
+    },
+    {
         "version": "1.4.0",
         "date": "2026-09-25",
         "changes": [

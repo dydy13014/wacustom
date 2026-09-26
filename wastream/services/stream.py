@@ -453,6 +453,26 @@ class StreamService:
             if source_line:
                 description_parts.append(source_line)
 
+            seeders = result.get("seeders")
+            peers = result.get("peers")
+            if seeders is not None or peers is not None:
+                health_parts = []
+                if seeders is not None:
+                    health_parts.append(f"🌱 {seeders}")
+                if peers is not None:
+                    health_parts.append(f"🔻 {peers}")
+                description_parts.append(" ".join(health_parts))
+
+            badges = []
+            if result.get("freeleech"):
+                badges.append("🆓 Freeleech")
+            if result.get("trusted"):
+                badges.append("✅ Trusted")
+            if result.get("remake"):
+                badges.append("⚠️ Remake")
+            if badges:
+                description_parts.append(" ".join(badges))
+
             if display_name and display_name != "Unknown":
                 description_parts.append(f"📁 {display_name}")
 

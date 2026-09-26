@@ -62,6 +62,16 @@ class NyaaScraper:
                 size_node = item.find(f"{{{NYAA_NS}}}size")
                 size_str = self._normalize_nyaa_size(size_node.text if size_node is not None else None)
 
+                seeders_node = item.find(f"{{{NYAA_NS}}}seeders")
+                peers_node = item.find(f"{{{NYAA_NS}}}leechers")
+                trusted_node = item.find(f"{{{NYAA_NS}}}trusted")
+                remake_node = item.find(f"{{{NYAA_NS}}}remake")
+
+                seeders = self._parse_int(seeders_node.text if seeders_node is not None else None)
+                peers = self._parse_int(peers_node.text if peers_node is not None else None)
+                trusted = (trusted_node is not None and trusted_node.text == "Yes")
+                remake = (remake_node is not None and remake_node.text == "Yes")
+
                 # Recherche full-text laxiste côté Nyaa : re-valider localement
                 # que la release correspond bien à l'épisode demandé.
                 #
@@ -103,8 +113,14 @@ class NyaaScraper:
                     "hoster": "Torrent",
                     "size": size_str,
                     "display_name": display_name,
-                    "model_type": "torrent"
+                    "model_type": "torrent",
+                    "trusted": trusted,
+                    "remake": remake,
                 }
+                if seeders is not None:
+                    result["seeders"] = seeders
+                if peers is not None:
+                    result["peers"] = peers
                 if season:
                     result["season"] = str(season)
                 if episode:
@@ -119,6 +135,15 @@ class NyaaScraper:
         except Exception as e:
             scraper_logger.error(f"[Nyaa] Error searching: {e}")
             return []
+
+    @staticmethod
+    def _parse_int(raw: Optional[str]) -> Optional[int]:
+        if raw is None:
+            return None
+        try:
+            return int(raw.strip())
+        except (ValueError, AttributeError):
+            return None
 
     @staticmethod
     def _normalize_nyaa_size(raw: Optional[str]) -> str:
