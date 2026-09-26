@@ -458,8 +458,8 @@ class Settings(BaseSettings):
             "behaviorHints": {
                 "configurable": True
             },
-            "logo": "https://gitlab.com/10ho/wastream/-/raw/main/wastream/public/wastream-logo.jpg",
-            "background": "https://gitlab.com/10ho/wastream/-/raw/main/wastream/public/wastream-background.png"
+            "logo": "https://raw.githubusercontent.com/dydy13014/wacustom/main/wastream/public/wastream-logo.png",
+            "background": "https://raw.githubusercontent.com/dydy13014/wacustom/main/wastream/public/wastream-background.png"
         }
 
     def get_database_url(self) -> str:
