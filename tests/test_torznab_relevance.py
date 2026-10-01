@@ -6,6 +6,11 @@ _is_relevant doit rejeter ces faux positifs, mais sans rejeter a tort de
 vrais resultats a cause d'un titre contenant une apostrophe ou un accent
 (ex: "Charlie's Angels", "Amelie"). Voir les docstrings dans
 wastream/scrapers/torznab/base.py.
+
+Bug reel du 2026-09-30 (V3X, "L'Arene") : une elision francaise ("L'", "D'",
+"Qu'"...) suit la convention scene inverse du genitif anglais -- separee au
+point ("L.Arene"), jamais fusionnee ("LArene") -- et se faisait rejeter a
+tort meme quand la recherche par tmdb_id remontait le bon torrent.
 """
 from wastream.scrapers.torznab.base import _is_relevant
 
@@ -34,3 +39,21 @@ def test_unrelated_release_is_rejected():
 
 def test_empty_title_is_always_relevant():
     assert _is_relevant("", "Anything.At.All.1080p") is True
+
+
+def test_french_elision_title_matches_release_with_split_apostrophe():
+    # Cas reel V3X 2026-09-30 : "L'Arene" -> "L.Arene.S01E01...", pas "LArene".
+    assert _is_relevant("L'Arène", "L.Arene.S01E01.FRENCH.1080p.WEB.H265-GL0P") is True
+
+
+def test_french_elision_with_d_apostrophe():
+    assert _is_relevant("D'Artagnan", "D.Artagnan.2023.FRENCH.1080p.BluRay") is True
+
+
+def test_genitive_and_elision_both_still_correctly_rejected_when_unrelated():
+    # Les deux strategies de decoupage (fusion + separation) doivent rester
+    # capables de rejeter un vrai hors-sujet, pas juste devenir permissives.
+    assert _is_relevant(
+        "L'Arène",
+        "Isekai.Another.World.Adventure.S03E12.VOSTFR.1080p"
+    ) is False

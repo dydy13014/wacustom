@@ -28,14 +28,27 @@ _STOPWORDS = {
 _MIN_RELEVANCE_RATIO = 0.6
 
 
-def _relevance_tokens(text: str) -> set:
+def _relevance_tokens_fused(text: str) -> set:
     """Tokens comparables pour le calcul de pertinence. Les apostrophes sont
-    fusionnées (retirées sans espace), pas remplacées par un séparateur : la
-    convention scène réelle pour un titre comme "Charlie's Angels" ou
-    "Ocean's Eleven" est de coller la lettre restante ("Charlies.Angels",
-    "Oceans.Eleven"), pas de la séparer. `normalize_text` gère ensuite accents
-    et ponctuation restante."""
+    fusionnées (retirées sans espace) : la convention scène pour un génitif
+    anglais comme "Charlie's Angels" ou "Ocean's Eleven" est de coller la
+    lettre restante ("Charlies.Angels", "Oceans.Eleven"), pas de la séparer.
+    `normalize_text` gère ensuite accents et ponctuation restante."""
     return set(normalize_text(text.replace("'", "").replace("’", "")).split())
+
+
+def _relevance_tokens_split(text: str) -> set:
+    """Variante pour les élisions françaises ("L'Arène", "D'Artagnan",
+    "Qu'est-ce que...") : contrairement au génitif anglais (cf.
+    `_relevance_tokens_fused`), la convention scène sépare ces mots au point
+    plutôt que de les fusionner ("L.Arene.S01E01...", jamais "LArene...").
+    Bug réel constaté le 2026-09-30 sur V3X : la recherche par tmdb_id
+    remontait bien le bon torrent ("L.Arene.S01E01.FRENCH..."), mais
+    `_is_relevant` le rejetait car "L'Arène" fusionné ("larene") ne matche
+    aucun token de la release ("l", "arene" séparés) — un résultat par ID
+    pourtant correct était jeté comme si le tracker était parti en repli
+    "tendance" hors-sujet."""
+    return set(normalize_text(text.replace("'", " ").replace("’", " ")).split())
 
 
 def _is_relevant(title: str, release_name: str) -> bool:
@@ -46,18 +59,27 @@ def _is_relevant(title: str, release_name: str) -> bool:
     a renvoyé des animes isekai totalement étrangers. On revalide localement
     que le titre du résultat contient l'essentiel des mots du titre demandé.
 
-    Comparaison via `_relevance_tokens` plutôt que `tokenize_filename` : ce
+    Comparaison via `_relevance_tokens_*` plutôt que `tokenize_filename` : ce
     dernier ne touche ni aux apostrophes ni aux accents, donc un titre FR
     comme "Charlie's Angels" ou "Amélie" ne matchait jamais un nom de release
     qui les écrit différemment — de vrais résultats étaient donc rejetés en
     silence par ce filtre anti-pollution, sur un projet francophone où ce cas
-    est courant."""
-    title_tokens = {t for t in _relevance_tokens(title) if len(t) > 1 and t not in _STOPWORDS}
-    if not title_tokens:
-        return True
-    release_tokens = _relevance_tokens(release_name) - _STOPWORDS
-    matched = len(title_tokens & release_tokens)
-    return (matched / len(title_tokens)) >= _MIN_RELEVANCE_RATIO
+    est courant.
+
+    Deux conventions de découpage existent (fusion à l'anglaise vs séparation
+    à la française) et sont testées l'une après l'autre : accepter dès que
+    l'UNE des deux dépasse le seuil, jamais les combiner dans un même calcul
+    (les mots fusionnés/séparés diluent sinon le ratio de l'autre stratégie
+    et font échouer les deux artificiellement)."""
+    for tokens_fn in (_relevance_tokens_fused, _relevance_tokens_split):
+        title_tokens = {t for t in tokens_fn(title) if len(t) > 1 and t not in _STOPWORDS}
+        if not title_tokens:
+            return True
+        release_tokens = tokens_fn(release_name) - _STOPWORDS
+        matched = len(title_tokens & release_tokens)
+        if (matched / len(title_tokens)) >= _MIN_RELEVANCE_RATIO:
+            return True
+    return False
 
 
 _KNOWN_ID_PARAMS = ("imdbid", "tmdbid", "tvdbid")
