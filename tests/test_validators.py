@@ -123,17 +123,17 @@ def test_validate_config_defaults_applied():
 # ===========================
 def test_extract_media_info_kitsu_with_episode():
     info = extract_media_info("kitsu:12345:7", "series")
-    assert info == {"kitsu_id": "12345", "episode": "7", "season": "1", "imdb_id": None}
+    assert info == {"kitsu_id": "12345", "episode": "7", "season": "1", "imdb_id": None, "tmdb_id": None}
 
 
 def test_extract_media_info_kitsu_without_episode():
     info = extract_media_info("kitsu:12345", "movie")
-    assert info == {"kitsu_id": "12345", "episode": None, "season": "1", "imdb_id": None}
+    assert info == {"kitsu_id": "12345", "episode": None, "season": "1", "imdb_id": None, "tmdb_id": None}
 
 
 def test_extract_media_info_series_with_season_episode():
     info = extract_media_info("tt1234567:2:5", "series")
-    assert info == {"imdb_id": "tt1234567", "season": "2", "episode": "5", "kitsu_id": None}
+    assert info == {"imdb_id": "tt1234567", "season": "2", "episode": "5", "kitsu_id": None, "tmdb_id": None}
 
 
 def test_extract_media_info_series_missing_episode_defaults_to_1():
@@ -146,7 +146,7 @@ def test_extract_media_info_series_missing_episode_defaults_to_1():
 
 def test_extract_media_info_movie_plain_imdb_id():
     info = extract_media_info("tt1234567", "movie")
-    assert info == {"imdb_id": "tt1234567", "season": None, "episode": None, "kitsu_id": None}
+    assert info == {"imdb_id": "tt1234567", "season": None, "episode": None, "kitsu_id": None, "tmdb_id": None}
 
 
 def test_extract_media_info_strips_json_suffix():
@@ -158,4 +158,38 @@ def test_extract_media_info_series_without_colon_treated_as_movie_like():
     # Pas de ":" dans le content_id pour une serie -> branche finale (pas de
     # saison/episode extraits), comportement identique a un film.
     info = extract_media_info("tt1234567", "series")
-    assert info == {"imdb_id": "tt1234567", "season": None, "episode": None, "kitsu_id": None}
+    assert info == {"imdb_id": "tt1234567", "season": None, "episode": None, "kitsu_id": None, "tmdb_id": None}
+
+
+# ===========================
+# extract_media_info - tmdb: (catalogues sans IMDb id, ex. AIOMetadata)
+# ===========================
+def test_extract_media_info_tmdb_series_with_season_episode():
+    info = extract_media_info("tmdb:335292:1:5", "series")
+    assert info == {"tmdb_id": "335292", "season": "1", "episode": "5", "imdb_id": None, "kitsu_id": None}
+
+
+def test_extract_media_info_tmdb_series_missing_episode_defaults_to_1():
+    info = extract_media_info("tmdb:335292:1", "series")
+    assert info["season"] == "1"
+    assert info["episode"] == "1"
+
+
+def test_extract_media_info_tmdb_movie_plain():
+    info = extract_media_info("tmdb:12345", "movie")
+    assert info == {"tmdb_id": "12345", "season": "1", "episode": "1", "imdb_id": None, "kitsu_id": None}
+
+
+def test_extract_media_info_tmdb_strips_json_suffix():
+    info = extract_media_info("tmdb:335292:1:5.json", "series")
+    assert info["tmdb_id"] == "335292"
+    assert info["season"] == "1"
+    assert info["episode"] == "5"
+
+
+def test_extract_media_info_tmdb_never_misparsed_as_imdb_id():
+    # Regression : avant le fix, la branche generique series prenait "tmdb"
+    # (litteralement) pour l'imdb_id et decalait tmdb_id/saison d'un cran.
+    info = extract_media_info("tmdb:335292:1:5", "series")
+    assert info["imdb_id"] != "tmdb"
+    assert info["season"] != "335292"

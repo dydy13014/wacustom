@@ -164,7 +164,22 @@ def extract_media_info(content_id: str, content_type: str) -> Dict[str, Optional
             "kitsu_id": parts[1] if len(parts) > 1 else "",
             "episode": parts[2] if len(parts) > 2 else None,
             "season": "1",
-            "imdb_id": None
+            "imdb_id": None,
+            "tmdb_id": None
+        }
+
+    # Catalogues (ex. AIOMetadata) retombent sur un ID `tmdb:<id>` quand TMDB
+    # n'a pas encore d'IMDb ID lie (titre trop recent/niche). Sans ce
+    # branchement, le split generique ci-dessous prenait "tmdb" pour l'IMDb
+    # ID et decalait saison/episode d'un cran (tmdb_id pris pour la saison).
+    if content_id_formatted.startswith("tmdb:"):
+        parts = content_id_formatted.split(":")
+        return {
+            "tmdb_id": parts[1] if len(parts) > 1 else None,
+            "season": parts[2] if len(parts) > 2 else "1",
+            "episode": parts[3] if len(parts) > 3 else "1",
+            "imdb_id": None,
+            "kitsu_id": None
         }
 
     if content_type == "series" and ":" in content_id_formatted:
@@ -173,12 +188,14 @@ def extract_media_info(content_id: str, content_type: str) -> Dict[str, Optional
             "imdb_id": parts[0],
             "season": parts[1] if len(parts) > 1 else "1",
             "episode": parts[2] if len(parts) > 2 else "1",
-            "kitsu_id": None
+            "kitsu_id": None,
+            "tmdb_id": None
         }
 
     return {
         "imdb_id": content_id_formatted,
         "season": None,
         "episode": None,
-        "kitsu_id": None
+        "kitsu_id": None,
+        "tmdb_id": None
     }

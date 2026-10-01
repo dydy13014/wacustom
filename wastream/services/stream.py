@@ -594,13 +594,23 @@ class StreamService:
             else:
                 return await self._handle_kitsu_request(media_info, config, base_url, start_time)
 
-        metadata = await self._get_metadata(
-            media_info["imdb_id"],
-            config.get("tmdb_api_token", "")
-        )
+        # Catalogues (ex. AIOMetadata) retombent sur un ID `tmdb:<id>` quand
+        # TMDB n'a pas encore d'IMDb id lie (titre trop recent/niche, cf.
+        # "Rescape" S01E05 le 2026-09-30) -- resolution directe par tmdb_id
+        # dans ce cas, sans passer par le lookup IMDb qui echouerait toujours.
+        if media_info.get("tmdb_id"):
+            metadata = await self._get_metadata_by_tmdb_id(
+                media_info["tmdb_id"], content_type,
+                config.get("tmdb_api_token", "")
+            )
+        else:
+            metadata = await self._get_metadata(
+                media_info["imdb_id"],
+                config.get("tmdb_api_token", "")
+            )
 
         if not metadata:
-            stream_logger.error(f"TMDB metadata failed for {media_info['imdb_id']}")
+            stream_logger.error(f"TMDB metadata failed for {media_info.get('tmdb_id') or media_info['imdb_id']}")
             return []
 
         # get_enhanced_metadata()/get_metadata() ne reportent jamais l'IMDB id
@@ -608,7 +618,7 @@ class StreamService:
         # AIOSourcesScraper.search() lit metadata.get("imdb_id") pour construire
         # l'URL de son addon Stremio et s'arrete silencieusement sans lui,
         # meme quand cet id a servi a resoudre les metadonnees TMDB juste au-dessus.
-        metadata["imdb_id"] = media_info["imdb_id"]
+        metadata["imdb_id"] = media_info["imdb_id"] or metadata.get("enhanced", {}).get("imdb_id")
         # tmdb_id existe deja mais reste enterre dans metadata["enhanced"] --
         # requis par certains trackers Torznab (C411/Tr4ker/V3X, cf. leurs caps)
         # pour une recherche par ID exact (t=movie/t=tvsearch) plutot qu'en
@@ -763,6 +773,32 @@ class StreamService:
 
         except Exception as e:
             stream_logger.error(f"Metadata fetch error: {type(e).__name__}: {e}")
+            return None
+
+    async def _get_metadata_by_tmdb_id(self, tmdb_id: str, content_type: str,
+                                        tmdb_api_token: str) -> Optional[Dict]:
+        """Pendant de _get_metadata() pour le cas ou content_id n'a pas
+        d'IMDb id (ID `tmdb:<id>` cote catalogue, cf. extract_media_info)."""
+        if not tmdb_api_token or not tmdb_api_token.strip():
+            stream_logger.error("No TMDB token")
+            return None
+
+        try:
+            enhanced_metadata = await tmdb_service.get_enhanced_metadata_by_tmdb_id(
+                tmdb_id, content_type, tmdb_api_token
+            )
+            if enhanced_metadata:
+                return {
+                    "title": enhanced_metadata["titles"][0] if enhanced_metadata["titles"] else "",
+                    "year": enhanced_metadata["year"],
+                    "type": enhanced_metadata["type"],
+                    "enhanced": enhanced_metadata
+                }
+
+            return await tmdb_service.get_metadata_by_tmdb_id(tmdb_id, content_type, tmdb_api_token)
+
+        except Exception as e:
+            stream_logger.error(f"Metadata fetch by tmdb_id error: {type(e).__name__}: {e}")
             return None
 
     async def _search_content(self, title: str, year: Optional[str],

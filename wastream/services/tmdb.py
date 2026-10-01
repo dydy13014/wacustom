@@ -11,6 +11,186 @@ class TMDBService:
 
     BASE_URL = settings.TMDB_API_URL
 
+    async def _build_movie_metadata(self, movie_id: int, headers: Dict[str, str],
+                                     known_imdb_id: Optional[str], release_date: str = "") -> Optional[Dict]:
+        details_url = f"{self.BASE_URL}/movie/{movie_id}?append_to_response=translations,alternative_titles,external_ids"
+        details_response = await http_client.get(details_url, headers=headers, timeout=settings.METADATA_TIMEOUT)
+
+        if details_response.status_code != 200:
+            metadata_logger.error(f"[TMDB] Movie details API error: {details_response.status_code}")
+            return None
+
+        details = details_response.json()
+
+        titles = []
+        original_titles = []
+
+        if details.get("title"):
+            titles.append(details["title"].lower())
+            original_titles.append(details["title"])
+        if details.get("original_title") and details["original_title"].lower() not in titles:
+            titles.append(details["original_title"].lower())
+            original_titles.append(details["original_title"])
+
+        cz_title = None
+
+        if details.get("translations", {}).get("translations"):
+            for trans in details["translations"]["translations"]:
+                if trans.get("iso_639_1") == "fr" and trans.get("data", {}).get("title"):
+                    fr_title = trans["data"]["title"]
+                    if fr_title.lower() not in titles:
+                        titles.append(fr_title.lower())
+                        original_titles.append(fr_title)
+                        metadata_logger.debug(f"[TMDB] Added French title: {fr_title}")
+                if trans.get("iso_639_1") == "cs" and trans.get("data", {}).get("title"):
+                    cz_title = trans["data"]["title"]
+                    metadata_logger.debug(f"[TMDB] Found Czech title: {cz_title}")
+
+        # cf. commentaire equivalent cote serie : liste separee et
+        # plafonnee, consommee uniquement par le bloc Nyaa Live
+        # Action — ne jamais fusionner dans titles/original_titles
+        # (utilises par TOUTES les sources + le retitrage generique
+        # de get_streams, risque de rate-limit en cascade).
+        seen_lower = set(titles)
+        nyaa_candidate_titles = []
+        for alt in details.get("alternative_titles", {}).get("titles", []):
+            alt_title = alt.get("title")
+            if alt_title and alt_title.lower() not in seen_lower:
+                seen_lower.add(alt_title.lower())
+                nyaa_candidate_titles.append(alt_title)
+                if len(nyaa_candidate_titles) >= 5:
+                    break
+
+        year = (release_date or details.get("release_date", "")).split("-")[0]
+
+        # imdb_id connu (chemin /find par IMDb id) ou resolu via external_ids
+        # (chemin par tmdb_id -- catalogues comme AIOMetadata qui n'ont pas
+        # encore de lien IMDb, cf. tmdb_id branch dans extract_media_info).
+        imdb_id = known_imdb_id or details.get("external_ids", {}).get("imdb_id")
+
+        metadata_logger.debug(f"[TMDB] Movie: {len(titles)} titles")
+        return {
+            "imdb_id": imdb_id,
+            "tmdb_id": movie_id,
+            "titles": titles,
+            "original_titles": original_titles,
+            "cz_title": cz_title,
+            "year": year,
+            "type": "movie",
+            "content_type": "movies",
+            "original_language": details.get("original_language"),
+            "nyaa_candidate_titles": nyaa_candidate_titles
+        }
+
+    async def _build_series_metadata(self, tv_id: int, headers: Dict[str, str],
+                                      known_imdb_id: Optional[str], first_air_date: str = "",
+                                      genre_ids: Optional[List[int]] = None) -> Optional[Dict]:
+        details_url = f"{self.BASE_URL}/tv/{tv_id}?append_to_response=translations,keywords,alternative_titles,external_ids"
+        details_response = await http_client.get(details_url, headers=headers, timeout=settings.METADATA_TIMEOUT)
+
+        if details_response.status_code != 200:
+            metadata_logger.error(f"[TMDB] Series details API error: {details_response.status_code}")
+            return None
+
+        details = details_response.json()
+
+        titles = []
+        original_titles = []
+
+        if details.get("name"):
+            titles.append(details["name"].lower())
+            original_titles.append(details["name"])
+        if details.get("original_name") and details["original_name"].lower() not in titles:
+            titles.append(details["original_name"].lower())
+            original_titles.append(details["original_name"])
+
+        cz_title = None
+
+        if details.get("translations", {}).get("translations"):
+            for trans in details["translations"]["translations"]:
+                if trans.get("iso_639_1") == "fr" and trans.get("data", {}).get("name"):
+                    fr_name = trans["data"]["name"]
+                    if fr_name.lower() not in titles:
+                        titles.append(fr_name.lower())
+                        original_titles.append(fr_name)
+                        metadata_logger.debug(f"[TMDB] Added French title: {fr_name}")
+                if trans.get("iso_639_1") == "cs" and trans.get("data", {}).get("name"):
+                    cz_title = trans["data"]["name"]
+                    metadata_logger.debug(f"[TMDB] Found Czech title: {cz_title}")
+
+        # `translations` ne couvre que les traductions d'interface UI
+        # (langues installees sur TMDB) — le titre international
+        # "officiel" utilise par les groupes de release/fansub (ex.
+        # "Old Enough" pour une fiche JP nommee differemment en
+        # name/original_name) vit dans un endpoint distinct,
+        # `alternative_titles`, jamais interroge jusqu'ici.
+        #
+        # ⚠️ Stocke a PART de `titles`/`original_titles` : ces deux
+        # listes alimentent a la fois le retitrage generique de
+        # get_streams (toutes sources : Wawacity, Torznab, etc.) ET
+        # potentiellement des dizaines d'entrees par pays. Melange
+        # constate en reel le 2026-08-01 : rate-limit Nyaa/C411 (429
+        # en rafale) + verrous Wawacity satures — la recherche
+        # entiere s'est effondree. `nyaa_candidate_titles` est donc
+        # une liste separee, plafonnee, consommee uniquement par le
+        # bloc Nyaa Live Action dans stream.py.
+        seen_lower = set(titles)
+        nyaa_candidate_titles = []
+        for alt in details.get("alternative_titles", {}).get("results", []):
+            alt_title = alt.get("title")
+            if alt_title and alt_title.lower() not in seen_lower:
+                seen_lower.add(alt_title.lower())
+                nyaa_candidate_titles.append(alt_title)
+                if len(nyaa_candidate_titles) >= 5:
+                    break
+
+        year = (first_air_date or details.get("first_air_date", "")).split("-")[0]
+
+        content_type = "series"
+        resolved_genre_ids = genre_ids if genre_ids is not None else [g.get("id") for g in details.get("genres", [])]
+
+        if 16 in resolved_genre_ids:
+            keywords = details.get("keywords", {}).get("results", [])
+            keyword_ids = [kw.get("id") for kw in keywords]
+
+            if 210024 in keyword_ids:
+                content_type = "anime"
+
+        seasons_data = []
+        for season in details.get("seasons", []):
+            season_number = season.get("season_number", 0)
+            if season_number > 0:
+                seasons_data.append({
+                    "number": season_number,
+                    "episode_count": season.get("episode_count", 0)
+                })
+        seasons_data.sort(key=lambda s: s["number"])
+
+        # imdb_id connu (chemin /find par IMDb id) ou resolu via external_ids
+        # (chemin par tmdb_id -- catalogues comme AIOMetadata qui n'ont pas
+        # encore de lien IMDb, cf. tmdb_id branch dans extract_media_info).
+        imdb_id = known_imdb_id or details.get("external_ids", {}).get("imdb_id")
+
+        metadata_logger.debug(f"[TMDB] Series: {len(titles)} titles ({content_type})")
+        return {
+            "imdb_id": imdb_id,
+            "tmdb_id": tv_id,
+            # tvdbid est le premier choix de certains trackers Torznab
+            # (Tr4ker) pour t=tvsearch -- recupere via external_ids,
+            # deja ajoute au meme appel append_to_response ci-dessus,
+            # aucune requete TMDB supplementaire.
+            "tvdb_id": details.get("external_ids", {}).get("tvdb_id"),
+            "titles": titles,
+            "original_titles": original_titles,
+            "cz_title": cz_title,
+            "year": year,
+            "type": "series",
+            "content_type": content_type,
+            "seasons": seasons_data,
+            "original_language": details.get("original_language"),
+            "nyaa_candidate_titles": nyaa_candidate_titles
+        }
+
     async def get_enhanced_metadata(self, imdb_id: str, tmdb_api_token: str) -> Optional[Dict]:
         if not tmdb_api_token or not tmdb_api_token.strip():
             metadata_logger.error("[TMDB] Empty token")
@@ -36,179 +216,19 @@ class TMDBService:
             if data.get("movie_results"):
                 metadata_logger.debug(f"[TMDB] Found {len(data['movie_results'])} movie results")
                 movie = data["movie_results"][0]
-                movie_id = movie["id"]
-
-                details_url = f"{self.BASE_URL}/movie/{movie_id}?append_to_response=translations,alternative_titles"
-                details_response = await http_client.get(details_url, headers=headers, timeout=settings.METADATA_TIMEOUT)
-
-                if details_response.status_code != 200:
-                    metadata_logger.error(f"[TMDB] Movie details API error: {details_response.status_code}")
-                    return None
-
-                if details_response.status_code == 200:
-                    details = details_response.json()
-
-                    titles = []
-                    original_titles = []
-
-                    if details.get("title"):
-                        titles.append(details["title"].lower())
-                        original_titles.append(details["title"])
-                    if details.get("original_title") and details["original_title"].lower() not in titles:
-                        titles.append(details["original_title"].lower())
-                        original_titles.append(details["original_title"])
-
-                    cz_title = None
-
-                    if details.get("translations", {}).get("translations"):
-                        for trans in details["translations"]["translations"]:
-                            if trans.get("iso_639_1") == "fr" and trans.get("data", {}).get("title"):
-                                fr_title = trans["data"]["title"]
-                                if fr_title.lower() not in titles:
-                                    titles.append(fr_title.lower())
-                                    original_titles.append(fr_title)
-                                    metadata_logger.debug(f"[TMDB] Added French title: {fr_title}")
-                            if trans.get("iso_639_1") == "cs" and trans.get("data", {}).get("title"):
-                                cz_title = trans["data"]["title"]
-                                metadata_logger.debug(f"[TMDB] Found Czech title: {cz_title}")
-
-                    # cf. commentaire equivalent cote serie : liste separee et
-                    # plafonnee, consommee uniquement par le bloc Nyaa Live
-                    # Action — ne jamais fusionner dans titles/original_titles
-                    # (utilises par TOUTES les sources + le retitrage generique
-                    # de get_streams, risque de rate-limit en cascade).
-                    seen_lower = set(titles)
-                    nyaa_candidate_titles = []
-                    for alt in details.get("alternative_titles", {}).get("titles", []):
-                        alt_title = alt.get("title")
-                        if alt_title and alt_title.lower() not in seen_lower:
-                            seen_lower.add(alt_title.lower())
-                            nyaa_candidate_titles.append(alt_title)
-                            if len(nyaa_candidate_titles) >= 5:
-                                break
-
-                    year = movie.get("release_date", "").split("-")[0]
-
-                    metadata_logger.debug(f"[TMDB] Movie: {len(titles)} titles")
-                    return {
-                        "imdb_id": imdb_id,
-                        "tmdb_id": movie_id,
-                        "titles": titles,
-                        "original_titles": original_titles,
-                        "cz_title": cz_title,
-                        "year": year,
-                        "type": "movie",
-                        "content_type": "movies",
-                        "original_language": details.get("original_language"),
-                        "nyaa_candidate_titles": nyaa_candidate_titles
-                    }
+                return await self._build_movie_metadata(
+                    movie["id"], headers, known_imdb_id=imdb_id,
+                    release_date=movie.get("release_date", "")
+                )
 
             elif data.get("tv_results"):
                 metadata_logger.debug(f"[TMDB] Found {len(data['tv_results'])} series results")
                 tv_show = data["tv_results"][0]
-                tv_id = tv_show["id"]
-
-                details_url = f"{self.BASE_URL}/tv/{tv_id}?append_to_response=translations,keywords,alternative_titles,external_ids"
-                details_response = await http_client.get(details_url, headers=headers, timeout=settings.METADATA_TIMEOUT)
-
-                if details_response.status_code != 200:
-                    metadata_logger.error(f"[TMDB] Series details API error: {details_response.status_code}")
-                    return None
-
-                if details_response.status_code == 200:
-                    details = details_response.json()
-
-                    titles = []
-                    original_titles = []
-
-                    if details.get("name"):
-                        titles.append(details["name"].lower())
-                        original_titles.append(details["name"])
-                    if details.get("original_name") and details["original_name"].lower() not in titles:
-                        titles.append(details["original_name"].lower())
-                        original_titles.append(details["original_name"])
-
-                    cz_title = None
-
-                    if details.get("translations", {}).get("translations"):
-                        for trans in details["translations"]["translations"]:
-                            if trans.get("iso_639_1") == "fr" and trans.get("data", {}).get("name"):
-                                fr_name = trans["data"]["name"]
-                                if fr_name.lower() not in titles:
-                                    titles.append(fr_name.lower())
-                                    original_titles.append(fr_name)
-                                    metadata_logger.debug(f"[TMDB] Added French title: {fr_name}")
-                            if trans.get("iso_639_1") == "cs" and trans.get("data", {}).get("name"):
-                                cz_title = trans["data"]["name"]
-                                metadata_logger.debug(f"[TMDB] Found Czech title: {cz_title}")
-
-                    # `translations` ne couvre que les traductions d'interface UI
-                    # (langues installees sur TMDB) — le titre international
-                    # "officiel" utilise par les groupes de release/fansub (ex.
-                    # "Old Enough" pour une fiche JP nommee differemment en
-                    # name/original_name) vit dans un endpoint distinct,
-                    # `alternative_titles`, jamais interroge jusqu'ici.
-                    #
-                    # ⚠️ Stocke a PART de `titles`/`original_titles` : ces deux
-                    # listes alimentent a la fois le retitrage generique de
-                    # get_streams (toutes sources : Wawacity, Torznab, etc.) ET
-                    # potentiellement des dizaines d'entrees par pays. Melange
-                    # constate en reel le 2026-08-01 : rate-limit Nyaa/C411 (429
-                    # en rafale) + verrous Wawacity satures — la recherche
-                    # entiere s'est effondree. `nyaa_candidate_titles` est donc
-                    # une liste separee, plafonnee, consommee uniquement par le
-                    # bloc Nyaa Live Action dans stream.py.
-                    seen_lower = set(titles)
-                    nyaa_candidate_titles = []
-                    for alt in details.get("alternative_titles", {}).get("results", []):
-                        alt_title = alt.get("title")
-                        if alt_title and alt_title.lower() not in seen_lower:
-                            seen_lower.add(alt_title.lower())
-                            nyaa_candidate_titles.append(alt_title)
-                            if len(nyaa_candidate_titles) >= 5:
-                                break
-
-                    year = tv_show.get("first_air_date", "").split("-")[0]
-
-                    content_type = "series"
-                    genre_ids = tv_show.get("genre_ids", [])
-
-                    if 16 in genre_ids:
-                        keywords = details.get("keywords", {}).get("results", [])
-                        keyword_ids = [kw.get("id") for kw in keywords]
-
-                        if 210024 in keyword_ids:
-                            content_type = "anime"
-
-                    seasons_data = []
-                    for season in details.get("seasons", []):
-                        season_number = season.get("season_number", 0)
-                        if season_number > 0:
-                            seasons_data.append({
-                                "number": season_number,
-                                "episode_count": season.get("episode_count", 0)
-                            })
-                    seasons_data.sort(key=lambda s: s["number"])
-
-                    metadata_logger.debug(f"[TMDB] Series: {len(titles)} titles ({content_type})")
-                    return {
-                        "imdb_id": imdb_id,
-                        "tmdb_id": tv_id,
-                        # tvdbid est le premier choix de certains trackers Torznab
-                        # (Tr4ker) pour t=tvsearch -- recupere via external_ids,
-                        # deja ajoute au meme appel append_to_response ci-dessus,
-                        # aucune requete TMDB supplementaire.
-                        "tvdb_id": details.get("external_ids", {}).get("tvdb_id"),
-                        "titles": titles,
-                        "original_titles": original_titles,
-                        "cz_title": cz_title,
-                        "year": year,
-                        "type": "series",
-                        "content_type": content_type,
-                        "seasons": seasons_data,
-                        "original_language": details.get("original_language"),
-                        "nyaa_candidate_titles": nyaa_candidate_titles
-                    }
+                return await self._build_series_metadata(
+                    tv_show["id"], headers, known_imdb_id=imdb_id,
+                    first_air_date=tv_show.get("first_air_date", ""),
+                    genre_ids=tv_show.get("genre_ids", [])
+                )
 
             metadata_logger.debug(f"[TMDB] No metadata: {imdb_id}")
             return None
@@ -217,8 +237,50 @@ class TMDBService:
             metadata_logger.error(f"[TMDB] Fetch error: {type(e).__name__}: {e}")
             return None
 
+    async def get_enhanced_metadata_by_tmdb_id(self, tmdb_id: str, content_type: str,
+                                                tmdb_api_token: str) -> Optional[Dict]:
+        """Resout les metadonnees directement par ID TMDB, sans passer par
+        /find (qui exige un IMDb id). Necessaire pour les contenus trop
+        recents/niche que TMDB n'a pas encore lies a une fiche IMDb -- les
+        catalogues comme AIOMetadata exposent alors un ID `tmdb:<id>` a la
+        place d'un `tt...`, cf. extract_media_info."""
+        if not tmdb_api_token or not tmdb_api_token.strip():
+            metadata_logger.error("[TMDB] Empty token")
+            return None
+
+        if not tmdb_id or not str(tmdb_id).strip():
+            metadata_logger.error("[TMDB] Empty TMDB ID")
+            return None
+
+        metadata_logger.debug(f"[TMDB] Fetching by tmdb_id: {tmdb_id} ({content_type})")
+
+        headers = {
+            "Authorization": f"Bearer {tmdb_api_token}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            if content_type == "movie":
+                return await self._build_movie_metadata(int(tmdb_id), headers, known_imdb_id=None)
+            else:
+                return await self._build_series_metadata(int(tmdb_id), headers, known_imdb_id=None)
+        except Exception as e:
+            metadata_logger.error(f"[TMDB] Fetch by tmdb_id error: {type(e).__name__}: {e}")
+            return None
+
     async def get_metadata(self, imdb_id: str, tmdb_api_token: str) -> Optional[Dict]:
         enhanced = await self.get_enhanced_metadata(imdb_id, tmdb_api_token)
+        if enhanced:
+            return {
+                "title": enhanced["titles"][0] if enhanced["titles"] else "",
+                "year": enhanced["year"],
+                "type": enhanced["type"]
+            }
+        return None
+
+    async def get_metadata_by_tmdb_id(self, tmdb_id: str, content_type: str,
+                                       tmdb_api_token: str) -> Optional[Dict]:
+        enhanced = await self.get_enhanced_metadata_by_tmdb_id(tmdb_id, content_type, tmdb_api_token)
         if enhanced:
             return {
                 "title": enhanced["titles"][0] if enhanced["titles"] else "",
