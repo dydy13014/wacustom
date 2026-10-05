@@ -11,10 +11,17 @@ change à l'usage, pas le détail d'implémentation.
 
 CHANGELOG = [
     {
+        "version": "1.4.3",
+        "date": "2026-10-05",
+        "changes": [
+            "Correction : Lumio ne remontait plus aucun résultat depuis son passage à la version 2 de son service, qui a changé le format de ses réponses. Wacustom reconnaît maintenant ce nouveau format et les flux Lumio réapparaissent, prêts à être lus",
+        ],
+    },
+    {
         "version": "1.4.2",
         "date": "2026-10-01",
         "changes": [
-            "Correction : un titre trop récent pour avoir une fiche IMDB complète sur TMDB (cas fréquent avec les sorties très fraîches) faisait échouer toute la recherche de flux, alors que le contenu existait bien chez les sources — ça fonctionne maintenant normalement",
+            "Correction : un titre trop récent pour avoir une fiche IMDB complète sur TMDB (cas fréquent avec les sorties très fraîches) faisait échouer toute la recherche de flux, alors que le contenu existait bien chez les sources. Ça fonctionne maintenant normalement",
             "Correction : les titres français avec une apostrophe (« L'Arène », « D'Artagnan »...) pouvaient voir de bons résultats rejetés à tort sur C411, Tr4ker, YggReborn et V3X lors d'une recherche par identifiant exact",
         ],
     },
@@ -25,7 +32,7 @@ CHANGELOG = [
             "Nombre de sources (seeders) et de leechers désormais affiché sur les résultats torrent quand l'information est disponible (Torznab, Nyaa), utile pour choisir la source la plus rapide",
             "Nyaa : badges \"Trusted\" et \"Remake\" affichés sur les résultats, quand le tracker les signale comme tels",
             "Les torrents en freeleech (déjà détectés en interne depuis la 1.4.0) sont maintenant vraiment signalés par un badge, au lieu de rester invisibles",
-            "Correction : les animes cherchés normalement dans Stremio (hors catalogue \"Anime\" dédié) ne recevaient jamais de résultats Nyaa — Nyaa ne cherchait que dans sa catégorie dramas/variétés pour ce type de recherche, jamais dans sa catégorie Anime",
+            "Correction : les animes cherchés normalement dans Stremio (hors catalogue \"Anime\" dédié) ne recevaient jamais de résultats Nyaa : Nyaa ne cherchait que dans sa catégorie dramas/variétés pour ce type de recherche, jamais dans sa catégorie Anime",
             "Correction : le logo affiché par Stremio à l'installation de l'addon était encore celui de WAStream (projet d'origine) au lieu du logo Wacustom",
             "Correction : la description de l'addon (visible à l'installation dans Stremio) ne mentionnait que le DDL, alors que Wacustom gère aussi les torrents",
         ],
@@ -34,13 +41,13 @@ CHANGELOG = [
         "version": "1.4.0",
         "date": "2026-09-25",
         "changes": [
-            "AIOSources et Lumio ne remontaient plus aucun résultat depuis un moment, à cause d'un bug silencieux dans la transmission de l'identifiant IMDB aux sources — corrigé, ces deux sources fonctionnent de nouveau normalement",
+            "AIOSources et Lumio ne remontaient plus aucun résultat depuis un moment, à cause d'un bug silencieux dans la transmission de l'identifiant IMDB aux sources. Corrigé, ces deux sources fonctionnent de nouveau normalement",
             "Recherche plus précise sur C411, Tr4ker et V3X : la correspondance se fait désormais par identifiant exact (IMDB/TMDB) plutôt que par simple recherche de mots-clés, ce qui réduit les faux résultats sur les titres ambigus",
             "Détection plus fiable des pannes de tracker (clé expirée, quota dépassé) plutôt qu'un silence indiscernable d'un simple \"aucun résultat\"",
             "Stremio se souvient maintenant de la source/qualité choisie et la reprend automatiquement à l'épisode suivant, sans avoir à rechoisir à chaque fois",
             "Taille du fichier transmise à Stremio quand elle est connue (torrents), utile pour l'affichage et le tri côté application",
-            "Meilleure couverture des séries sur Tr4ker : utilise maintenant le bon identifiant (TheTVDB) qu'il attend en priorité, plutôt qu'un identifiant de repli — plus de résultats trouvés sur certains titres",
-            "Zilean : la taille des fichiers s'affichait comme \"Inconnu\" sur tous les résultats — corrigé. Recherche également plus précise, par identifiant IMDB exact",
+            "Meilleure couverture des séries sur Tr4ker : utilise maintenant le bon identifiant (TheTVDB) qu'il attend en priorité, plutôt qu'un identifiant de repli. Plus de résultats trouvés sur certains titres",
+            "Zilean : la taille des fichiers s'affichait comme \"Inconnu\" sur tous les résultats, corrigé. Recherche également plus précise, par identifiant IMDB exact",
         ],
     },
     {
@@ -55,7 +62,7 @@ CHANGELOG = [
         "version": "1.3.0",
         "date": "2026-09-16",
         "changes": [
-            "Nouvelle source disponible : AIOSources (agrégateur communautaire C411/Tr4ker/TsukiHime/Nostradamus/TheOldSchool, projet tiers maintenu par Théo [TB]) — réglée une seule fois par l'hébergeur, comme Zilean ou Nyaa : aucune clé à renseigner pour en profiter",
+            "Nouvelle source disponible : AIOSources (agrégateur communautaire C411/Tr4ker/TsukiHime/Nostradamus/TheOldSchool, projet tiers maintenu par Théo [TB]). Elle est réglée une seule fois par l'hébergeur, comme Zilean ou Nyaa : aucune clé à renseigner pour en profiter",
         ],
     },
     {

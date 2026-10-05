@@ -52,6 +52,17 @@ _BASE_URL = "https://mylumio.tv"
 # Étiquette portée par les résultats, telle qu'affichée à l'utilisateur.
 SOURCE_LABEL = "Lumio"
 
+# Lumio v2 (septembre 2026) : chaque flux est un lien de lecture opaque
+# `/play/<jeton>` géré par Lumio (torrents et liens directs réunis, repli entre
+# copies, cache inclus). Le lien répond par un 302 vers un lien direct debrid.
+# Il n'y a donc plus ni badge ⚡, ni infohash lisible : tout ce que Lumio
+# renvoie est déjà jouable. On le retransmet tel quel (model_type "direct").
+PLAY_PREFIX = f"{_BASE_URL}/play/"
+_LANG_HINT = {
+    "fr": "FRENCH", "vf": "FRENCH", "vff": "TRUEFRENCH", "vfq": "FRENCH",
+    "vostfr": "VOSTFR", "multi": "MULTI", "vo": "VO", "en": "ENGLISH",
+}
+
 # Le quota de Lumio est tres bas ET son blocage est global (toute requete
 # compte, pas seulement les recherches). Surtout : chaque appel emis PENDANT
 # un blocage le prolonge — l'auteur de Lumio est explicite la-dessus. Une
@@ -104,6 +115,71 @@ def _decode_token(url: str) -> Optional[dict]:
         return None
 
 
+def parse_v2_stream(
+    s: Dict, title: str, season: Optional[str] = None, episode: Optional[str] = None,
+    year: Optional[str] = None,
+) -> Optional[Dict]:
+    """Convertit un flux Lumio v2 (`/play/<jeton>`) en résultat Wacustom.
+
+    Renvoie None si ce n'est pas un flux v2 (l'appelant tente alors l'ancien
+    format v1) ou si le nom de fichier contredit la saison/épisode demandés.
+    """
+    url = s.get("url") or ""
+    if not url.startswith(PLAY_PREFIX):
+        return None
+
+    hints = s.get("behaviorHints") or {}
+    group = str(hints.get("bingeGroup") or "").split("|")
+    lang_hint = _LANG_HINT.get(group[2].strip().lower(), "") if len(group) > 2 else ""
+    filename = (hints.get("filename") or "").strip()
+    name = (s.get("name") or "").strip()
+    desc = (s.get("description") or "").strip()
+
+    # Films : Lumio renvoie aussi des bonus (making-of, featurettes) rangés sous
+    # le même identifiant. Une vraie release porte l'année dans son nom de
+    # fichier ; un bonus presque jamais.
+    if filename and year and not season and str(year) not in filename:
+        scraper_logger.debug(f"[Lumio] Skip (année {year} absente, probable bonus): {filename}")
+        return None
+
+    if filename and season and episode and episode_matches(filename, season, episode) is False:
+        scraper_logger.debug(f"[Lumio] Skip (episode mismatch S{season}E{episode}): {filename}")
+        return None
+
+    display_name = filename or " ".join(x for x in (title, name, desc) if x)
+    # La langue vient du bingeGroup quand le nom de fichier n'en dit rien : on
+    # garde au moins VOSTFR visible, Wacustom s'en sert pour classer VF/VOSTFR.
+    if lang_hint == "VOSTFR" and "VOSTFR" not in display_name.upper():
+        display_name = f"{display_name} VOSTFR"
+    tokens = tokenize_filename(" ".join(x for x in (filename, name, desc, lang_hint) if x))
+
+    size_bytes = hints.get("videoSize") or 0
+    try:
+        size_bytes = int(size_bytes)
+    except (TypeError, ValueError):
+        size_bytes = 0
+    size_str = normalize_size(f"{size_bytes / (1024 ** 3):.2f} GB") if size_bytes > 0 else "Unknown"
+
+    result = {
+        "link": url,
+        "quality": extract_quality_from_tokens(tokens),
+        "language": extract_language_from_tokens(tokens),
+        "raw_language": extract_raw_language_from_tokens(tokens),
+        "source": SOURCE_LABEL,
+        "hoster": "Direct",
+        # Lumio ne propose que ce qu'il sait lire : tout est déjà en cache.
+        "cache_status": "cached",
+        "size": size_str,
+        "display_name": display_name,
+        "model_type": "direct",
+    }
+    if season:
+        result["season"] = str(season)
+    if episode:
+        result["episode"] = str(episode)
+    return result
+
+
 class LumioScraper:
     async def search(
         self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
@@ -145,7 +221,11 @@ class LumioScraper:
 
         results = []
         for s in streams:
-            # Uniquement ce qui est déjà vérifié en cache par leur base
+            v2 = parse_v2_stream(s, title, season, episode, year)
+            if v2 is not None:
+                results.append(v2)
+                continue
+            # Ancien format (v1) : uniquement ce qui est déjà vérifié en cache par leur base
             # mutualisée — on ne s'en sert pas comme simple indexeur de plus.
             if "⚡" not in s.get("name", ""):
                 continue
@@ -208,7 +288,7 @@ class LumioScraper:
             results.append(result)
 
         results.sort(key=quality_sort_key)
-        scraper_logger.debug(f"[Lumio] {len(results)} torrent(s) déjà vérifié(s) en cache")
+        scraper_logger.debug(f"[Lumio] {len(results)} flux déjà en cache")
         return results
 
 

@@ -38,7 +38,7 @@ from wastream.scrapers.torznab.trackers import yggreborn_scraper, tr4ker_scraper
 from wastream.scrapers.zilean.base import zilean_scraper
 from wastream.scrapers.nyaa.base import nyaa_scraper
 from wastream.scrapers.aiosources.base import aiosources_scraper
-from wastream.scrapers.lumio.base import lumio_scraper, SOURCE_LABEL as LUMIO_LABEL
+from wastream.scrapers.lumio.base import lumio_scraper, SOURCE_LABEL as LUMIO_LABEL, PLAY_PREFIX as LUMIO_PLAY_PREFIX
 from wastream.services.kitsu import kitsu_service
 from wastream.services.tmdb import tmdb_service
 from wastream.utils.cache import get_cache, get_cache_with_status, get_cache_parallel, set_cache, set_cache_if_not_exists
@@ -251,9 +251,11 @@ class StreamService:
             if settings.LUMIO_MANIFEST_ID and LUMIO_LABEL not in allowed_sources:
                 allowed_sources.append(LUMIO_LABEL)
 
+            # Les flux « directs » de Lumio v2 sont déjà jouables : on ne les
+            # soumet pas à la vérification de cache du service debrid.
             filtered_results = [
                 r.copy() for r in results
-                if r.get("source") in allowed_sources
+                if r.get("source") in allowed_sources and r.get("model_type") != "direct"
             ]
 
             if not filtered_results:
@@ -286,6 +288,14 @@ class StreamService:
             elif isinstance(result, Exception):
                 service_name = debrid_services[idx].get("service", "unknown")
                 stream_logger.error(f"Cache check failed for {service_name}: {type(result).__name__}: {result}")
+
+        if settings.LUMIO_MANIFEST_ID:
+            for r in results:
+                if r.get("model_type") == "direct" and r.get("source") == LUMIO_LABEL:
+                    direct = r.copy()
+                    direct["debrid_service"] = "lumio"
+                    direct["cache_status"] = "cached"
+                    merged_results.append(direct)
 
         merged_results.sort(key=quality_sort_key)
 
@@ -1726,6 +1736,9 @@ class StreamService:
                                                  title, year, metadata, season, episode, config, use_episode_cache=True)
 
     async def resolve_link(self, link: str, config: Dict, season: Optional[str] = None, episode: Optional[str] = None, service: Optional[str] = None, content_type: Optional[str] = None, title: Optional[str] = None, source: Optional[str] = None, hoster: Optional[str] = None, mark_dead: bool = True) -> Optional[str]:
+        if isinstance(link, str) and link.startswith(LUMIO_PLAY_PREFIX):
+            # Lumio v2 : le lien /play redirige lui-même vers le lien direct.
+            return link
         link = canonicalize_url(link) or link
         if service:
             debrid_service = self._get_debrid_service(service)
