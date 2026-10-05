@@ -24,8 +24,8 @@ CONTENT_NAME_MAPPING = {"movies": "movie", "films": "movie", "series": "series",
 # crawl recursif (other_seasons/other_qualities) puis les recupere toutes en
 # parallele via asyncio.gather, sans aucune limite. Constate en reel (Game of
 # Thrones : 40 pages simultanees, The Walking Dead : 44) — risque de depasser
-# le budget de la recherche (meme famille que l'incident du 26-27/07 sur les
-# timeouts) et de charge excessive sur une source deja fragile.
+# le budget de la recherche (timeouts) et de charge excessive sur une source
+# deja fragile.
 _MAX_CONCURRENT_PAGES = 8
 
 
