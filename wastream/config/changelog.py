@@ -11,6 +11,14 @@ change à l'usage, pas le détail d'implémentation.
 
 CHANGELOG = [
     {
+        "version": "1.4.4",
+        "date": "2026-10-08",
+        "changes": [
+            "Les écrans affichés dans Stremio quand une source ne peut pas être lue (lien indisponible, fichier pas encore en cache, erreur temporaire ou critique) sont maintenant en français et affichent le logo Wacustom à la place de celui de WAStream, le projet d'origine",
+            "Le logo des pages de connexion et de configuration est désormais décrit comme « Wacustom » (et non plus « WAStream ») pour les lecteurs d'écran",
+        ],
+    },
+    {
         "version": "1.4.3",
         "date": "2026-10-05",
         "changes": [
