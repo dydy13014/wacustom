@@ -11,6 +11,13 @@ change à l'usage, pas le détail d'implémentation.
 
 CHANGELOG = [
     {
+        "version": "1.4.5",
+        "date": "2026-10-09",
+        "changes": [
+            "Correction : Wacustom ne démarrait plus après une mise à jour de l'image (une bibliothèque de lecture de pages web venait de changer de version majeure et n'était plus compatible). Les versions des bibliothèques sont désormais bornées pour que ça ne se reproduise pas",
+        ],
+    },
+    {
         "version": "1.4.4",
         "date": "2026-10-08",
         "changes": [

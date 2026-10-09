@@ -8,18 +8,20 @@ version = "1.0.0"
 description = "Stremio addon to convert DDL to streams via debrid services"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi",
-    "uvicorn",
-    "selectolax",
-    "httpx",
-    "databases",
-    "aiosqlite",
-    "asyncpg",
-    "pydantic-settings",
-    "loguru",
-    "pycryptodome",
-    "bcrypt",
-    "psutil",
+    "fastapi>=0.141,<1.0",
+    "uvicorn>=0.52,<1.0",
+    # selectolax 1.0 a supprimé le moteur Modest (selectolax.parser) : borné
+    # sous 1.0 tant que le code n'est pas migré vers selectolax.lexbor
+    "selectolax>=0.4.11,<1.0",
+    "httpx>=0.28,<1.0",
+    "databases>=0.9,<1.0",
+    "aiosqlite>=0.22,<1.0",
+    "asyncpg>=0.31,<1.0",
+    "pydantic-settings>=2.15,<3",
+    "loguru>=0.7,<1.0",
+    "pycryptodome>=3.23,<4",
+    "bcrypt>=5.0,<6",
+    "psutil>=7.2,<8",
 ]
 
 [project.optional-dependencies]
