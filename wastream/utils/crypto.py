@@ -120,7 +120,16 @@ def decrypt_config(encrypted_config: str, password: str, salt_b64: str) -> Optio
 # ===========================
 # Password Encryption for URL
 # ===========================
-def encrypt_password_for_url(password: str) -> str:
+def _profile_aad(profile_id: Optional[str]) -> Optional[bytes]:
+    """Donnees associees GCM liant le jeton a un utilisateur (multi-utilisateurs).
+    Un jeton emis pour l'utilisateur A echoue a la verification sur l'URL de B :
+    sans cela, il suffirait de changer le segment utilisateur de son URL pour
+    utiliser les cles debrid d'un autre. Sans utilisateur (URL historique),
+    aucune donnee associee : les anciens jetons restent valides."""
+    return f"profile:{profile_id}".encode("utf-8") if profile_id else None
+
+
+def encrypt_password_for_url(password: str, profile_id: Optional[str] = None) -> str:
     """AES-256-GCM. Cette valeur voyage dans l'URL de manifest — donc dans les
     journaux du reverse proxy, l'historique du navigateur et chez tout
     intermédiaire réseau. GCM authentifie : toute altération du chiffré est
@@ -130,6 +139,9 @@ def encrypt_password_for_url(password: str) -> str:
     nonce = os.urandom(NONCE_SIZE)
 
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+    aad = _profile_aad(profile_id)
+    if aad:
+        cipher.update(aad)
     encrypted, tag = cipher.encrypt_and_digest(password.encode("utf-8"))
 
     encrypted_data = {
@@ -141,7 +153,7 @@ def encrypt_password_for_url(password: str) -> str:
     return b64encode(json.dumps(encrypted_data).encode("utf-8")).decode("utf-8")
 
 
-def decrypt_password_from_url(encrypted_password: str) -> Optional[str]:
+def decrypt_password_from_url(encrypted_password: str, profile_id: Optional[str] = None) -> Optional[str]:
     """N'accepte QUE le format GCM. Les anciennes URL en CBC sont rejetées : les
     accepter en repli aurait maintenu la faille en vie, puisqu'un attaquant
     aurait pu se contenter de forger un chiffré à l'ancien format."""
@@ -150,6 +162,9 @@ def decrypt_password_from_url(encrypted_password: str) -> Optional[str]:
         d = json.loads(b64decode(encrypted_password).decode("utf-8"))
 
         cipher = AES.new(key, AES.MODE_GCM, nonce=b64decode(d["n"]))
+        aad = _profile_aad(profile_id)
+        if aad:
+            cipher.update(aad)
         decrypted = cipher.decrypt_and_verify(b64decode(d["data"]), b64decode(d["t"]))
         return decrypted.decode("utf-8")
 

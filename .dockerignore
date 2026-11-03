@@ -15,3 +15,6 @@ tests/
 !.env.example
 *.env.bak*
 *.bak
+
+# Données du conteneur (bind mount) : ne pas les copier dans l'image
+wacustom-data/

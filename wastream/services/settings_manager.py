@@ -223,7 +223,12 @@ SETTINGS_LAYOUT = [
 EDITABLE_KEYS = frozenset(k for _, keys in SETTINGS_LAYOUT for k in keys)
 
 # Env-provided fields, snapshotted at import (before any setattr mutates model_fields_set). Env always wins.
-_ENV_LOCKED = frozenset(settings.model_fields_set)
+# Une ligne vide dans le .env (ex. `TR4KER_API_KEY=`) ne verrouille pas le champ :
+# elle reste éditable depuis le dashboard.
+_ENV_LOCKED = frozenset(
+    key for key in settings.model_fields_set
+    if getattr(settings, key) not in (None, "")
+)
 LEGACY_SETTING_ALIASES = {
     "DOMAIN_SYNC_ZT_TELEGRAM_URL": "DOMAIN_SYNC_ZONE_TELECHARGEMENT_TELEGRAM_URL",
 }

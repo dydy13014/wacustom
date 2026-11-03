@@ -14,8 +14,8 @@ from fastapi.responses import JSONResponse, RedirectResponse, FileResponse, HTML
 
 from wastream.config.settings import settings, DEBRID_ABBREVIATIONS, WASTREAM_BASE_VERSION, WACUSTOM_VERSION
 from wastream.config.changelog import CHANGELOG
-from wastream.utils.crypto import encrypt_password_for_url
 from wastream.utils.validators import validate_config
+from wastream.utils.profiles import validate_profiles, build_addon_urls
 from wastream.services.stream import stream_service
 from wastream.services.dead_link_recheck import is_dead_link_recheck_enabled
 from wastream.services.users import (
@@ -301,6 +301,10 @@ async def create_user_route(
             content={"error": "Configuration must include debrid_services"}
         )
 
+    profiles_error = validate_profiles(config)
+    if profiles_error:
+        return JSONResponse(status_code=400, content={"error": profiles_error})
+
     result = await create_user(password, config)
     if not result:
         return JSONResponse(
@@ -308,12 +312,13 @@ async def create_user_route(
             content={"error": "Failed to create user"}
         )
 
-    addon_url = f"{get_base_url(request)}/{result['uuid']}/{result['encrypted_password']}/manifest.json"
+    addon_urls = build_addon_urls(get_base_url(request), result["uuid"], password, config)
 
     return JSONResponse(content={
         "uuid": result["uuid"],
         "encrypted_password": result["encrypted_password"],
-        "addon_url": addon_url
+        "addon_url": addon_urls[0]["url"],
+        "addon_urls": addon_urls
     })
 
 
@@ -377,6 +382,10 @@ async def update_user_route(
             content={"error": "Configuration must include debrid_services"}
         )
 
+    profiles_error = validate_profiles(config)
+    if profiles_error:
+        return JSONResponse(status_code=400, content={"error": profiles_error})
+
     success = await update_user_config(user_uuid, password, config)
     if not success:
         login_rate_limiter.record_failure(client_ip)
@@ -386,12 +395,12 @@ async def update_user_route(
         )
 
     login_rate_limiter.record_success(client_ip)
-    encrypted_password = encrypt_password_for_url(password)
-    addon_url = f"{get_base_url(request)}/{user_uuid}/{encrypted_password}/manifest.json"
+    addon_urls = build_addon_urls(get_base_url(request), user_uuid, password, config)
 
     return JSONResponse(content={
         "success": True,
-        "addon_url": addon_url
+        "addon_url": addon_urls[0]["url"],
+        "addon_urls": addon_urls
     })
 
 
@@ -474,7 +483,24 @@ async def get_secure_manifest(
     user_uuid: str = Path(..., description="User UUID"),
     enc_password: str = Path(..., description="Encrypted password")
 ):
-    config = await get_user_config_from_url(user_uuid, enc_password)
+    return await _secure_manifest(request, user_uuid, enc_password, None)
+
+
+@router.get("/{user_uuid}/{profile_id}/{enc_password}/manifest.json",
+            tags=["Stremio"],
+            summary="Addon Manifest (multi-user)",
+            description="Returns addon metadata for one user of a multi-user account")
+async def get_profile_manifest(
+    request: Request,
+    user_uuid: str = Path(..., description="User UUID"),
+    profile_id: str = Path(..., description="User id within the account"),
+    enc_password: str = Path(..., description="Encrypted password")
+):
+    return await _secure_manifest(request, user_uuid, enc_password, profile_id)
+
+
+async def _secure_manifest(request: Request, user_uuid: str, enc_password: str, profile_id: Optional[str]):
+    config = await get_user_config_from_url(user_uuid, enc_password, profile_id)
     if not config:
         return JSONResponse(
             status_code=401,
@@ -490,6 +516,9 @@ async def get_secure_manifest(
         manifest["name"] = f"{settings.ADDON_NAME} | {abbr}"
     elif len(debrid_services) > 1:
         manifest["name"] = f"{settings.ADDON_NAME} | MULTI"
+
+    if profile_id:
+        manifest["name"] = f"{manifest['name']} | {config.get('_profile_name') or profile_id}"
 
     if settings.HTTP_CACHE_ENABLED:
         etag = generate_etag(manifest)
@@ -517,7 +546,27 @@ async def get_secure_streams(
     content_type: ContentType = Path(..., description="Content type"),
     content_id: str = Path(..., description="Content identifier")
 ):
-    config = await get_user_config_from_url(user_uuid, enc_password)
+    return await _secure_streams(request, user_uuid, enc_password, None, content_type, content_id)
+
+
+@router.get("/{user_uuid}/{profile_id}/{enc_password}/stream/{content_type}/{content_id}",
+            tags=["Stremio"],
+            summary="Stream Provider (multi-user)",
+            description="Returns available streams for one user of a multi-user account")
+async def get_profile_streams(
+    request: Request,
+    user_uuid: str = Path(..., description="User UUID"),
+    profile_id: str = Path(..., description="User id within the account"),
+    enc_password: str = Path(..., description="Encrypted password"),
+    content_type: ContentType = Path(..., description="Content type"),
+    content_id: str = Path(..., description="Content identifier")
+):
+    return await _secure_streams(request, user_uuid, enc_password, profile_id, content_type, content_id)
+
+
+async def _secure_streams(request: Request, user_uuid: str, enc_password: str, profile_id: Optional[str],
+                          content_type: ContentType, content_id: str):
+    config = await get_user_config_from_url(user_uuid, enc_password, profile_id)
     if not config:
         return JSONResponse(content={"streams": []})
 
@@ -572,6 +621,22 @@ async def configure_secure_addon(
     user_uuid: str = Path(..., description="User UUID"),
     enc_password: str = Path(..., description="Encrypted password")
 ):
+    return _secure_configure_page()
+
+
+@router.get("/{user_uuid}/{profile_id}/{enc_password}/configure",
+            tags=["Configuration"],
+            summary="Configuration Page (multi-user)",
+            description="Modify existing secure configuration")
+async def configure_profile_addon(
+    user_uuid: str = Path(..., description="User UUID"),
+    profile_id: str = Path(..., description="User id within the account"),
+    enc_password: str = Path(..., description="Encrypted password")
+):
+    return _secure_configure_page()
+
+
+def _secure_configure_page():
     with open("wastream/templates/index.html", "r", encoding="utf-8") as f:
         html_content = f.read()
 
@@ -604,6 +669,7 @@ async def resolve(
     b64config: Optional[str] = Query(None, description="Base64 encoded configuration"),
     user_uuid: Optional[str] = Query(None, description="User UUID for secure auth"),
     enc_password: Optional[str] = Query(None, description="Encrypted password for secure auth"),
+    profile: Optional[str] = Query(None, description="User id within a multi-user account"),
     season: Optional[str] = Query(None, description="Season number for series"),
     episode: Optional[str] = Query(None, description="Episode number for series"),
     service: Optional[str] = Query(None, description="Debrid service to use"),
@@ -615,7 +681,7 @@ async def resolve(
     config = None
 
     if user_uuid and enc_password:
-        config = await get_user_config_from_url(user_uuid, enc_password)
+        config = await get_user_config_from_url(user_uuid, enc_password, profile)
     elif b64config:
         config = validate_config(b64config)
 
@@ -645,6 +711,7 @@ async def playback(
     service = data.get("s")
     user_uuid = data.get("u")
     enc_password = data.get("p")
+    profile_id = data.get("pr")
     b64config = data.get("c")
     season = data.get("se")
     episode = data.get("ep")
@@ -659,7 +726,7 @@ async def playback(
 
     config = None
     if user_uuid and enc_password:
-        config = await get_user_config_from_url(user_uuid, enc_password)
+        config = await get_user_config_from_url(user_uuid, enc_password, profile_id)
     elif b64config:
         config = validate_config(b64config)
 

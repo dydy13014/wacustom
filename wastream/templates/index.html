@@ -597,6 +597,25 @@
             margin-bottom: 8px;
         }
 
+        .field-help[hidden] { display: none; }
+
+        .field-label-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px 16px;
+            margin-bottom: 8px;
+        }
+
+        .field-label-row .field-label { margin-bottom: 0; }
+
+        .tracker-keys-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+        }
+
         .field-help {
             display: block;
             font-size: 12px;
@@ -814,6 +833,76 @@
             height: 16px;
             fill: currentColor;
         }
+
+        /* ===========================
+           Multi-utilisateurs
+           =========================== */
+        .profiles-panel {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .profile-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .profile-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .profile-tab:hover { color: var(--text-primary); border-color: var(--border-default); }
+
+        .profile-tab.active {
+            color: var(--accent-primary);
+            background: var(--accent-primary-subtle);
+            border-color: var(--accent-primary);
+        }
+
+        .profile-tab-badge {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            opacity: 0.75;
+        }
+
+        .profile-tab.add {
+            border-style: dashed;
+            background: transparent;
+            color: var(--text-muted);
+        }
+
+        .profile-tab.add:hover { color: var(--accent-primary); border-color: var(--accent-primary); }
+
+        .profile-editor .form-field { margin-bottom: 8px; }
+
+        .btn-remove-profile {
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .btn-remove-profile:hover { color: #ef4444; border-color: #ef4444; }
+
+        .service-default-checkbox { display: block; margin-top: 10px; }
 
         .btn-add-service {
             display: flex;
@@ -1893,9 +1982,21 @@
                                 <line x1="12" y1="17" x2="12" y2="21"></line>
                             </svg>
                         </div>
-                        <h2 class="section-title" data-i18n="sections.service">Service</h2>
+                        <h2 class="section-title" data-i18n="sections.service">Users &amp; Services</h2>
                     </div>
                     <div class="section-body">
+                <!-- Multi-utilisateurs : chaque utilisateur a ses propres services,
+                     le reste de la configuration est commun au compte. -->
+                <div class="profiles-panel">
+                    <div class="profile-tabs" id="profileTabs" role="tablist"></div>
+                    <div class="profile-editor">
+                        <div class="form-field">
+                            <sl-input id="profileName" type="text" label="User name" maxlength="40"></sl-input>
+                            <span class="field-help"><span data-i18n="users.urlId">URL identifier:</span> <code id="profileIdLabel"></code></span>
+                        </div>
+                        <button type="button" class="btn-remove-profile" id="removeProfileBtn" data-i18n="users.remove">Remove this user</button>
+                    </div>
+                </div>
                 <div id="debridServicesContainer">
                     <div class="debrid-service-entry" data-index="0">
                         <div class="debrid-service-header">
@@ -1980,8 +2081,22 @@
                             </button>
                         </div>
                         <div class="form-field">
-                            <sl-input id="tmdbToken" type="text" label="TMDB Token" placeholder="Your TMDB token"></sl-input>
+                            <div class="field-label-row">
+                                <label class="field-label" id="tmdbTokenLabel" for="tmdbToken">TMDB Token</label>
+                                <sl-checkbox id="tmdbDefault" size="small" checked><span data-i18n="users.defaultForAll">Default for all users</span></sl-checkbox>
+                            </div>
+                            <sl-input id="tmdbToken" type="text" placeholder="Your TMDB token"></sl-input>
                             <span class="field-help"><span data-i18n="help.tokenLabel">Token:</span> <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a></span>
+                            <span class="field-help" id="tmdbInheritedHelp" data-i18n="users.tmdbInherited" hidden>Uses the main user's TMDB token (set as default)</span>
+                        </div>
+                        <div class="form-field">
+                            <div class="field-label-row">
+                                <label class="field-label" data-i18n="trackers.title">Private trackers</label>
+                                <sl-checkbox id="trackersDefault" size="small"><span data-i18n="users.defaultForAll">Default for all users</span></sl-checkbox>
+                            </div>
+                            <span class="field-help" data-i18n="trackers.help">Your own API keys / passkeys. Leave empty to use the server's key (if any).</span>
+                            <span class="field-help" id="trackersInheritedHelp" data-i18n="trackers.inherited" hidden>Uses the main user's tracker keys (set as default)</span>
+                            <div id="trackerKeysList" class="tracker-keys-list"></div>
                         </div>
                     </div>
                 </section>
@@ -2420,7 +2535,7 @@
 
                     <div class="result-box">
                         <div class="result-box-header">
-                            <span class="result-box-label" data-i18n="labels.manifestUrl">Manifest URL</span>
+                            <span class="result-box-label"><span data-i18n="labels.manifestUrl">Manifest URL</span><span id="addonLinkUser"></span></span>
                             <button class="result-box-copy" id="copyBtn" title="Copy Manifest">
                                 <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
                                 <span data-i18n="buttons.copy">Copy</span>
@@ -2428,6 +2543,9 @@
                         </div>
                         <div class="result-box-value" id="addonLink"></div>
                     </div>
+
+                    <!-- Manifests des autres utilisateurs du compte -->
+                    <div id="addonLinksExtra"></div>
 
                     <div class="result-actions">
                         <sl-button variant="primary" id="openBtn" data-i18n="buttons.openStremio">Open Stremio</sl-button>
@@ -2488,7 +2606,7 @@
         </div>
     </div>
 
-    <script src="/static/translations.js"></script>
+    <script src="/static/translations.js?v=20261030c"></script>
 
     <div class="warning-modal" id="warningModal">
         <div class="warning-modal-content">
@@ -2518,7 +2636,13 @@
             serviceConfig: {},
             userUuid: null,
             encryptedPassword: null,
-            isExistingUser: false
+            isExistingUser: false,
+            // Multi-utilisateurs : profiles[0] est l'utilisateur principal.
+            // Le formulaire Services n'affiche que l'utilisateur actif ; les
+            // autres sont gardes ici et resynchronises a chaque changement.
+            profiles: [{ id: 'principal', name: 'Principal', saved: false }],
+            activeProfile: 0,
+            defaultServices: ['tmdb']
         };
 
         // ===========================
@@ -2533,6 +2657,7 @@
             debridServicesContainer: null,
             addDebridServiceBtn: null,
             tmdbToken: null,
+            tmdbTokenLabel: null,
             password: null,
             timeout: null,
             excludedInput: null,
@@ -2638,7 +2763,18 @@
             loggedUserInfo: null,
             loggedUserUuid: null,
             userBadge: null,
-            userBadgeId: null
+            userBadgeId: null,
+            profileTabs: null,
+            profileName: null,
+            profileIdLabel: null,
+            removeProfileBtn: null,
+            tmdbDefault: null,
+            tmdbInheritedHelp: null,
+            trackersDefault: null,
+            trackersInheritedHelp: null,
+            trackerKeysList: null,
+            addonLinkUser: null,
+            addonLinksExtra: null
         };
 
         // ===========================
@@ -3488,6 +3624,323 @@
         };
 
         // ===========================
+        // Multi-utilisateurs
+        // ===========================
+        // Seuls les services sont propres a chaque utilisateur. Le formulaire
+        // Services affiche l'utilisateur actif : on le resynchronise vers
+        // state.profiles avant tout changement d'utilisateur ou sauvegarde.
+        const isTmdbShared = () => state.defaultServices.includes('tmdb');
+        const areTrackersShared = () => state.defaultServices.includes('trackers');
+        const SHAREABLE_DEFAULTS = ['tmdb', 'trackers'];
+
+        // Meme contrainte que PROFILE_ID_PATTERN cote serveur (profiles.py).
+        const slugifyProfileId = (name) => (name || '')
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '')
+            .slice(0, 32).replace(/-+$/, '') || 'user';
+
+        const uniqueProfileId = (base, selfIndex = -1) => {
+            const taken = new Set(state.profiles.filter((_, i) => i !== selfIndex).map(p => p.id));
+            if (!taken.has(base)) return base;
+            for (let n = 2; ; n++) {
+                const suffix = `-${n}`;
+                const candidate = base.slice(0, 32 - suffix.length) + suffix;
+                if (!taken.has(candidate)) return candidate;
+            }
+        };
+
+        const cleanDebridServices = (services) => services.map(s => {
+            const clean = { service: s.service, api_key: s.api_key };
+            if (s.hosts) clean.hosts = s.hosts;
+            if (s.sources) clean.sources = s.sources;
+            if (s.enable_nzb !== undefined) clean.enable_nzb = s.enable_nzb;
+            if (s.enable_full_season !== undefined) clean.enable_full_season = s.enable_full_season;
+            return clean;
+        });
+
+        const profileServiceFields = (p) => ({
+            debrid_services: p.debrid_services || [],
+            tmdb_api_token: p.tmdb_api_token || '',
+            nzbdav_url: p.nzbdav_url || '',
+            webdav_user: p.webdav_user || '',
+            webdav_password: p.webdav_password || '',
+            tracker_api_keys: { ...(p.tracker_api_keys || {}) }
+        });
+
+        // Cles de trackers prives propres a chaque utilisateur (sinon la cle
+        // globale du serveur s'applique, cf. utils/tracker_keys.py).
+        const PRIVATE_TRACKERS = [
+            { id: 'yggreborn', label: 'YggReborn' },
+            { id: 'tr4ker', label: 'Tr4ker' },
+            { id: 'torr9', label: 'Torr9' },
+            { id: 'c411', label: 'C411' },
+            { id: 'v3x', label: 'V3X' },
+            { id: 'gemini', label: 'Gemini' },
+            { id: 'generation-free', label: 'Generation-Free' }
+        ];
+
+        const renderTrackerKeyInputs = () => {
+            if (!els.trackerKeysList || els.trackerKeysList.children.length) return;
+            PRIVATE_TRACKERS.forEach(({ id, label }) => {
+                const input = document.createElement('sl-input');
+                input.type = 'password';
+                input.setAttribute('password-toggle', '');
+                input.setAttribute('autocomplete', 'off');
+                input.dataset.tracker = id;
+                input.label = label;
+                input.placeholder = 'API key / passkey';
+                els.trackerKeysList.appendChild(input);
+            });
+        };
+
+        const readTrackerKeys = () => {
+            const keys = {};
+            els.trackerKeysList?.querySelectorAll('sl-input[data-tracker]').forEach(input => {
+                const value = (input.value || '').trim();
+                if (value) keys[input.dataset.tracker] = value;
+            });
+            return keys;
+        };
+
+        const fillTrackerKeys = (keys) => {
+            els.trackerKeysList?.querySelectorAll('sl-input[data-tracker]').forEach(input => {
+                input.value = (keys || {})[input.dataset.tracker] || '';
+            });
+        };
+
+        // Un export ne contient pas les cles : on garde celles deja connues.
+        const mergeTrackerKeys = (incoming, previous) => {
+            const merged = { ...(previous || {}) };
+            Object.entries(incoming || {}).forEach(([k, v]) => { if (v) merged[k] = v; });
+            return merged;
+        };
+
+        const captureActiveProfile = () => {
+            const p = state.profiles[state.activeProfile];
+            if (!p) return;
+            const services = getDebridServices();
+            p.debrid_services = cleanDebridServices(services);
+            p.nzbdav_url = services.nzbdav_url || '';
+            p.webdav_user = services.webdav_user || '';
+            p.webdav_password = services.webdav_password || '';
+            // Cles heritees du principal : champs desactives et vides, a ne pas
+            // capturer (meme logique que le token TMDB ci-dessous).
+            if (state.activeProfile === 0 || !areTrackersShared()) {
+                p.tracker_api_keys = readTrackerKeys();
+            }
+            // Token herite du principal : le champ est desactive et vide, on ne
+            // doit pas ecraser la valeur propre de l'utilisateur avec ce vide.
+            if (state.activeProfile === 0 || !isTmdbShared()) {
+                p.tmdb_api_token = els.tmdbToken.value.trim();
+            }
+        };
+
+        const renderProfileTabs = () => {
+            if (!els.profileTabs) return;
+            els.profileTabs.innerHTML = '';
+            state.profiles.forEach((p, i) => {
+                const tab = document.createElement('button');
+                tab.type = 'button';
+                tab.className = 'profile-tab' + (i === state.activeProfile ? ' active' : '');
+                tab.setAttribute('role', 'tab');
+                tab.setAttribute('aria-selected', String(i === state.activeProfile));
+                tab.textContent = p.name || p.id;
+                if (i === 0) {
+                    const badge = document.createElement('span');
+                    badge.className = 'profile-tab-badge';
+                    badge.textContent = t('users.main');
+                    tab.appendChild(badge);
+                }
+                tab.addEventListener('click', () => switchProfile(i));
+                els.profileTabs.appendChild(tab);
+            });
+            const add = document.createElement('button');
+            add.type = 'button';
+            add.className = 'profile-tab add';
+            add.textContent = `+ ${t('users.add')}`;
+            add.addEventListener('click', addProfile);
+            els.profileTabs.appendChild(add);
+
+            els.profileName.label = t('users.name');
+            els.profileIdLabel.textContent = state.profiles[state.activeProfile].id;
+        };
+
+        // Champs de l'utilisateur actif hors services debrid (rendus a part).
+        const renderProfileChrome = () => {
+            const p = state.profiles[state.activeProfile];
+            const isMain = state.activeProfile === 0;
+            const inherited = !isMain && isTmdbShared();
+
+            renderProfileTabs();
+            els.profileName.value = p.name || '';
+            els.removeProfileBtn.style.display = isMain ? 'none' : '';
+            els.tmdbDefault.style.display = isMain ? '' : 'none';
+            els.tmdbDefault.checked = isTmdbShared();
+            els.tmdbToken.disabled = inherited;
+            els.tmdbToken.value = inherited ? '' : (p.tmdb_api_token || '');
+            els.tmdbInheritedHelp.hidden = !inherited;
+
+            const trackersInherited = !isMain && areTrackersShared();
+            els.trackersDefault.style.display = isMain ? '' : 'none';
+            els.trackersDefault.checked = areTrackersShared();
+            els.trackersInheritedHelp.hidden = !trackersInherited;
+            fillTrackerKeys(trackersInherited ? {} : p.tracker_api_keys);
+            els.trackerKeysList.querySelectorAll('sl-input[data-tracker]').forEach(input => {
+                input.disabled = trackersInherited;
+            });
+        };
+
+        const renderActiveProfile = () => {
+            const p = state.profiles[state.activeProfile];
+            const services = (p.debrid_services && p.debrid_services.length)
+                ? p.debrid_services
+                : [{ service: 'alldebrid', api_key: '' }];
+            clearDebridServices();
+            services.forEach(s => {
+                const isNzbdav = s.service === 'nzbdav';
+                addDebridServiceEntry(
+                    s.service,
+                    s.api_key || '',
+                    s.hosts || [],
+                    s.sources || [],
+                    isNzbdav ? (p.nzbdav_url || '') : '',
+                    !!s.enable_nzb,
+                    !!s.enable_full_season,
+                    isNzbdav ? (p.webdav_user || '') : '',
+                    isNzbdav ? (p.webdav_password || '') : ''
+                );
+            });
+            updateServiceNumbers();
+            checkWarningIndicator();
+            updateEarlyStopOptions();
+            updateSourceContentTypesOptions();
+            renderProfileChrome();
+        };
+
+        const switchProfile = (index) => {
+            if (index === state.activeProfile || !state.profiles[index]) return;
+            captureActiveProfile();
+            state.activeProfile = index;
+            renderActiveProfile();
+        };
+
+        const addProfile = () => {
+            captureActiveProfile();
+            const name = `${t('users.defaultName')} ${state.profiles.length + 1}`;
+            state.profiles.push({
+                id: uniqueProfileId(slugifyProfileId(name)),
+                name,
+                saved: false,
+                debrid_services: [],
+                tmdb_api_token: '',
+                tracker_api_keys: {}
+            });
+            state.activeProfile = state.profiles.length - 1;
+            renderActiveProfile();
+            els.profileName.focus();
+        };
+
+        const removeProfile = () => {
+            const index = state.activeProfile;
+            if (index === 0) return;
+            const name = state.profiles[index].name || state.profiles[index].id;
+            if (!confirm(t('users.confirmRemove').replace('{name}', name))) return;
+            state.profiles.splice(index, 1);
+            state.activeProfile = 0;
+            renderActiveProfile();
+        };
+
+        const renameActiveProfile = () => {
+            const index = state.activeProfile;
+            const p = state.profiles[index];
+            p.name = els.profileName.value.trim();
+            // L'identifiant figure dans l'URL du manifest : fige des la
+            // premiere sauvegarde, sinon renommer casserait l'addon installe.
+            if (!p.saved) p.id = uniqueProfileId(slugifyProfileId(p.name), index);
+            renderProfileTabs();
+        };
+
+        // Les services du principal sont deja dans le formulaire (rendus par
+        // applyConfigToForm) ; on les capture plutot que de les relire.
+        // keepExisting : import d'un fichier sans utilisateurs -> on garde ceux
+        // deja definis plutot que de les effacer.
+        const loadProfilesFromConfig = (config, { keepExisting = false } = {}) => {
+            const previous = state.profiles;
+            const hasProfiles = Array.isArray(config.profiles);
+
+            if (Array.isArray(config.default_services)) {
+                state.defaultServices = config.default_services.filter(s => SHAREABLE_DEFAULTS.includes(s));
+            } else if (!keepExisting) {
+                state.defaultServices = ['tmdb'];
+            }
+
+            const mainName = config.profile_name || (keepExisting ? previous[0].name : '') || t('users.mainDefaultName');
+            const main = config.profile_id
+                ? { id: config.profile_id, name: mainName, saved: true }
+                : (keepExisting ? { ...previous[0], name: mainName } : { id: slugifyProfileId(mainName), name: mainName, saved: false });
+
+            let others;
+            if (hasProfiles) {
+                // Un export ne contient pas les cles : on reprend celles de
+                // l'utilisateur deja present sous le meme identifiant.
+                others = config.profiles.filter(p => p && p.id).map(p => {
+                    const prev = previous.find(x => x.id === p.id) || {};
+                    const prevKeys = {};
+                    (prev.debrid_services || []).forEach(s => { if (s.api_key) prevKeys[s.service] = s.api_key; });
+                    return {
+                        ...p,
+                        saved: true,
+                        tmdb_api_token: p.tmdb_api_token || prev.tmdb_api_token || '',
+                        webdav_password: p.webdav_password || prev.webdav_password || '',
+                        tracker_api_keys: mergeTrackerKeys(p.tracker_api_keys, prev.tracker_api_keys),
+                        debrid_services: (p.debrid_services || []).map(s => ({ ...s, api_key: s.api_key || prevKeys[s.service] || '' }))
+                    };
+                });
+            } else {
+                others = keepExisting ? previous.slice(1) : [];
+            }
+
+            state.profiles = [main, ...others];
+            state.activeProfile = 0;
+            captureActiveProfile();
+            renderProfileChrome();
+        };
+
+        const copyText = async (text) => {
+            try {
+                await navigator.clipboard.writeText(text);
+                showAlert(t('messages.copied'));
+            } catch (error) {
+                console.error('Error copying:', error);
+                showAlert(t('messages.errorCopying'));
+            }
+        };
+
+        const renderAddonLinks = (urls) => {
+            els.addonLink.textContent = urls[0].url;
+            els.addonLinkUser.textContent = urls.length > 1 && urls[0].name ? ` — ${urls[0].name}` : '';
+            els.addonLinksExtra.innerHTML = '';
+            urls.slice(1).forEach(entry => {
+                const box = document.createElement('div');
+                box.className = 'result-box';
+                box.innerHTML = `
+                    <div class="result-box-header">
+                        <span class="result-box-label"></span>
+                        <button type="button" class="result-box-copy">
+                            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                            <span></span>
+                        </button>
+                    </div>
+                    <div class="result-box-value"></div>`;
+                box.querySelector('.result-box-label').textContent = `${t('labels.manifestUrl')} — ${entry.name || entry.id}`;
+                box.querySelector('.result-box-copy span').textContent = t('buttons.copy');
+                box.querySelector('.result-box-value').textContent = entry.url;
+                box.querySelector('.result-box-copy').addEventListener('click', () => copyText(entry.url));
+                els.addonLinksExtra.appendChild(box);
+            });
+        };
+
+        // ===========================
         // API
         // ===========================
         const loadOptions = async () => {
@@ -3549,21 +4002,21 @@
         };
 
         const buildUserConfig = () => {
-            const debridServices = getDebridServices();
-            const nzbdavUrl = debridServices.nzbdav_url || '';
-            const webdavUser = debridServices.webdav_user || '';
-            const webdavPassword = debridServices.webdav_password || '';
+            captureActiveProfile();
+            const main = state.profiles[0];
             const selectedLanguages = (els.languageSelect.value || []).map(lang => lang.replace(/_/g, ' '));
             return {
-                debrid_services: debridServices.map(s => {
-                    const clean = { service: s.service, api_key: s.api_key };
-                    if (s.hosts) clean.hosts = s.hosts;
-                    if (s.sources) clean.sources = s.sources;
-                    if (s.enable_nzb !== undefined) clean.enable_nzb = s.enable_nzb;
-                    if (s.enable_full_season !== undefined) clean.enable_full_season = s.enable_full_season;
-                    return clean;
-                }),
-                tmdb_api_token: els.tmdbToken.value.trim(),
+                // Services de l'utilisateur principal a la racine (format
+                // historique) ; les autres utilisateurs dans `profiles`.
+                ...profileServiceFields(main),
+                profile_id: main.id,
+                profile_name: main.name || main.id,
+                default_services: [...state.defaultServices],
+                profiles: state.profiles.slice(1).map(p => ({
+                    id: p.id,
+                    name: p.name || p.id,
+                    ...profileServiceFields(p)
+                })),
                 languages: selectedLanguages,
                 resolutions: els.resolutionSelect.value || [],
                 max_results_per_resolution: parseInt(els.maxResults.value) || 0,
@@ -3607,9 +4060,6 @@
                 })(),
                 sort_order: [...els.sortOrderList.querySelectorAll('.sort-order-item')].map(item => item.getAttribute('data-sort-key')),
                 excluded_keywords: state.excludedKeywords,
-                nzbdav_url: nzbdavUrl,
-                webdav_user: webdavUser,
-                webdav_password: webdavPassword,
                 ...wacustomOnlyFields
             };
         };
@@ -3618,9 +4068,17 @@
             const config = buildUserConfig();
             config.tmdb_api_token = '';
             config.webdav_password = '';
+            config.tracker_api_keys = {};
             if (Array.isArray(config.debrid_services)) {
                 config.debrid_services = config.debrid_services.map(s => ({ ...s, api_key: '' }));
             }
+            config.profiles = config.profiles.map(p => ({
+                ...p,
+                tmdb_api_token: '',
+                webdav_password: '',
+                tracker_api_keys: {},
+                debrid_services: p.debrid_services.map(s => ({ ...s, api_key: '' }))
+            }));
             const payload = { format_version: 1, config };
             const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -3649,7 +4107,7 @@
                 return;
             }
             try {
-                applyConfigToForm(config);
+                applyConfigToForm(config, { keepExistingProfiles: true });
             } catch (error) {
                 showAlert(t('messages.invalidConfigFile') || 'Invalid config file');
                 return;
@@ -3658,13 +4116,20 @@
         };
 
         const generateLink = async () => {
-            const debridServices = getDebridServices();
-            const tmdbToken = els.tmdbToken.value.trim();
+            const config = buildUserConfig();
             const addonPassword = els.password.value.trim();
             const userPassword = els.userPassword.value.trim();
 
-            if (debridServices.length === 0 || !tmdbToken) {
-                showAlert(t('messages.apiKeysRequired'));
+            // Chaque utilisateur doit avoir au moins un service debrid, et un
+            // token TMDB sauf s'il herite de celui du principal.
+            const missingIndex = state.profiles.findIndex((p, i) =>
+                !(p.debrid_services || []).length || ((i === 0 || !isTmdbShared()) && !p.tmdb_api_token));
+            if (missingIndex !== -1) {
+                const p = state.profiles[missingIndex];
+                switchProfile(missingIndex);
+                showAlert(state.profiles.length > 1
+                    ? `${t('messages.apiKeysRequired')} (${p.name || p.id})`
+                    : t('messages.apiKeysRequired'));
                 return;
             }
 
@@ -3698,40 +4163,40 @@
 
                 showAlert(t('messages.validatingKeys'), 10000);
 
-                const nzbdavUrl = debridServices.nzbdav_url || '';
-                const webdavUser = debridServices.webdav_user || '';
-                const webdavPassword = debridServices.webdav_password || '';
+                // Une verification par cle distincte : deux utilisateurs qui
+                // partagent un compte debrid ne declenchent qu'un appel.
+                const checks = [];
+                const seen = new Set();
+                const addCheck = (profileIndex, kind, args) => {
+                    const key = JSON.stringify(args);
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    checks.push({ profileIndex, kind, args });
+                };
+                state.profiles.forEach((p, i) => {
+                    if (i === 0 || !isTmdbShared()) addCheck(i, 'tmdb', ['tmdb', p.tmdb_api_token]);
+                    p.debrid_services.forEach(s => {
+                        addCheck(i, s.service, s.service === 'nzbdav'
+                            ? [s.service, s.api_key, p.nzbdav_url, p.webdav_user, p.webdav_password]
+                            : [s.service, s.api_key]);
+                    });
+                });
 
-                const verificationPromises = [
-                    verifyApiKey('tmdb', tmdbToken),
-                    ...debridServices.map(s => {
-                        if (s.service === 'nzbdav') {
-                            return verifyApiKey(s.service, s.api_key, nzbdavUrl, webdavUser, webdavPassword);
-                        }
-                        return verifyApiKey(s.service, s.api_key);
-                    })
-                ];
-
-                const results = await Promise.all(verificationPromises);
-                const tmdbValid = results[0];
-                const debridResults = results.slice(1);
-
-                if (!tmdbValid) {
-                    showAlert(t('messages.invalidTmdbToken'));
+                const results = await Promise.all(checks.map(c => verifyApiKey(...c.args)));
+                const failed = checks.find((_, i) => !results[i]);
+                if (failed) {
+                    const p = state.profiles[failed.profileIndex];
+                    const who = state.profiles.length > 1 ? ` — ${p.name || p.id}` : '';
+                    showAlert(failed.kind === 'tmdb'
+                        ? `${t('messages.invalidTmdbToken')}${who}`
+                        : `${t('messages.invalidDebridKey')} (${failed.kind})${who}`);
+                    switchProfile(failed.profileIndex);
                     setLoading(false);
                     return;
                 }
-
-                const invalidIndex = debridResults.findIndex(valid => !valid);
-                if (invalidIndex !== -1) {
-                    showAlert(t('messages.invalidDebridKey') + ` (${debridServices[invalidIndex].service})`);
-                    setLoading(false);
-                    return;
-                }
-
-                const config = buildUserConfig();
 
                 let url;
+                let urls;
 
                 if (state.isExistingUser && state.userUuid) {
                     const updateRes = await fetch(`/user/${state.userUuid}`, {
@@ -3749,6 +4214,7 @@
 
                     const updateData = await updateRes.json();
                     url = updateData.addon_url;
+                    urls = updateData.addon_urls;
                     showAlert(t('messages.configUpdated') || 'Configuration updated');
                 } else {
                     const createRes = await fetch('/user', {
@@ -3766,6 +4232,7 @@
 
                     const createData = await createRes.json();
                     url = createData.addon_url;
+                    urls = createData.addon_urls;
                     state.userUuid = createData.uuid;
                     state.encryptedPassword = createData.encrypted_password;
                     state.isExistingUser = true;
@@ -3774,7 +4241,9 @@
                     showAlert(t('messages.accountCreated') || 'Account created');
                 }
 
-                els.addonLink.textContent = url;
+                // Les identifiants figurent desormais dans des URLs installees : figes.
+                state.profiles.forEach(p => { p.saved = true; });
+                renderAddonLinks(urls && urls.length ? urls : [{ url }]);
                 els.resultUuid.textContent = state.userUuid;
                 els.result.style.display = 'block';
                 els.result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -4042,6 +4511,19 @@
                 updateSourceContentTypesOptions();
             });
 
+            els.profileName.addEventListener('sl-input', renameActiveProfile);
+            els.removeProfileBtn.addEventListener('click', removeProfile);
+            const toggleDefaultService = (service, enabled) => {
+                state.defaultServices = state.defaultServices.filter(s => s !== service);
+                if (enabled) state.defaultServices.push(service);
+            };
+            els.tmdbDefault.addEventListener('sl-change', () => {
+                toggleDefaultService('tmdb', els.tmdbDefault.checked);
+            });
+            els.trackersDefault.addEventListener('sl-change', () => {
+                toggleDefaultService('trackers', els.trackersDefault.checked);
+            });
+
             els.addDebridServiceBtn.addEventListener('click', () => {
                 addDebridServiceEntry();
                 updateEarlyStopOptions();
@@ -4249,7 +4731,12 @@
         const loadExistingConfig = async () => {
             const path = window.location.pathname;
 
-            const secureMatch = path.match(/^\/([^\/]+)\/([^\/]+)\/configure$/);
+            // /{uuid}/{utilisateur}/{jeton}/configure (multi-utilisateurs) ou
+            // /{uuid}/{jeton}/configure (historique).
+            const profileMatch = path.match(/^\/([^\/]+)\/([^\/]+)\/([^\/]+)\/configure$/);
+            const secureMatch = profileMatch
+                ? [profileMatch[0], profileMatch[1], profileMatch[3]]
+                : path.match(/^\/([^\/]+)\/([^\/]+)\/configure$/);
             if (secureMatch) {
                 const userUuid = secureMatch[1];
                 const encPassword = secureMatch[2];
@@ -4278,6 +4765,10 @@
                     els.userPassword.value = userPasswordInput;
 
                     applyConfigToForm(config);
+                    if (profileMatch) {
+                        const index = state.profiles.findIndex(p => p.id === profileMatch[2]);
+                        if (index > 0) switchProfile(index);
+                    }
                     updateLoginButtonState();
                     showAlert(t('messages.configLoaded'), 2000);
                 } catch (error) {
@@ -4326,7 +4817,12 @@
             }
         };
 
-        const applyConfigToForm = (config) => {
+        const applyConfigToForm = (config, { keepExistingProfiles = false } = {}) => {
+            // La config chargee decrit le principal : on revient sur lui avant de
+            // remplir le formulaire (sans capturer, il va etre ecrase).
+            if (state.activeProfile !== 0 && !keepExistingProfiles) state.activeProfile = 0;
+            if (keepExistingProfiles && state.activeProfile !== 0) switchProfile(0);
+            els.tmdbToken.disabled = false;
             WACUSTOM_ONLY_KEYS.forEach(k => {
                 if (config[k] !== undefined) wacustomOnlyFields[k] = config[k];
             });
@@ -4372,6 +4868,8 @@
             }
 
             if (config.tmdb_api_token) els.tmdbToken.value = config.tmdb_api_token;
+            // Comme les cles debrid : un export (cles videes) garde celles du formulaire.
+            fillTrackerKeys(mergeTrackerKeys(config.tracker_api_keys, readTrackerKeys()));
             if (config.timeout !== undefined) els.timeout.value = config.timeout;
             if (config.stream_request_timeout !== undefined) els.timeout.value = config.stream_request_timeout;
             if (config.max_results_per_resolution !== undefined) els.maxResults.value = config.max_results_per_resolution;
@@ -4501,6 +4999,8 @@
             }
 
             renderSortOrderList(Array.isArray(config.sort_order) ? config.sort_order : null);
+
+            loadProfilesFromConfig(config, { keepExisting: keepExistingProfiles });
         };
 
         // ===========================
@@ -4545,7 +5045,7 @@
             if (els.resolutionSelect) els.resolutionSelect.label = trans.labels.resolutions;
             if (els.maxResults) els.maxResults.label = trans.labels.maxResults;
             if (els.maxSize) els.maxSize.label = trans.labels.maxSize;
-            if (els.tmdbToken) els.tmdbToken.label = trans.labels.tmdbToken;
+            if (els.tmdbTokenLabel) els.tmdbTokenLabel.textContent = trans.labels.tmdbToken;
             if (els.timeout) els.timeout.label = trans.labels.timeout;
             if (els.password) els.password.label = trans.labels.password;
             if (els.userPassword) els.userPassword.label = trans.labels.accountPassword;
@@ -4611,6 +5111,9 @@
                     els.warningModalBody.innerHTML = trans.warnings[`${warningKey}Message`];
                 }
             }
+
+            // Onglets utilisateurs : generes en JS, hors du balayage data-i18n.
+            renderProfileTabs();
         }
 
         function toggleLanguage() {
@@ -4626,6 +5129,7 @@
                 const el = document.getElementById(key);
                 if (el) els[key] = el;
             });
+            renderTrackerKeyInputs();
 
             await Promise.allSettled([
                 customElements.whenDefined('sl-select'),
@@ -4650,10 +5154,15 @@
             updateSourceContentTypesOptions();
             renderSortOrderList(null);
 
-            loadExistingConfig();
-
+            // Langue d'abord : le nom par defaut du principal en depend.
             const savedLang = localStorage.getItem('wastream_language') || 'en';
             switchLanguage(savedLang);
+
+            state.profiles[0].name = t('users.mainDefaultName');
+            state.profiles[0].id = slugifyProfileId(state.profiles[0].name);
+            renderProfileChrome();
+
+            loadExistingConfig();
             loadPublicHealthLink();
         };
 
@@ -4680,7 +5189,7 @@
             const SECTIONS = [
                 ['sec-languages',      'sections.languages', 'Languages'],
                 ['sec-quality',        'sections.quality',   'Quality'],
-                ['sec-service',        'sections.service',   'Service'],
+                ['sec-service',        'sections.service',   'Users &amp; Services'],
                 ['sec-sort',           'sections.sortOrder', 'Sort Order'],
                 ['sec-advanced',       'sections.advanced',  'Advanced'],
                 ['passwordSection',    'sections.security',  'Security'],

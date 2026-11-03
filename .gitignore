@@ -101,6 +101,9 @@ Desktop.ini
 # ===========================
 assets/
 
+# Données du conteneur (bind mount)
+wacustom-data/
+
 # Scripts de debug jetables
 scratch/
 wastream/scratch/

@@ -6,6 +6,7 @@ from typing import List, Dict, Optional, Tuple
 
 from wastream.config.settings import settings
 from wastream.services.torrent_files import remember_torrent_url
+from wastream.utils.tracker_keys import GLOBAL_OWNER
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import scraper_logger
 from wastream.utils.release_parser import tokenize_filename
@@ -163,10 +164,14 @@ class BaseTorznab:
     def __init__(self, name: str, url: str, api_key: str, auth_type: str = "query",
                  movie_id_params: Optional[List[str]] = None,
                  tv_id_params: Optional[List[str]] = None,
-                 require_api_key: bool = True):
+                 require_api_key: bool = True,
+                 key_owner: str = GLOBAL_OWNER):
         self.name = name
         self.url = normalize_tracker_url(name, url)
         self.api_key = api_key
+        # Proprietaire de la cle (globale ou d'un utilisateur) : range les
+        # URL de .torrent a son nom (cf. torrent_files).
+        self.key_owner = key_owner
         self.auth_type = auth_type  # "query" or "header"
         # Certains trackers Torznab (Zilean) n'exigent aucune authentification
         # (endpoint public, AllowAnonymous cote serveur) -- sans ce flag, le
@@ -443,7 +448,7 @@ class BaseTorznab:
                 # Le resultat ne porte qu'un magnet nu ; le vrai .torrent reste
                 # cote serveur pour la lecture hors cache (cf. torrent_files).
                 if torrent_url and not torrent_url.startswith("magnet:"):
-                    remember_torrent_url(infohash, self.name, torrent_url)
+                    remember_torrent_url(infohash, self.name, torrent_url, self.key_owner)
                 magnet_link = f"magnet:?xt=urn:btih:{infohash}"
 
                 result = {

@@ -12,6 +12,9 @@ Elles ne doivent donc jamais sortir du serveur -- ni dans le jeton de lecture
 entre instances), ni dans un log. D'ou ce registre en memoire, alimente a la
 recherche et consulte a la lecture par l'infohash. Wacustom tourne en un seul
 processus : pas besoin de le partager.
+
+Les entrees sont rangees par proprietaire de cle (cle globale ou cle d'un
+utilisateur, cf. utils/tracker_keys) : une requete ne lit que les siennes.
 """
 import time
 from collections import OrderedDict
@@ -20,21 +23,22 @@ from typing import Optional, Tuple
 from wastream.config.settings import settings
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import debrid_logger
+from wastream.utils.tracker_keys import GLOBAL_OWNER, request_tracker_owners
 
 _TTL = 86400
 _MAX_ENTRIES = 20000
 _MAX_TORRENT_BYTES = 5 * 1024 * 1024
 
-# infohash -> (source, url, expire_a en monotonic)
-_registry: "OrderedDict[str, Tuple[str, str, float]]" = OrderedDict()
+# (infohash, proprietaire de la cle) -> (source, url, expire_a en monotonic)
+_registry: "OrderedDict[Tuple[str, str], Tuple[str, str, float]]" = OrderedDict()
 
 
-def remember_torrent_url(infohash: str, source: str, url: str) -> None:
+def remember_torrent_url(infohash: str, source: str, url: str, owner: str = GLOBAL_OWNER) -> None:
     if not infohash or not url or not url.startswith(("http://", "https://")):
         return
-    infohash = infohash.lower()
-    _registry.pop(infohash, None)
-    _registry[infohash] = (source, url, time.monotonic() + _TTL)
+    entry_key = (infohash.lower(), owner)
+    _registry.pop(entry_key, None)
+    _registry[entry_key] = (source, url, time.monotonic() + _TTL)
     while len(_registry) > _MAX_ENTRIES:
         _registry.popitem(last=False)
 
@@ -48,14 +52,18 @@ def _lookup(infohash: str) -> Optional[Tuple[str, str]]:
     if not infohash:
         return None
     infohash = infohash.lower()
-    entry = _registry.get(infohash)
-    if entry is None:
-        return None
-    source, url, expires_at = entry
-    if expires_at <= time.monotonic():
-        del _registry[infohash]
-        return None
-    return source, url
+    # La cle de l'utilisateur d'abord, la cle globale en dernier recours.
+    for owner in sorted(request_tracker_owners(), key=lambda o: o == GLOBAL_OWNER):
+        entry_key = (infohash, owner)
+        entry = _registry.get(entry_key)
+        if entry is None:
+            continue
+        source, url, expires_at = entry
+        if expires_at <= time.monotonic():
+            del _registry[entry_key]
+            continue
+        return source, url
+    return None
 
 
 async def fetch_torrent_file(infohash: str) -> Optional[bytes]:

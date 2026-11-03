@@ -12,6 +12,8 @@ from wastream.utils.crypto import (
     generate_uuid
 )
 from wastream.utils.logger import database_logger
+from wastream.utils.profiles import resolve_profile_config
+from wastream.utils.tracker_keys import set_request_tracker_owners
 
 
 # ===========================
@@ -141,13 +143,24 @@ async def get_user_config_detailed(user_uuid: str, password: str) -> Dict[str, A
 # ===========================
 # User Config from URL
 # ===========================
-async def get_user_config_from_url(user_uuid: str, encrypted_password: str) -> Optional[Dict[str, Any]]:
+async def get_user_config_from_url(user_uuid: str, encrypted_password: str,
+                                   profile_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Config effective de l'utilisateur `profile_id` du compte (le principal
+    si None). Le jeton doit avoir ete emis pour CET utilisateur."""
     try:
-        password = decrypt_password_from_url(encrypted_password)
+        password = decrypt_password_from_url(encrypted_password, profile_id)
         if not password:
             return None
 
-        return await get_user_config(user_uuid, password)
+        config = await get_user_config(user_uuid, password)
+        if not config:
+            return None
+
+        effective = resolve_profile_config(config, profile_id)
+        # Cette requete ne pourra lire que les .torrent obtenus avec SES cles
+        # de trackers (+ les cles globales), cf. utils/tracker_keys.
+        set_request_tracker_owners(effective)
+        return effective
 
     except Exception as e:
         database_logger.error(f"[Users] Config from URL failed: {type(e).__name__}: {e}")

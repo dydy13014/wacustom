@@ -34,6 +34,7 @@ from wastream.scrapers.webshare.series import series_scraper as webshare_series_
 from wastream.scrapers.zone_telechargement.anime import anime_scraper as zone_telechargement_anime_scraper
 from wastream.scrapers.zone_telechargement.movie import movie_scraper as zone_telechargement_movie_scraper
 from wastream.scrapers.zone_telechargement.series import series_scraper as zone_telechargement_series_scraper
+from wastream.utils.tracker_keys import tracker_cache_name
 from wastream.scrapers.torznab.trackers import yggreborn_scraper, tr4ker_scraper, torr9_scraper, c411_scraper, v3x_scraper, gemini_scraper, generationfree_scraper
 from wastream.scrapers.zilean.base import zilean_scraper
 from wastream.scrapers.nyaa.base import nyaa_scraper
@@ -416,6 +417,8 @@ class StreamService:
             if user_uuid and enc_password:
                 token_data["u"] = user_uuid
                 token_data["p"] = enc_password
+                if config.get("_profile_id"):
+                    token_data["pr"] = config["_profile_id"]
             else:
                 token_data["c"] = encode_config_to_base64(config)
 
@@ -1424,77 +1427,77 @@ class StreamService:
         if "yggreborn" in supported_sources and self._is_source_allowed_for_content("yggreborn", content_name, config):
             if use_episode_cache:
                 coro = self._search_source_with_cache(
-                    "yggreborn", content_type, lambda: yggreborn_scraper.search(title, year, metadata, season, episode, config),
+                    tracker_cache_name("yggreborn", config), content_type, lambda: yggreborn_scraper.search(title, year, metadata, season, episode, config),
                     title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
             else:
                 coro = self._search_source_with_cache(
-                    "yggreborn", content_type, lambda: yggreborn_scraper.search(title, year, metadata, config=config),
+                    tracker_cache_name("yggreborn", config), content_type, lambda: yggreborn_scraper.search(title, year, metadata, config=config),
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("yggreborn", coro))
 
         if "tr4ker" in supported_sources and self._is_source_allowed_for_content("tr4ker", content_name, config):
             if use_episode_cache:
                 coro = self._search_source_with_cache(
-                    "tr4ker", content_type, lambda: tr4ker_scraper.search(title, year, metadata, season, episode, config),
+                    tracker_cache_name("tr4ker", config), content_type, lambda: tr4ker_scraper.search(title, year, metadata, season, episode, config),
                     title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
             else:
                 coro = self._search_source_with_cache(
-                    "tr4ker", content_type, lambda: tr4ker_scraper.search(title, year, metadata, config=config),
+                    tracker_cache_name("tr4ker", config), content_type, lambda: tr4ker_scraper.search(title, year, metadata, config=config),
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("tr4ker", coro))
 
         if "torr9" in supported_sources and self._is_source_allowed_for_content("torr9", content_name, config):
             if use_episode_cache:
                 coro = self._search_source_with_cache(
-                    "torr9", content_type, lambda: torr9_scraper.search(title, year, metadata, season, episode, config),
+                    tracker_cache_name("torr9", config), content_type, lambda: torr9_scraper.search(title, year, metadata, season, episode, config),
                     title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
             else:
                 coro = self._search_source_with_cache(
-                    "torr9", content_type, lambda: torr9_scraper.search(title, year, metadata, config=config),
+                    tracker_cache_name("torr9", config), content_type, lambda: torr9_scraper.search(title, year, metadata, config=config),
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("torr9", coro))
 
         if "c411" in supported_sources and self._is_source_allowed_for_content("c411", content_name, config):
             if use_episode_cache:
                 coro = self._search_source_with_cache(
-                    "c411", content_type, lambda: c411_scraper.search(title, year, metadata, season, episode, config),
+                    tracker_cache_name("c411", config), content_type, lambda: c411_scraper.search(title, year, metadata, season, episode, config),
                     title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
             else:
                 coro = self._search_source_with_cache(
-                    "c411", content_type, lambda: c411_scraper.search(title, year, metadata, config=config),
+                    tracker_cache_name("c411", config), content_type, lambda: c411_scraper.search(title, year, metadata, config=config),
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("c411", coro))
 
         if "v3x" in supported_sources and self._is_source_allowed_for_content("v3x", content_name, config):
             if use_episode_cache:
                 coro = self._search_source_with_cache(
-                    "v3x", content_type, lambda: v3x_scraper.search(title, year, metadata, season, episode, config),
+                    tracker_cache_name("v3x", config), content_type, lambda: v3x_scraper.search(title, year, metadata, season, episode, config),
                     title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
             else:
                 coro = self._search_source_with_cache(
-                    "v3x", content_type, lambda: v3x_scraper.search(title, year, metadata, config=config),
+                    tracker_cache_name("v3x", config), content_type, lambda: v3x_scraper.search(title, year, metadata, config=config),
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("v3x", coro))
 
         if "gemini" in supported_sources and self._is_source_allowed_for_content("gemini", content_name, config):
             if use_episode_cache:
                 coro = self._search_source_with_cache(
-                    "gemini", content_type, lambda: gemini_scraper.search(title, year, metadata, season, episode, config),
+                    tracker_cache_name("gemini", config), content_type, lambda: gemini_scraper.search(title, year, metadata, season, episode, config),
                     title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
             else:
                 coro = self._search_source_with_cache(
-                    "gemini", content_type, lambda: gemini_scraper.search(title, year, metadata, config=config),
+                    tracker_cache_name("gemini", config), content_type, lambda: gemini_scraper.search(title, year, metadata, config=config),
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("gemini", coro))
 
         if "generation-free" in supported_sources and self._is_source_allowed_for_content("generation-free", content_name, config):
             if use_episode_cache:
                 coro = self._search_source_with_cache(
-                    "generation_free", content_type, lambda: generationfree_scraper.search(title, year, metadata, season, episode, config),
+                    tracker_cache_name("generation-free", config, base="generation_free"), content_type, lambda: generationfree_scraper.search(title, year, metadata, season, episode, config),
                     title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
             else:
                 coro = self._search_source_with_cache(
-                    "generation_free", content_type, lambda: generationfree_scraper.search(title, year, metadata, config=config),
+                    tracker_cache_name("generation-free", config, base="generation_free"), content_type, lambda: generationfree_scraper.search(title, year, metadata, config=config),
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("generation-free", coro))
 

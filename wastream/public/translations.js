@@ -7,11 +7,28 @@ const translations = {
         sections: {
             languages: 'Languages',
             quality: 'Quality',
-            service: 'Service',
+            service: 'Users & Services',
             advanced: 'Advanced',
             sortOrder: 'Sort Order',
             security: 'Security',
             account: 'Account'
+        },
+        trackers: {
+            title: 'Private trackers',
+            help: 'Your own API keys / passkeys. Leave empty to use the server\'s key (if any).',
+            inherited: 'Uses the main user\'s tracker keys (set as default)'
+        },
+        users: {
+            main: 'Admin',
+            mainDefaultName: 'Main',
+            defaultName: 'User',
+            add: 'User',
+            name: 'Username',
+            urlId: 'URL identifier:',
+            remove: 'Remove this user',
+            confirmRemove: 'Remove user "{name}"? Their manifest will stop working once you save.',
+            defaultForAll: 'Default for all users',
+            tmdbInherited: 'Uses the main user\'s TMDB token (set as default)'
         },
         labels: {
             preferredLanguages: 'Preferred languages',
@@ -253,11 +270,28 @@ const translations = {
         sections: {
             languages: 'Langues',
             quality: 'Qualité',
-            service: 'Service',
+            service: 'Utilisateurs & Services',
             advanced: 'Avancé',
             sortOrder: 'Ordre de tri',
             security: 'Sécurité',
             account: 'Compte'
+        },
+        trackers: {
+            title: 'Trackers privés',
+            help: 'Vos propres clés API / passkeys. Laisser vide pour utiliser la clé du serveur (s\'il y en a une).',
+            inherited: 'Utilise les clés de trackers de l\'utilisateur principal (définies par défaut)'
+        },
+        users: {
+            main: 'Admin',
+            mainDefaultName: 'Principal',
+            defaultName: 'Utilisateur',
+            add: 'User',
+            name: 'Username',
+            urlId: 'Identifiant dans l\'URL :',
+            remove: 'Supprimer cet utilisateur',
+            confirmRemove: 'Supprimer l\'utilisateur « {name} » ? Son manifest cessera de fonctionner après la sauvegarde.',
+            defaultForAll: 'Par défaut pour tous les utilisateurs',
+            tmdbInherited: 'Utilise le token TMDB de l\'utilisateur principal (défini par défaut)'
         },
         labels: {
             preferredLanguages: 'Langues préférées',
