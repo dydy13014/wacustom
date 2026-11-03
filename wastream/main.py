@@ -95,7 +95,12 @@ class LoguruMiddleware(BaseHTTPMiddleware):
             if request.url.path != "/health":
                 safe_path = request.url.path
                 path_parts = safe_path.split("/")
-                if len(path_parts) > 3 and path_parts[3] in ("stream", "manifest.json", "configure"):
+                keywords = ("stream", "manifest.json", "configure")
+                if len(path_parts) > 4 and path_parts[4] in keywords:
+                    # URL multi-utilisateurs : /<uuid>/<utilisateur>/<jeton>/...
+                    path_parts[3] = "***"
+                    safe_path = "/".join(path_parts)
+                elif len(path_parts) > 3 and path_parts[3] in keywords:
                     path_parts[2] = "***"
                     safe_path = "/".join(path_parts)
                 api_logger.debug(f"{request.method} {safe_path} - {response.status_code if response else '500'} - {process_time:.2f}s")
