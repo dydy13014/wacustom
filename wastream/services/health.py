@@ -318,8 +318,14 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
             # /manifest.json : discriminant plus fiable qu'une simple racine —
             # confirme que c'est bien un addon Stremio qui repond, pas juste
             # un service quelconque sur ce port/host.
+            # L'URL peut deja etre le manifeste complet (AIOSources 2.x :
+            # /stremio/<jeton>/manifest.json, meme tolerance que le scraper).
+            # On n'affiche que l'hote : le jeton fait partie du chemin.
+            base_url = url.rstrip("/")
+            if base_url.lower().endswith("/manifest.json"):
+                base_url = base_url[: -len("/manifest.json")]
             response = await http_client.get(
-                f"{url}/manifest.json",
+                f"{base_url}/manifest.json",
                 timeout=settings.HEALTH_CHECK_TIMEOUT
             )
             response_time = int((time.time() - start_time) * 1000)
@@ -327,7 +333,7 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
             if response.status_code == 200:
                 return SourceStatus(
                     name=name,
-                    url=url,
+                    url=_mask_url(url),
                     status="online",
                     response_time=response_time,
                     last_check=time.time()
@@ -335,7 +341,7 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
             else:
                 return SourceStatus(
                     name=name,
-                    url=url,
+                    url=_mask_url(url),
                     status="offline",
                     response_time=response_time,
                     last_check=time.time(),

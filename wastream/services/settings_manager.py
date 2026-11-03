@@ -30,7 +30,7 @@ SENSITIVE_SETTINGS = frozenset({
     # Clés des trackers propres au fork : même traitement que les
     # autres secrets (affichées masquées, écriture seule, chiffrées).
     "YGGREBORN_API_KEY", "TR4KER_API_KEY", "TORR9_API_KEY", "C411_API_KEY",
-    "GEMINI_API_KEY", "GENERATIONFREE_API_KEY", "V3X_API_KEY", "LUMIO_MANIFEST_ID",
+    "GEMINI_API_KEY", "GENERATIONFREE_API_KEY", "V3X_API_KEY", "LUMIO_MANIFEST_ID", "VIEWIO_MANIFEST_URL", "ZONE_TELECHARGEMENT_COOKIE",
 })
 
 # Excluded from export/import: raw HTML -> importing from an untrusted file would be stored XSS.
@@ -54,7 +54,7 @@ ADVANCED_SETTINGS = frozenset({
     "IDRIX_SCRAPER_REQUEST_DELAY",
     "IDRIX_SCRAPER_MAX_RETRY_DELAY",
     "DOMAIN_SYNC_INTERVAL", "DOMAIN_SYNC_HEALTH_ERROR_RECHECK_DELAY",
-    "LUMIO_RATE_LIMIT_PAUSE",
+    "LUMIO_RATE_LIMIT_PAUSE", "VIEWIO_RATE_LIMIT_PAUSE",
     "PROXY_URL",
 })
 
@@ -106,6 +106,7 @@ DESCRIPTIONS = {
     "MOVIX_URL": "Movix base URL (the API URL is auto-generated as api.{domain}).",
     "WEBSHARE_URL": "Webshare base URL.",
     "ZONE_TELECHARGEMENT_URL": "Zone-Telechargement base URL.",
+    "ZONE_TELECHARGEMENT_COOKIE": "Zone-Telechargement session cookie (links are members-only; copy the Cookie header of a logged-in browser).",
     "DATABASE_RETRY_MAX_ATTEMPTS": "Max attempts including the first try for transient database lock or serialization errors (default: 8).",
     "DATABASE_RETRY_DELAY": "Initial delay between transient database retries in seconds (default: 0.25).",
     "DARKIMOVIX_KITSU_TMDB_MAPPING": "IMDB IDs whose Kitsu anime should use TMDB mapping on Darki-API / Movix.",
@@ -172,7 +173,7 @@ DESCRIPTIONS = {
 # UI layout AND editable-keys allowlist. Order = display order.
 SETTINGS_LAYOUT = [
     ("Addon", ["ADDON_NAME"]),
-    ("Sources", ["WAWACITY_URL", "FREE_TELECHARGER_URL", "DARKI_API_URL", "DARKI_API_KEY", "MOVIX_URL", "WEBSHARE_URL", "ZONE_TELECHARGEMENT_URL"]),
+    ("Sources", ["WAWACITY_URL", "FREE_TELECHARGER_URL", "DARKI_API_URL", "DARKI_API_KEY", "MOVIX_URL", "WEBSHARE_URL", "ZONE_TELECHARGEMENT_URL", "ZONE_TELECHARGEMENT_COOKIE"]),
     ("TMDB", ["TMDB_API_KEY"]),
     # Sources propres au fork, absentes d'upstream : configurables ici plutôt
     # que par le seul fichier .env.
@@ -185,6 +186,7 @@ SETTINGS_LAYOUT = [
                          "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY"]),
     ("Zilean / Nyaa / AIOSources", ["ZILEAN_URL", "NYAA_URL", "AIOSOURCES_URL"]),
     ("Lumio", ["LUMIO_MANIFEST_ID", "LUMIO_RATE_LIMIT_PAUSE"]),
+    ("Viewio", ["VIEWIO_MANIFEST_URL", "VIEWIO_RATE_LIMIT_PAUSE"]),
     ("Database resilience", ["DATABASE_RETRY_MAX_ATTEMPTS", "DATABASE_RETRY_DELAY"]),
     ("Kitsu / Anime", ["DARKIMOVIX_KITSU_TMDB_MAPPING", "KITSU_IMDB_OVERRIDE"]),
     ("Pagination", ["WAWACITY_MAX_SEARCH_PAGES", "FREE_TELECHARGER_MAX_SEARCH_PAGES", "WEBSHARE_MAX_SEARCH_PAGES",

@@ -39,6 +39,7 @@ from wastream.scrapers.zilean.base import zilean_scraper
 from wastream.scrapers.nyaa.base import nyaa_scraper
 from wastream.scrapers.aiosources.base import aiosources_scraper
 from wastream.scrapers.lumio.base import lumio_scraper, SOURCE_LABEL as LUMIO_LABEL, PLAY_PREFIX as LUMIO_PLAY_PREFIX
+from wastream.scrapers.viewio.base import viewio_scraper, SOURCE_LABEL as VIEWIO_LABEL, is_play_link as is_viewio_play_link
 from wastream.services.kitsu import kitsu_service
 from wastream.services.tmdb import tmdb_service
 from wastream.utils.cache import get_cache, get_cache_with_status, get_cache_parallel, set_cache, set_cache_if_not_exists
@@ -250,6 +251,8 @@ class StreamService:
             # existantes re-enregistrees depuis la nouvelle interface.
             if settings.LUMIO_MANIFEST_ID and LUMIO_LABEL not in allowed_sources:
                 allowed_sources.append(LUMIO_LABEL)
+            if settings.VIEWIO_MANIFEST_URL and VIEWIO_LABEL not in allowed_sources:
+                allowed_sources.append(VIEWIO_LABEL)
 
             # Les flux « directs » de Lumio v2 sont déjà jouables : on ne les
             # soumet pas à la vérification de cache du service debrid.
@@ -289,11 +292,18 @@ class StreamService:
                 service_name = debrid_services[idx].get("service", "unknown")
                 stream_logger.error(f"Cache check failed for {service_name}: {type(result).__name__}: {result}")
 
+        # Flux « directs » (Lumio, Viewio) : deja jouables, ajoutes une seule fois.
+        direct_sources = {}
         if settings.LUMIO_MANIFEST_ID:
+            direct_sources[LUMIO_LABEL] = "lumio"
+        if settings.VIEWIO_MANIFEST_URL:
+            direct_sources[VIEWIO_LABEL] = "viewio"
+        if direct_sources:
             for r in results:
-                if r.get("model_type") == "direct" and r.get("source") == LUMIO_LABEL:
+                direct_service = direct_sources.get(r.get("source")) if r.get("model_type") == "direct" else None
+                if direct_service:
                     direct = r.copy()
-                    direct["debrid_service"] = "lumio"
+                    direct["debrid_service"] = direct_service
                     direct["cache_status"] = "cached"
                     merged_results.append(direct)
 
@@ -1645,6 +1655,22 @@ class StreamService:
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("lumio", coro))
 
+        # Viewio : meme logique que Lumio (flux directs deja en cache). Active par
+        # la seule presence de VIEWIO_MANIFEST_URL : les comptes enregistres avant
+        # son ajout n'ont pas "viewio" dans leur liste de sources.
+        if ("viewio" in supported_sources or settings.VIEWIO_MANIFEST_URL) and self._is_source_allowed_for_content("viewio", content_name, config):
+            if use_episode_cache:
+                coro = self._search_source_with_cache(
+                    "viewio", content_type,
+                    lambda: viewio_scraper.search(title, year, metadata, season, episode, config),
+                    title, year, season, episode, metadata, use_episode_key=True, filter_episodes=False)
+            else:
+                coro = self._search_source_with_cache(
+                    "viewio", content_type,
+                    lambda: viewio_scraper.search(title, year, metadata, config=config),
+                    title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
+            tasks_with_sources.append(("viewio", coro))
+
         if not tasks_with_sources:
             return []
 
@@ -1738,6 +1764,9 @@ class StreamService:
     async def resolve_link(self, link: str, config: Dict, season: Optional[str] = None, episode: Optional[str] = None, service: Optional[str] = None, content_type: Optional[str] = None, title: Optional[str] = None, source: Optional[str] = None, hoster: Optional[str] = None, mark_dead: bool = True) -> Optional[str]:
         if isinstance(link, str) and link.startswith(LUMIO_PLAY_PREFIX):
             # Lumio v2 : le lien /play redirige lui-même vers le lien direct.
+            return link
+        if is_viewio_play_link(link):
+            # Viewio : le lien /playback redirige lui-même vers le lien direct.
             return link
         link = canonicalize_url(link) or link
         if service:

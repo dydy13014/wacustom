@@ -135,6 +135,7 @@ async def lifespan(app: FastAPI):
         settings.GEMINI_URL,
         settings.GENERATIONFREE_URL,
         settings.LUMIO_MANIFEST_ID,
+        settings.VIEWIO_MANIFEST_URL,
     ))
     has_import_feeder = bool(settings.PASTEBIN_SCRAPER_URLS or settings.IDRIX_SCRAPER_URLS)
     if not has_direct_source and not has_import_feeder:

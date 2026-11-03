@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     MOVIX_URL: Optional[str] = None
     WEBSHARE_URL: Optional[str] = None
     ZONE_TELECHARGEMENT_URL: Optional[str] = None
+    ZONE_TELECHARGEMENT_COOKIE: Optional[str] = None
     DARKIMOVIX_KITSU_TMDB_MAPPING: List[str] = []
     KITSU_IMDB_OVERRIDE: List[str] = []
 
@@ -156,21 +157,21 @@ class Settings(BaseSettings):
     # peu importe l'ancienneté du lien (confirmé par appel API direct) — ce
     # n'est pas un hébergeur DDL utilisable via cette API.
     ALLDEBRID_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "vidoza", "torrent"]
-    ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio", "aiosources"]
+    ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio", "aiosources", "viewio"]
 
     # ===========================
     # TorBox Configuration
     # ===========================
     TORBOX_API_URL: str = "https://api.torbox.app/v1/api"
     TORBOX_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "sendcm", "send.now", "darkibox", "webshare"]
-    TORBOX_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "webshare", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio", "aiosources"]
+    TORBOX_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "webshare", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio", "aiosources", "viewio"]
 
     # ===========================
     # Premiumize Configuration
     # ===========================
     PREMIUMIZE_API_URL: str = "https://www.premiumize.me/api"
     PREMIUMIZE_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator"]
-    PREMIUMIZE_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio", "aiosources"]
+    PREMIUMIZE_SUPPORTED_SOURCES: List[str] = ["darki-api", "free-telecharger", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio", "aiosources", "viewio"]
 
     # ===========================
     # 1fichier Configuration
@@ -240,6 +241,17 @@ class Settings(BaseSettings):
     # chaque appel emis pendant le blocage le prolonge : une pause courte est
     # pire que rien.
     LUMIO_RATE_LIMIT_PAUSE: int = 86400
+
+    # ===========================
+    # Viewio Configuration
+    # ===========================
+    # Lien de manifest Viewio (addon.viewio.me), propre a chaque installation :
+    # il contient un jeton secret, a traiter comme une cle de tracker. Vide =
+    # source desactivee. Ne fournit que des flux deja lisibles (cache debrid).
+    VIEWIO_MANIFEST_URL: Optional[str] = None
+    # Pause apres un refus de quota (429). Quota inconnu (addon tout recent) :
+    # une heure par defaut, a ajuster.
+    VIEWIO_RATE_LIMIT_PAUSE: int = 3600
 
     # ===========================
     # Nyaa Configuration (tracker public anime, pas d'API key)
@@ -405,7 +417,7 @@ class Settings(BaseSettings):
         "DOMAIN_SYNC_MOVIX_TELEGRAM_URL", "DOMAIN_SYNC_ZONE_TELECHARGEMENT_TELEGRAM_URL",
         # Nos sources maison (trackers Torznab/UNIT3D, Zilean, Nyaa, AIOSources)
         "YGGREBORN_URL", "TR4KER_URL", "TORR9_URL", "C411_URL", "V3X_URL",
-        "GEMINI_URL", "GENERATIONFREE_URL", "ZILEAN_URL", "NYAA_URL", "AIOSOURCES_URL"
+        "GEMINI_URL", "GENERATIONFREE_URL", "ZILEAN_URL", "NYAA_URL", "AIOSOURCES_URL", "VIEWIO_MANIFEST_URL"
     )
     @classmethod
     def normalize_urls(cls, v):
@@ -506,5 +518,6 @@ SOURCE_DISPLAY_NAMES = {
     "zilean": "Zilean",
     "nyaa": "Nyaa",
     "lumio": "Lumio",
+    "viewio": "Viewio",
     "aiosources": "AIOSources"
 }

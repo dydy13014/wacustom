@@ -115,6 +115,13 @@ class AIOSourcesScraper:
                 if not display_name:
                     display_name = raw_title
 
+                # AIOSources 2.x annonce lui-meme l'etat debrid dans `name`
+                # ("⚡ Cached · AllDebrid") : seule information de cache fiable
+                # qu'on ait pour un torrent (AllDebrid n'expose plus de
+                # verification publique). Sans ce relais, tout etait affiche ⏳.
+                stream_name = stream.get("name") or ""
+                is_cached = "⚡" in stream_name and "cached" in stream_name.lower()
+
                 result = {
                     "link": f"magnet:?xt=urn:btih:{infohash}",
                     "infohash": infohash,
@@ -127,6 +134,12 @@ class AIOSourcesScraper:
                     "display_name": display_name,
                     "model_type": "torrent"
                 }
+                if is_cached:
+                    result["cache_status"] = "cached"
+                # Nom de release reel (qualite, codec, audio, groupe) pour que
+                # l'affichage ne se limite pas a la resolution.
+                if behavior_hints.get("filename"):
+                    result["debrid_filename"] = behavior_hints["filename"]
                 if season:
                     result["season"] = str(season)
                 if episode:

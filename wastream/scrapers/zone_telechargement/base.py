@@ -202,7 +202,7 @@ class BaseZoneTelechargement:
                 f"{base}/engine/ajax/controller.php",
                 base,
                 params=params,
-                headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{base}/"},
+                headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{base}/", **BaseZoneTelechargement._auth_headers()},
             )
             if response.status_code != 200:
                 scraper_logger.debug(f"[Zone-Telechargement] Search HTTP {response.status_code} (page {page})")
@@ -241,6 +241,11 @@ class BaseZoneTelechargement:
         return full
 
     @staticmethod
+    def _auth_headers() -> Dict[str, str]:
+        cookie = (settings.ZONE_TELECHARGEMENT_COOKIE or "").strip()
+        return {"Cookie": cookie} if cookie else {}
+
+    @staticmethod
     async def _fetch(url: str, page_cache: Dict) -> Optional[str]:
         if url in page_cache:
             return page_cache[url]
@@ -250,6 +255,7 @@ class BaseZoneTelechargement:
                 "Zone-Telechargement",
                 url,
                 settings.ZONE_TELECHARGEMENT_URL,
+                headers=BaseZoneTelechargement._auth_headers(),
             )
             if response.status_code == 200:
                 html_text = response.text
