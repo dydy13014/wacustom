@@ -60,7 +60,7 @@ def test_normalize_quality_ultra_hdlight_combo():
 
 
 # ===========================
-# quality_sort_key — resolution ordering (plus petit = meilleur)
+# quality_sort_key - resolution ordering (plus petit = meilleur)
 # ===========================
 def test_quality_sort_key_2160p_beats_1080p():
     key_2160 = quality_sort_key({"quality": "2160p BluRay"})
@@ -79,7 +79,7 @@ def test_quality_sort_key_missing_field_treated_as_unknown():
 
 
 # ===========================
-# quality_sort_key — release type ordering (plus petit = meilleur)
+# quality_sort_key - release type ordering (plus petit = meilleur)
 # ===========================
 def test_quality_sort_key_remux_beats_bluray():
     key_remux = quality_sort_key({"quality": "1080p REMUX"})

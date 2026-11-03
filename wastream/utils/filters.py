@@ -7,7 +7,7 @@ from wastream.utils.helpers import parse_size_to_gb
 # ===========================
 # Language Filtering
 # ===========================
-# ⚠️ Divergence volontaire d'upstream (3.8.2) — à conserver au prochain rebase.
+# ⚠️ Divergence volontaire d'upstream (3.8.2) - à conserver au prochain rebase.
 # Upstream ne sait lire qu'un « Multi (French, English) » détaillé ; un tag
 # « Multi » BRUT tombe dans la comparaison par nom exact, où « Multi » n'égale
 # jamais « French » → la release est jetée. Or « Multi » veut précisément dire
@@ -17,7 +17,7 @@ from wastream.utils.helpers import parse_size_to_gb
 # être reconstituée là-bas. Corrigé ici, au bon endroit, pour toutes les
 # sources à la fois. Mesuré sur Solo Leveling S02E09 : 36 résultats Lumio en
 # cache debrid ⚡ réduits à 1 par ce filtre, avec une config `['French']`.
-# Compromis assumé : un « Multi » sans français passera aussi — quelques flux
+# Compromis assumé : un « Multi » sans français passera aussi - quelques flux
 # en trop, contre la perte totale des flux déjà en cache.
 _MULTI_WILDCARD = {"multi", "multilang", "multilangue", "multi-audio", "multiaudio"}
 
@@ -126,10 +126,10 @@ def filter_by_max_size(results: List[Dict], max_size_gb: float) -> List[Dict]:
 # ===========================
 # Plausible Size Filtering (anti-mislabeled/fake releases)
 # ===========================
-# Taille minimale plausible (Go) par résolution — un fichier plus petit ne
+# Taille minimale plausible (Go) par résolution - un fichier plus petit ne
 # peut physiquement pas contenir un film complet dans cette résolution avec
 # un encodage raisonnable. Cas réel (2026-07-20, "Bagarre") : plusieurs
-# torrents Tr4ker annoncés "1080p BluRay" à 698 Mo / 2.19 Go — impossible
+# torrents Tr4ker annoncés "1080p BluRay" à 698 Mo / 2.19 Go - impossible
 # (un vrai 1080p BluRay, même très compressé, ne descend jamais sous 3 Go).
 # Seuil plus bas pour les sources non-BluRay/REMUX (WEBRip/WEB-DL/HDRip),
 # dont la compression varie plus légitimement.
@@ -147,10 +147,10 @@ _MIN_PLAUSIBLE_GB_BLURAY = {
     "1440p": 5.0,
     "2160p": 8.0,
 }
-# Taille maximale plausible (Go) — un fichier plus gros ne peut pas non plus
+# Taille maximale plausible (Go) - un fichier plus gros ne peut pas non plus
 # être un vrai film dans cette résolution (torrent factice/empoisonné gonflé
 # artificiellement). Cas réel (2026-07-19, "Toy Story 5") : un "1080p"
-# annoncé à 231 Go sur Tr4ker — même un REMUX 1080p ne dépasse jamais ça
+# annoncé à 231 Go sur Tr4ker - même un REMUX 1080p ne dépasse jamais ça
 # pour un film de ~100 min.
 _MAX_PLAUSIBLE_GB = {
     "480p": 6.0,
@@ -165,7 +165,7 @@ def filter_implausible_size(results: List[Dict], content_type: str = "movie") ->
     # Réservé aux films : les seuils ci-dessus supposent un long-métrage
     # (~90-150 min). Un épisode de série peut légitimement peser 20x moins
     # (20 min, cas réel "Comme les grands" cassé par une première version de
-    # ce filtre le 2026-07-20) et un pack de saison 10-20x plus — pas encore
+    # ce filtre le 2026-07-20) et un pack de saison 10-20x plus - pas encore
     # de seuils fiables pour ces deux cas, donc on ne filtre pas du tout
     # plutôt que de risquer de rejeter du contenu légitime.
     if content_type != "movie":
@@ -252,7 +252,7 @@ def filter_excluded_keywords(streams: List[Dict], excluded_keywords: List[str]) 
 # ===========================
 # `content_type` est volontairement SANS valeur par defaut : avec un defaut a
 # "movie", un appelant qui l'oublierait sur des episodes reactiverait en silence
-# le filtre anti-poison sur les series — c'est exactement le bug « Comme les
+# le filtre anti-poison sur les series - c'est exactement le bug « Comme les
 # grands » du 2026-07-20 (episodes de 20 min rejetes comme trop legers). Sans
 # defaut, l'oubli devient une erreur immediate au lieu d'un filtrage muet.
 def apply_all_filters(results: List[Dict], config: Dict, content_type: str) -> List[Dict]:

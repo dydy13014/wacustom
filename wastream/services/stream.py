@@ -75,9 +75,9 @@ from wastream.utils.tasks import lancer_tache
 # Si le verrou anti-doublon (SearchLock) n'est pas obtenu après
 # SCRAPE_WAIT_TIMEOUT (8s), un autre worker est probablement en train de
 # scraper la même clé (jusqu'à SCRAPE_LOCK_TTL=60s). Plutôt que de dupliquer
-# immédiatement ce scrape — ce qui ajoute de la charge sur une source déjà
+# immédiatement ce scrape - ce qui ajoute de la charge sur une source déjà
 # lente et peut faire dépasser le budget de l'appelant (20s côté AIOStreams)
-# — on patiente encore un peu en revérifiant le cache, pour récupérer le
+# - on patiente encore un peu en revérifiant le cache, pour récupérer le
 # résultat du worker en cours au lieu de refaire le travail.
 _LOCK_MISS_POLL_ATTEMPTS = 4
 _LOCK_MISS_POLL_INTERVAL = 1.5
@@ -246,8 +246,8 @@ class StreamService:
             allowed_sources = [source_mapping.get(s, s) for s in supported_sources]
             # Compatibilite : Lumio n'etait pas proposee dans l'interface avant
             # sa publication, elle est donc absente des listes de sources
-            # enregistrees a cette epoque. Sans ce repli, ses resultats — les
-            # seuls garantis deja en cache debrid — seraient rejetes ici alors
+            # enregistrees a cette epoque. Sans ce repli, ses resultats - les
+            # seuls garantis deja en cache debrid - seraient rejetes ici alors
             # qu'ils ont bien ete recuperes. A retirer une fois les configs
             # existantes re-enregistrees depuis la nouvelle interface.
             if settings.LUMIO_MANIFEST_ID and LUMIO_LABEL not in allowed_sources:
@@ -669,12 +669,12 @@ class StreamService:
         )
 
         # Titres alternatifs : essayés en plus du titre principal si celui-ci
-        # a ramené peu de résultats — certains trackers n'indexent un contenu
+        # a ramené peu de résultats - certains trackers n'indexent un contenu
         # que sous un titre précis (ex. C411 = "Seuls face à l'Alaska" en
         # français uniquement, jamais "Mountain Men"). Cas réel (2026-07-20) :
         # un gate "if not results" cachait totalement cette tentative dès
         # qu'UN SEUL autre tracker répondait déjà quelque chose avec le titre
-        # principal — C411 n'avait alors jamais sa chance avec le titre FR.
+        # principal - C411 n'avait alors jamais sa chance avec le titre FR.
         # Mais "toujours" essayer (peu importe le nombre de résultats déjà
         # trouvés) fait exploser la charge sur un blockbuster à cache froid
         # (5+ titres traduits TMDB × tout le pipeline de sources en
@@ -686,13 +686,13 @@ class StreamService:
         # Deuxième trou comblé (2026-09-18, cas réel "Surveillant !" / titre
         # TMDB "Minimum Security") : un DDL généraliste (Wawacity...) peut à
         # lui seul dépasser le seuil avec de vraies variantes utilisables,
-        # alors qu'AUCUN torrent tracker n'a rien trouvé pour ce titre —
+        # alors qu'AUCUN torrent tracker n'a rien trouvé pour ce titre -
         # `_is_relevant` (torznab/base.py) rejette alors à raison un résultat
         # de repli "tendance" du tracker, mais le retry cross-titre qui
         # aurait pu lui donner sa chance avec le bon titre ne se déclenche
         # jamais, masqué par le volume DDL. On force donc aussi le retry si
         # zéro résultat torrent n'est encore présent, indépendamment du
-        # volume DDL déjà trouvé — les trackers sont rapides à re-solliciter
+        # volume DDL déjà trouvé - les trackers sont rapides à re-solliciter
         # (Torznab, pas de scraping HTML), le risque de latence du cas
         # Doctor Strange 2 ne s'applique pas à ce sous-ensemble.
         ALT_TITLE_RESULT_THRESHOLD = 15
@@ -706,7 +706,7 @@ class StreamService:
             for r in results
         )
         # Peu de résultats : relance complète (toutes les sources). Assez de
-        # résultats mais aucun des trackers : relance limitée à ces trackers —
+        # résultats mais aucun des trackers : relance limitée à ces trackers -
         # relancer aussi les DDL sur chaque titre alternatif recréait le risque
         # de timeout AIOStreams (Doctor Strange 2), surtout quand un tracker
         # est en 429 et laisse has_torrent_results à faux à chaque requête.
@@ -1528,7 +1528,7 @@ class StreamService:
         # Nyaa.si sous la categorie Live Action (4_0), distincte de la
         # categorie Anime (1_0) deja interrogee cote Kitsu. Gate sur
         # original_language == "ja" (TMDB) pour ne jamais interroger Nyaa sur
-        # du contenu non-japonais — cout sinon negligeable, l'appel tourne en
+        # du contenu non-japonais - cout sinon negligeable, l'appel tourne en
         # parallele des autres sources comme les blocs ci-dessus.
         #
         # Nyaa n'indexe quasiment jamais un titre francais : "Comme les
@@ -1539,7 +1539,7 @@ class StreamService:
         # parallele, dedupliques par infohash.
         #
         # ⚠️ Piege deja fait une fois : NE JAMAIS utiliser metadata["titles"]/
-        # ["original_titles"] ici — ces listes alimentent aussi le retitrage
+        # ["original_titles"] ici - ces listes alimentent aussi le retitrage
         # generique de get_streams pour TOUTES les sources (Wawacity, Torznab,
         # etc.), et `alternative_titles` peut contenir des dizaines d'entrees
         # par pays. Melange constate en reel : rate-limit Nyaa/C411 (429 en
@@ -1639,7 +1639,7 @@ class StreamService:
 
         # Source d'appoint optionnelle (absente du depot public) : lancee en
         # parallele des autres, sur chaque recherche. Elle n'apporte QUE des
-        # torrents deja verifies en cache, donc lisibles immediatement — c'est
+        # torrents deja verifies en cache, donc lisibles immediatement - c'est
         # exactement ce qui manque quand une recherche remonte beaucoup de flux
         # dont aucun ne demarre. La conditionner au NOMBRE de resultats etait
         # une erreur : le nombre ne dit rien de leur jouabilite.

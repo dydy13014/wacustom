@@ -274,7 +274,7 @@ def _root_url(value: str) -> Optional[str]:
         return None
     # Le "www." n'est jamais significatif pour ces sources : le comparer sans
     # le retirer fait echouer _sync_source (comparaison current_root ==
-    # validated_url) des qu'un cote a le prefixe et l'autre non — meme piege
+    # validated_url) des qu'un cote a le prefixe et l'autre non - meme piege
     # deja rencontre sur Zone-Telechargement (cf. _internal_url ailleurs dans
     # le projet), corrige ici pour ce module.
     host = parsed.hostname.lower().removeprefix("www.")

@@ -174,7 +174,7 @@ def test_filter_excluded_keywords_empty_list_means_no_filter():
 
 
 # ===========================
-# apply_all_filters — regression du 2026-07-19
+# apply_all_filters - regression du 2026-07-19
 # ===========================
 def test_apply_all_filters_empty_resolutions_does_not_wipe_everything():
     # Bug reel : resolutions=[] (utilisateur decochant toutes les cases)

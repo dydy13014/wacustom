@@ -13,7 +13,7 @@ from wastream.utils.urls import url_matches_host
 # Hoster Status Cache
 # ===========================
 # TorBox: proactive check via public API (/webdl/hosters)
-# AllDebrid: double détection —
+# AllDebrid: double détection -
 #   - reactive (cache["hosts"]) via convert_link() errors (LINK_HOST_UNAVAILABLE)
 #   - proactive (cache["proactive"]) via /v4.1/user/hosts (status + quota restant)
 #     Quota critique (<QUOTA_CRITICAL_PCT restant) traité comme "down" pour

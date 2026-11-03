@@ -54,7 +54,7 @@ def test_mark_hoster_down_clears_recheck_success_count():
 
 
 # ===========================
-# is_hoster_up — service inconnu / cache vide
+# is_hoster_up - service inconnu / cache vide
 # ===========================
 def test_is_hoster_up_unknown_service_defaults_true():
     assert hs.is_hoster_up("not-a-service", "rapidgator") is True
@@ -66,7 +66,7 @@ def test_is_hoster_up_no_entries_defaults_true():
 
 
 # ===========================
-# is_hoster_up — AllDebrid reactif (mark_hoster_down)
+# is_hoster_up - AllDebrid reactif (mark_hoster_down)
 # ===========================
 def test_is_hoster_up_alldebrid_down_within_ttl():
     hs.mark_hoster_down("alldebrid", "rapidgator")
@@ -100,7 +100,7 @@ def test_is_hoster_up_alldebrid_no_match_is_up():
 
 
 # ===========================
-# is_hoster_up — AllDebrid proactif (statut + quota)
+# is_hoster_up - AllDebrid proactif (statut + quota)
 # ===========================
 def test_is_hoster_up_alldebrid_proactive_down_status():
     hs._hoster_status_cache["alldebrid"]["proactive"]["rapidgator"] = {"up": False, "quota_pct": 50.0}
@@ -123,7 +123,7 @@ def test_is_hoster_up_alldebrid_proactive_no_quota_info_is_up():
 
 
 # ===========================
-# is_hoster_up — TorBox (proactif, hosts = {name: bool})
+# is_hoster_up - TorBox (proactif, hosts = {name: bool})
 # ===========================
 def test_is_hoster_up_torbox_down():
     hs._hoster_status_cache["torbox"]["hosts"]["rapidgator"] = False
@@ -141,7 +141,7 @@ def test_is_hoster_up_torbox_no_match_defaults_true():
 
 
 # ===========================
-# schedule_alldebrid_hoster_recheck — garde anti-doublon
+# schedule_alldebrid_hoster_recheck - garde anti-doublon
 # ===========================
 def test_schedule_recheck_empty_hoster_name_is_noop(monkeypatch):
     called = []

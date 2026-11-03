@@ -12,7 +12,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 WACUSTOM_VERSION = "1.5.0"
 
 # Version WAStream servant de base au fork. Mise à jour uniquement lors d'un
-# rebase sur une nouvelle version upstream — sert à savoir d'où l'on part quand
+# rebase sur une nouvelle version upstream - sert à savoir d'où l'on part quand
 # on compare un comportement avec le projet d'origine.
 WASTREAM_BASE_VERSION = "3.9.1"
 
@@ -154,7 +154,7 @@ class Settings(BaseSettings):
     # "alldebrid" retiré (2026-09-05) : ce sont des liens de partage
     # alldebrid.com/f/... (page web, pas un lien final) scrapés par WASource.
     # /link/unlock les rejette systématiquement avec LINK_HOST_NOT_SUPPORTED,
-    # peu importe l'ancienneté du lien (confirmé par appel API direct) — ce
+    # peu importe l'ancienneté du lien (confirmé par appel API direct) - ce
     # n'est pas un hébergeur DDL utilisable via cette API.
     ALLDEBRID_SUPPORTED_HOSTS: List[str] = ["1fichier", "turbobit", "rapidgator", "vidoza", "torrent"]
     ALLDEBRID_SUPPORTED_SOURCES: List[str] = ["wawacity", "free-telecharger", "darki-api", "wasource", "movix", "zone-telechargement", "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation-free", "zilean", "nyaa", "lumio", "aiosources", "viewio"]
@@ -213,7 +213,7 @@ class Settings(BaseSettings):
     V3X_API_KEY: Optional[str] = None
 
     # ===========================
-    # Tracker Configuration (UNIT3D — API JSON native)
+    # Tracker Configuration (UNIT3D - API JSON native)
     # ===========================
     GEMINI_URL: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None

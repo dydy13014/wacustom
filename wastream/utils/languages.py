@@ -224,7 +224,7 @@ def extract_release_language(text: str, fallback: str = "") -> dict:
 # courant OU une syllabe romanisée japonaise ("no", "de", "la", "en", "it",
 # "na", "wa", "ka", "ta"...) sans le moindre rapport avec une langue. Confirmé
 # en conditions réelles (2026-08-01) : "Kimi No Na Wa" matche successivement
-# "no" (Norwegian) PUIS "wa" (Walloon) une fois "no" écarté — whack-a-mole
+# "no" (Norwegian) PUIS "wa" (Walloon) une fois "no" écarté - whack-a-mole
 # caractéristique des titres romanisés japonais, qui contiennent presque
 # toujours une syllabe de 2 lettres qui coïncide avec un code ISO quelque part
 # dans une liste de 130 langues. Un token à 3 lettres est bien moins exposé,
@@ -237,7 +237,7 @@ def extract_release_language(text: str, fallback: str = "") -> dict:
 # ("norwegian", "german"...) ou leur code 3 lettres, non ambigus.
 #
 # ⚠️ Absent d'upstream (vérifié encore en 3.8.2 : « et » → Estonian, « de » →
-# German, « fin » → Finnish) — garde-fou maison, à conserver lors des
+# German, « fin » → Finnish) - garde-fou maison, à conserver lors des
 # remontées de version. Placé ici plutôt que dans helpers.py pour que TOUTES
 # les sources en bénéficient, y compris celles d'upstream.
 _SAFE_SHORT_CODES = {"vf", "vo"}

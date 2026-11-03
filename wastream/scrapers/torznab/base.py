@@ -19,7 +19,7 @@ from wastream.utils.helpers import (
 )
 from wastream.utils.quality import quality_sort_key
 
-# Mots trop courants pour être discriminants (FR + EN) — exclus du calcul de
+# Mots trop courants pour être discriminants (FR + EN) - exclus du calcul de
 # pertinence pour ne pas gonfler artificiellement le score de correspondance
 # sur des titres qui les contiennent par coïncidence.
 _STOPWORDS = {
@@ -46,7 +46,7 @@ def _relevance_tokens_split(text: str) -> set:
     Bug réel constaté le 2026-09-30 sur V3X : la recherche par tmdb_id
     remontait bien le bon torrent ("L.Arene.S01E01.FRENCH..."), mais
     `_is_relevant` le rejetait car "L'Arène" fusionné ("larene") ne matche
-    aucun token de la release ("l", "arene" séparés) — un résultat par ID
+    aucun token de la release ("l", "arene" séparés) - un résultat par ID
     pourtant correct était jeté comme si le tracker était parti en repli
     "tendance" hors-sujet."""
     return set(normalize_text(text.replace("'", " ").replace("’", " ")).split())
@@ -55,7 +55,7 @@ def _relevance_tokens_split(text: str) -> set:
 def _is_relevant(title: str, release_name: str) -> bool:
     """Certains trackers Torznab (constaté sur C411, 2026-07-20) retombent
     silencieusement sur des résultats "tendance" sans rapport quand la
-    recherche ne matche rien en interne — jamais une liste vide, donc rien
+    recherche ne matche rien en interne - jamais une liste vide, donc rien
     ne signale l'échec. Cas réel : la recherche "comme les grands S01E01"
     a renvoyé des animes isekai totalement étrangers. On revalide localement
     que le titre du résultat contient l'essentiel des mots du titre demandé.
@@ -63,7 +63,7 @@ def _is_relevant(title: str, release_name: str) -> bool:
     Comparaison via `_relevance_tokens_*` plutôt que `tokenize_filename` : ce
     dernier ne touche ni aux apostrophes ni aux accents, donc un titre FR
     comme "Charlie's Angels" ou "Amélie" ne matchait jamais un nom de release
-    qui les écrit différemment — de vrais résultats étaient donc rejetés en
+    qui les écrit différemment - de vrais résultats étaient donc rejetés en
     silence par ce filtre anti-pollution, sur un projet francophone où ce cas
     est courant.
 
@@ -228,12 +228,12 @@ class BaseTorznab:
             if season and episode:
                 # Saison seule dans la requête, pas l'épisode : certains trackers
                 # (constaté sur C411, 2026-07-20) ne remontent JAMAIS un pack de
-                # saison ("...S03.VFF...") si la requête contient "S03E01" — leur
+                # saison ("...S03.VFF...") si la requête contient "S03E01" - leur
                 # moteur de recherche fait un matching textuel qui ne trouve pas
                 # "E01" dans un nom de pack, donc le pack n'apparaît même pas dans
                 # les résultats. Le filtrage client (episode_matches, plus bas)
                 # sait déjà repérer un pack de la bonne saison ou l'épisode exact
-                # dans un ensemble de résultats plus large — inutile de
+                # dans un ensemble de résultats plus large - inutile de
                 # sur-préciser la requête envoyée au tracker.
                 try:
                     search_query += f" S{int(season):02d}"
@@ -247,7 +247,7 @@ class BaseTorznab:
         # elle ne figure ainsi dans aucune chaine que ce code manipule, donc ni
         # dans un log applicatif, ni dans un message d'exception qui embarquerait
         # cette chaine (cas de HTTPStatusError, qui expose l'URL complete). httpx
-        # se charge de l'encodage — d'ou le retrait du quote() manuel, qui
+        # se charge de l'encodage - d'ou le retrait du quote() manuel, qui
         # produirait sinon un double encodage.
         headers = {
             "User-Agent": "WAStream/1.0"

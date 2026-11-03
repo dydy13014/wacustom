@@ -21,7 +21,7 @@ def _valid_multi_service_config(**overrides):
 
 
 # ===========================
-# validate_config — cas basiques
+# validate_config - cas basiques
 # ===========================
 def test_validate_config_none_or_empty_returns_none():
     assert validate_config(None) is None
@@ -48,7 +48,7 @@ def test_validate_config_valid_multi_service_returns_dict():
 
 
 # ===========================
-# validate_config — format legacy (mono-service)
+# validate_config - format legacy (mono-service)
 # ===========================
 def test_validate_config_legacy_single_service_is_converted():
     legacy = {
@@ -72,7 +72,7 @@ def test_validate_config_legacy_empty_api_key_returns_none():
 
 
 # ===========================
-# validate_config — validation pydantic
+# validate_config - validation pydantic
 # ===========================
 def test_validate_config_unknown_debrid_service_returns_none():
     config = _valid_multi_service_config(debrid_services=[{"service": "not-a-real-service", "api_key": "key123"}])

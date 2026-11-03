@@ -18,7 +18,7 @@ _MAGNET_HASH_RE = re.compile(r"urn:btih:([a-fA-F0-9]{32,40})")
 
 
 class AIOSourcesScraper:
-    """Scraper pour AIOSources — addon Stremio tiers (maintenu par Théo [TB])
+    """Scraper pour AIOSources - addon Stremio tiers (maintenu par Théo [TB])
     qui agrege plusieurs trackers (C411, Tr4ker, TsukiHime,
     Nostradamus, TheOldSchool) derriere une base pre-matchee TMDB/IMDb. Contrairement
     aux trackers Torznab (C411Scraper, Tr4kerScraper...), AIOSources n'a pas de

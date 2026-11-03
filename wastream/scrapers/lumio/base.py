@@ -1,11 +1,11 @@
-"""Source Lumio (mylumio.tv) — torrents déjà vérifiés en cache.
+"""Source Lumio (mylumio.tv) - torrents déjà vérifiés en cache.
 
 Interroge l'endpoint Stremio de Lumio avec l'identifiant de manifest de
 l'instance, et ne retient QUE les torrents que Lumio marque lui-même comme
 déjà présents en cache debrid (badge ⚡). On ne s'en sert pas comme d'un
 indexeur de plus : depuis le retrait de `/magnet/instant` chez AllDebrid,
 Wacustom n'a plus aucun moyen de vérifier le cache lui-même et marque tout
-en « uncached » — ces résultats sont donc les seuls garantis lisibles
+en « uncached » - ces résultats sont donc les seuls garantis lisibles
 immédiatement.
 
 **Chacun apporte son propre identifiant** (`LUMIO_MANIFEST_ID`, vide par
@@ -13,14 +13,14 @@ défaut = source désactivée), au même titre qu'une clé de tracker.
 
 Mécanisme du cache, confirmé par l'auteur de Lumio (pas une supposition) : le
 check AllDebrid est fait avec la clé du PREMIER utilisateur Lumio qui consulte
-ce contenu, puis mutualisé en base pour les suivants — ce n'est pas un compte
+ce contenu, puis mutualisé en base pour les suivants - ce n'est pas un compte
 AllDebrid dédié. Un « cached » n'est ensuite JAMAIS revérifié (contrairement à
 « uncached », qui a un TTL adaptatif) : si le torrent sort du cache AllDebrid
 après coup, le badge ⚡ reste affiché à tort, sans correctif possible côté
-Lumio — d'où l'intérêt du mode Resilient de Wacustom en repli.
+Lumio - d'où l'intérêt du mode Resilient de Wacustom en repli.
 
 Le token de lecture Lumio est un JSON en base64 (signé mais pas chiffré)
-contenant le candidat réel (hash torrent ou lien DDL, taille, résolution) —
+contenant le candidat réel (hash torrent ou lien DDL, taille, résolution) -
 même principe que `extract_link` dans les tokens WAStream.
 
 ⚠️ Quota bas et blocage global : chaque appel émis PENDANT un blocage le
@@ -65,7 +65,7 @@ _LANG_HINT = {
 
 # Le quota de Lumio est tres bas ET son blocage est global (toute requete
 # compte, pas seulement les recherches). Surtout : chaque appel emis PENDANT
-# un blocage le prolonge — l'auteur de Lumio est explicite la-dessus. Une
+# un blocage le prolonge - l'auteur de Lumio est explicite la-dessus. Une
 # pause courte est donc pire que rien, elle entretient le blocage a l'infini.
 # D'ou 24h, et surtout une pause ECRITE SUR DISQUE : gardee en memoire, elle
 # etait perdue a chaque redemarrage du conteneur et on repartait taper aussitot.
@@ -74,7 +74,7 @@ _PAUSE_FILE = Path(os.environ.get("LUMIO_PAUSE_FILE", "/app/data/lumio_pause"))
 
 # Repli memoire : si /app/data n'est pas monte ou n'est pas inscriptible, la
 # pause ne pouvait pas etre enregistree du tout et on repartait interroger
-# Lumio immediatement — ce qui PROLONGE le blocage au lieu de l'attendre.
+# Lumio immediatement - ce qui PROLONGE le blocage au lieu de l'attendre.
 # Moins durable qu'un fichier (perdu au redemarrage), mais infiniment mieux
 # que rien pour qui heberge Wacustom sans le volume.
 _pause_until_mem = 0.0
@@ -226,7 +226,7 @@ class LumioScraper:
                 results.append(v2)
                 continue
             # Ancien format (v1) : uniquement ce qui est déjà vérifié en cache par leur base
-            # mutualisée — on ne s'en sert pas comme simple indexeur de plus.
+            # mutualisée - on ne s'en sert pas comme simple indexeur de plus.
             if "⚡" not in s.get("name", ""):
                 continue
             decoded = _decode_token(s.get("url", ""))
@@ -234,7 +234,7 @@ class LumioScraper:
                 continue
             cand = decoded["c"][0]
             if cand.get("t") != "t":
-                continue  # DDL (hébergeurs tiers) ignoré — déjà couvert par nos propres sources DDL
+                continue  # DDL (hébergeurs tiers) ignoré - déjà couvert par nos propres sources DDL
             infohash = (cand.get("h") or "").lower()
             if not infohash:
                 continue
@@ -244,11 +244,11 @@ class LumioScraper:
             display_name = (s.get("behaviorHints") or {}).get("filename") or s.get("description", "") or title
 
             # Lumio est la SEULE source qui ne repasse jamais par
-            # episode_matches() sur le nom réel du fichier — elle fait
+            # episode_matches() sur le nom réel du fichier - elle fait
             # confiance à la saison/épisode demandés dans sa propre requête
             # (interrogée en /stream/series/{imdb}:{season}:{episode}.json).
             # Bug réel constaté (Solo Leveling, 2026-08-15) : Lumio répond
-            # avec des fichiers S02 pour une requête S01E08 — toutes les
+            # avec des fichiers S02 pour une requête S01E08 - toutes les
             # autres sources (torznab, nyaa, zilean, unit3d) ont ce
             # garde-fou, celle-ci ne l'avait pas.
             if season and episode:

@@ -34,7 +34,7 @@ def encode_config_to_base64(config: Dict[str, Any]) -> str:
 
 # Longueur de la signature tronquée, en caractères hexadécimaux. 128 bits :
 # largement hors de portée d'une falsification, et bien plus court que les 64
-# caractères d'un SHA-256 complet — le jeton finit dans une URL, sa taille est
+# caractères d'un SHA-256 complet - le jeton finit dans une URL, sa taille est
 # déjà plafonnée par RESILIENT_TOKEN_MAX_BYTES.
 _SIGNATURE_LEN = 32
 
@@ -49,8 +49,8 @@ def _signer(charge: str) -> str:
 def encode_playback_token(data: Dict[str, Any]) -> str:
     """Jeton signé, au format `<charge base64>.<signature>`.
 
-    Sans signature, le contenu du jeton — le lien à débrider, et jusqu'à une
-    configuration complète avec sa clé debrid — était entièrement forgeable par
+    Sans signature, le contenu du jeton - le lien à débrider, et jusqu'à une
+    configuration complète avec sa clé debrid - était entièrement forgeable par
     quiconque savait construire du base64.
     """
     charge = urlsafe_b64encode(
@@ -388,7 +388,7 @@ _EP_SEASON_RE = re.compile(
 # Numéro d'épisode « nu » des releases d'animé : « Titre - 05 », « EP05 », « #12 ».
 # Ce format domine sur Nyaa et n'était couvert par aucun motif ci-dessus, si bien
 # que episode_matches() répondait « rien détecté » et que l'appelant conservait
-# TOUTES les releases — d'où des épisodes de la mauvaise saison dans les résultats.
+# TOUTES les releases - d'où des épisodes de la mauvaise saison dans les résultats.
 #
 # Deux garde-fous, indispensables pour ne pas capturer les chiffres du titre
 # (« 86 EIGHTY-SIX », « Mob Psycho 100 », « Gundam 00 ») :
@@ -467,7 +467,7 @@ def episode_matches(release_name: str, season, episode,
       False → saison ou épisode différent
       None  → aucune info d'épisode détectée (à l'appelant de décider)
 
-    Paramètres optionnels, sans effet s'ils ne sont pas fournis — le
+    Paramètres optionnels, sans effet s'ils ne sont pas fournis - le
     comportement par défaut est donc STRICTEMENT identique à l'existant,
     pour ne rien changer aux autres sources ni aux instances tierces :
 
@@ -522,7 +522,7 @@ def episode_matches(release_name: str, season, episode,
         if req_s not in seasons:
             return False
         # « S3 - 07 », « Season 3 - 7 » : marqueur de saison ET numéro nu. Ce
-        # n'est pas un season pack mais l'épisode 7 de la saison 3 — sans ce
+        # n'est pas un season pack mais l'épisode 7 de la saison 3 - sans ce
         # test, n'importe quel épisode demandé de la saison correspondait
         # (7,8 % des résultats Nyaa réels, dont le « Solo Leveling S2 - 13 »
         # qui a fait remonter le problème). Un marqueur de batch explicite
@@ -534,7 +534,7 @@ def episode_matches(release_name: str, season, episode,
         return True
 
     # 5. Numéro « nu » des releases d'animé (« Titre - 05 », « EP05 », « #12 »).
-    #    Ne s'applique qu'aux noms sans aucun marqueur de saison — ceux-ci sont
+    #    Ne s'applique qu'aux noms sans aucun marqueur de saison - ceux-ci sont
     #    déjà traités au point 4 (et un « S02 » interdirait la comparaison au
     #    numéro absolu).
     bare = _bare_episode_numbers(release_name)

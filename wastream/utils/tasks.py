@@ -4,7 +4,7 @@
 référence FAIBLE aux tâches. Une tâche dont plus personne ne détient le handle
 peut donc être ramassée par le garbage collector **en pleine exécution**, ce qui
 l'annule sans le moindre message. Le comportement est documenté par CPython et
-non déterministe — il ne laisse aucune trace, ce qui le rend particulièrement
+non déterministe - il ne laisse aucune trace, ce qui le rend particulièrement
 pénible à diagnostiquer.
 
 Le cas le plus coûteux ici était le rafraîchissement de cache en arrière-plan
@@ -21,7 +21,7 @@ from typing import Any, Coroutine, Optional, Set
 
 from wastream.utils.logger import api_logger
 
-# Référence FORTE tant que la tâche vit — c'est tout l'intérêt du module.
+# Référence FORTE tant que la tâche vit - c'est tout l'intérêt du module.
 _taches: Set[asyncio.Task] = set()
 
 

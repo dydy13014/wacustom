@@ -130,7 +130,7 @@ def _profile_aad(profile_id: Optional[str]) -> Optional[bytes]:
 
 
 def encrypt_password_for_url(password: str, profile_id: Optional[str] = None) -> str:
-    """AES-256-GCM. Cette valeur voyage dans l'URL de manifest — donc dans les
+    """AES-256-GCM. Cette valeur voyage dans l'URL de manifest - donc dans les
     journaux du reverse proxy, l'historique du navigateur et chez tout
     intermédiaire réseau. GCM authentifie : toute altération du chiffré est
     détectée au déchiffrement, là où le CBC utilisé auparavant était malléable
@@ -186,12 +186,12 @@ def decrypt_secret(ciphertext: str) -> Optional[str]:
 
 
 # fast_hash / verify_fast_hash ont été retirés : sans aucun appelant dans tout
-# le dépôt, ils constituaient du code mort — et leur comparaison par `==` était
+# le dépôt, ils constituaient du code mort - et leur comparaison par `==` était
 # vulnérable au minutage. Pour signer quoi que ce soit, utiliser hmac.new() et
 # hmac.compare_digest() (cf. helpers.sign_token), jamais une concaténation
 # « données + secret » comparée avec `==`.
 #
-# ⚠️ Upstream 3.8.2 les réintroduit (toujours sans aucun appelant de son côté) —
+# ⚠️ Upstream 3.8.2 les réintroduit (toujours sans aucun appelant de son côté) -
 # ne pas les reprendre lors d'une future remontée de version.
 
 

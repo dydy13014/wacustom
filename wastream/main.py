@@ -118,7 +118,7 @@ async def lifespan(app: FastAPI):
     # Nos sources maison sont comptées ici au même titre que celles d'upstream :
     # sans elles, un déploiement n'utilisant QUE nos trackers verrait
     # l'avertissement à tort. ⚠️ NYAA_URL ayant une valeur par défaut, cette
-    # condition est en pratique toujours vraie — l'avertissement ne se
+    # condition est en pratique toujours vraie - l'avertissement ne se
     # déclenche donc que si quelqu'un vide explicitement ce réglage.
     has_direct_source = any((
         settings.WAWACITY_URL,
@@ -179,7 +179,7 @@ async def lifespan(app: FastAPI):
     # dans ce cas : elle parcourt tout le cache par lots de 500 lignes, ce qui
     # laisse une vraie fenetre pour se faire interrompre sans la moindre trace
     # dans les logs (statistiques de cache incompletes au demarrage).
-    # ⚠️ Upstream 3.8.2 laisse toujours rebuild_cache_stats() sans référence —
+    # ⚠️ Upstream 3.8.2 laisse toujours rebuild_cache_stats() sans référence -
     # ne pas revenir à sa version lors d'une future remontée de version.
     background_tasks = [
         asyncio.create_task(rebuild_cache_stats()),

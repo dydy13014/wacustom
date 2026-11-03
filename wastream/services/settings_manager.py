@@ -110,7 +110,7 @@ DESCRIPTIONS = {
     "DATABASE_RETRY_MAX_ATTEMPTS": "Max attempts including the first try for transient database lock or serialization errors (default: 8).",
     "DATABASE_RETRY_DELAY": "Initial delay between transient database retries in seconds (default: 0.25).",
     "DARKIMOVIX_KITSU_TMDB_MAPPING": "IMDB IDs whose Kitsu anime should use TMDB mapping on Darki-API / Movix.",
-    "KITSU_IMDB_OVERRIDE": "Map Kitsu IDs to an IMDB season. Add a part only when Kitsu splits that IMDB season into several cours — episode numbering then continues across parts.",
+    "KITSU_IMDB_OVERRIDE": "Map Kitsu IDs to an IMDB season. Add a part only when Kitsu splits that IMDB season into several cours - episode numbering then continues across parts.",
     "WAWACITY_MAX_SEARCH_PAGES": "Max search result pages (default: 3).",
     "FREE_TELECHARGER_MAX_SEARCH_PAGES": "Max search result pages for Free-Telecharger (default: 3).",
     "WEBSHARE_MAX_SEARCH_PAGES": "Max search result pages for Webshare (default: 3).",

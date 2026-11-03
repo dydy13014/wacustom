@@ -89,7 +89,7 @@ class PremiumizeService(BaseDebridService):
             result["cache_status"] = "cached"
 
         # Torrents : pas de vérification de cache instantané implémentée ici,
-        # on les marque "uncached" au listing (comme AllDebrid) — la conversion
+        # on les marque "uncached" au listing (comme AllDebrid) - la conversion
         # à la lecture via transfer/directdl fonctionne pour les magnets.
         for result in torrent_results:
             result["cache_status"] = "uncached"

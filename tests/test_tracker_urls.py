@@ -2,7 +2,7 @@
 
 Chaque tracker attend son endpoint Torznab a un chemin different. La fonction
 laisse l'utilisateur saisir l'URL "naturelle" du service et complete le chemin
-manquant — une URL mal completee ne provoque pas d'erreur visible, juste une
+manquant - une URL mal completee ne provoque pas d'erreur visible, juste une
 source qui ne remonte jamais rien.
 """
 from wastream.utils.helpers import normalize_tracker_url

@@ -315,7 +315,7 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
                     error=f"HTTP {response.status_code}"
                 )
         elif name == "AIOSources":
-            # /manifest.json : discriminant plus fiable qu'une simple racine —
+            # /manifest.json : discriminant plus fiable qu'une simple racine -
             # confirme que c'est bien un addon Stremio qui repond, pas juste
             # un service quelconque sur ce port/host.
             # L'URL peut deja etre le manifeste complet (AIOSources 2.x :

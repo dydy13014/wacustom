@@ -186,7 +186,7 @@ class AllDebridService(BaseDebridService):
         if ddl_results:
             # Ce rafraichissement ne part en reseau qu'a l'expiration du cache
             # (HOSTER_STATUS_CACHE_TTL = 1 h), mais il attend alors jusqu'a
-            # HEALTH_CHECK_TIMEOUT (5 s) — un quart du budget de 20 s de la
+            # HEALTH_CHECK_TIMEOUT (5 s) - un quart du budget de 20 s de la
             # recherche. `timeout_remaining` etait recu ici sans jamais etre
             # utilise (TorBox l'exploite, lui) : si AllDebrid trainait pile au
             # moment ou le cache expire, ces secondes etaient prises sur le
@@ -222,7 +222,7 @@ class AllDebridService(BaseDebridService):
         for result in ddl_results:
             result["cache_status"] = "cached"
 
-        # Torrents : AllDebrid a supprimé /magnet/instant (404) — plus aucun moyen
+        # Torrents : AllDebrid a supprimé /magnet/instant (404) - plus aucun moyen
         # de vérifier le cache sans uploader le magnet sur le compte. On les marque
         # "uncached" au listing ; la conversion au moment de la lecture (magnet/upload
         # → ready → files → unlock) fonctionne, elle, normalement.
@@ -230,7 +230,7 @@ class AllDebridService(BaseDebridService):
         # Exception : une source qui maintient sa propre base de cache mutualisée
         # peut SAVOIR qu'un torrent est déjà disponible. C'est désormais la seule
         # information de cache fiable qui nous reste, et l'écraser affichait ⏳ sur
-        # des flux lisibles immédiatement — ce qui les enterrait aussi dans le tri,
+        # des flux lisibles immédiatement - ce qui les enterrait aussi dans le tri,
         # « cached » étant le premier critère de classement.
         for result in torrent_results:
             if result.get("cache_status") != "cached":
@@ -255,7 +255,7 @@ class AllDebridService(BaseDebridService):
         """Hors cache, un magnet nu d'un tracker privé ne trouvera jamais de pair
         (DHT désactivé) : on le remplace par le vrai .torrent, qui embarque
         l'annonce avec passkey. Un magnet sans taille n'a jamais obtenu ses
-        métadonnées — donc jamais un vrai téléchargement en cours, le supprimer
+        métadonnées - donc jamais un vrai téléchargement en cours, le supprimer
         ne coûte rien. Un magnet avec taille est laissé tel quel."""
         match = re.search(r"btih:([a-zA-Z0-9]+)", magnet)
         infohash = (magnet_info.get("hash") or (match.group(1) if match else "")).lower()

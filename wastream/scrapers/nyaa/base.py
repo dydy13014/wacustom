@@ -21,9 +21,9 @@ _SIZE_RE = re.compile(r"([\d.]+)\s*(GiB|MiB|KiB|GB|MB|KB)", re.IGNORECASE)
 
 
 class NyaaScraper:
-    """Scraper pour Nyaa.si — tracker public anime (fansubs), sans clé API.
+    """Scraper pour Nyaa.si - tracker public anime (fansubs), sans clé API.
     Flux RSS structuré : chaque item fournit directement l'infoHash et la
-    taille — pas besoin de parser du HTML ni de télécharger le .torrent."""
+    taille - pas besoin de parser du HTML ni de télécharger le .torrent."""
 
     async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
                      season: Optional[str] = None, episode: Optional[str] = None,
@@ -78,7 +78,7 @@ class NyaaScraper:
                 # strict=True : une release d'animé est quasi toujours numérotée,
                 # donc un nom où l'on ne détecte AUCUN épisode est du bruit (autre
                 # série, PV, bande-annonce). Sans ce mode, tout ce que les motifs
-                # ne reconnaissaient pas passait — et le format dominant ici,
+                # ne reconnaissaient pas passait - et le format dominant ici,
                 # « Titre - 05 », n'était justement pas reconnu, d'où des épisodes
                 # d'autres saisons dans les résultats.
                 #

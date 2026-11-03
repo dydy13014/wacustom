@@ -48,7 +48,7 @@ INTERMEDIATE_HEADERS = source_request_headers({
 # Le champ « Langue : » des pages est un libellé rédigé, où des tags scène
 # côtoient des mots français. Le vocabulaire général de LANGUAGE_MAPPING y est
 # inutilisable : ses codes ISO courts recouvrent des mots français très
-# fréquents — « et » (estonien), « de » (allemand), « que » (quechua),
+# fréquents - « et » (estonien), « de » (allemand), « que » (quechua),
 # « mon » (mongol), « fin » (finnois). Un libellé « Français et Anglais »
 # ressortait ainsi étiqueté « ET ». On n'accepte donc ici que les libellés que
 # le site écrit réellement ; tout token inconnu est ignoré plutôt que deviné.
@@ -682,7 +682,7 @@ class BaseFreeTelecharger:
             # On garde nos propres extracteurs plutôt que le parse_release_info()
             # partagé d'upstream : sur le champ « Langue : » de ce site, le
             # parseur partagé ne retient QUE le premier marqueur trouvé et perd
-            # les combinaisons — « Français et Anglais » ressort « Unknown »
+            # les combinaisons - « Français et Anglais » ressort « Unknown »
             # chez lui contre « Multi (French, English) » ici (mesuré sur
             # 21 cas réels du site, 2026-08-01). Les deux corrigent en revanche
             # le bug de sous-chaîne (« EN » dans « TRUEFRENCH »).
@@ -776,7 +776,7 @@ class BaseFreeTelecharger:
             # HTML conserve par page. Cette boucle telecharge deja chaque page
             # pour y lire les liens vers les autres saisons/qualites ; sans ce
             # cache, _extract_episodes_from_page re-telechargeait exactement les
-            # memes pages juste apres — chaque page etait donc recuperee DEUX
+            # memes pages juste apres - chaque page etait donc recuperee DEUX
             # fois (latence et charge sur la source doublees pour rien).
             pages_html: Dict[str, str] = {}
 

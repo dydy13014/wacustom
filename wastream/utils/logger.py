@@ -229,7 +229,7 @@ logging.getLogger("fastapi").setLevel(logging.CRITICAL)
 # passent leur cle API en parametre d'URL (trackers Torznab, entre autres) :
 # cette ligne exposerait donc les cles en clair dans les logs, consultables
 # depuis le tableau de bord admin. Aujourd'hui le message est deja supprime
-# parce que le root logger stdlib n'a aucun handler et retombe sur WARNING —
+# parce que le root logger stdlib n'a aucun handler et retombe sur WARNING -
 # mais ce silence est accidentel : ajouter un logging.basicConfig() ou un
 # InterceptHandler loguru<-stdlib suffirait a tout faire fuiter d'un coup.
 # On fige donc le niveau explicitement plutot que de dependre de cet effet de

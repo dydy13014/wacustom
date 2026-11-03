@@ -48,7 +48,7 @@ class TMDBService:
 
         # cf. commentaire equivalent cote serie : liste separee et
         # plafonnee, consommee uniquement par le bloc Nyaa Live
-        # Action — ne jamais fusionner dans titles/original_titles
+        # Action - ne jamais fusionner dans titles/original_titles
         # (utilises par TOUTES les sources + le retitrage generique
         # de get_streams, risque de rate-limit en cascade).
         seen_lower = set(titles)
@@ -119,7 +119,7 @@ class TMDBService:
                     metadata_logger.debug(f"[TMDB] Found Czech title: {cz_title}")
 
         # `translations` ne couvre que les traductions d'interface UI
-        # (langues installees sur TMDB) — le titre international
+        # (langues installees sur TMDB) - le titre international
         # "officiel" utilise par les groupes de release/fansub (ex.
         # "Old Enough" pour une fiche JP nommee differemment en
         # name/original_name) vit dans un endpoint distinct,
@@ -130,7 +130,7 @@ class TMDBService:
         # get_streams (toutes sources : Wawacity, Torznab, etc.) ET
         # potentiellement des dizaines d'entrees par pays. Melange
         # constate en reel le 2026-08-01 : rate-limit Nyaa/C411 (429
-        # en rafale) + verrous Wawacity satures — la recherche
+        # en rafale) + verrous Wawacity satures - la recherche
         # entiere s'est effondree. `nyaa_candidate_titles` est donc
         # une liste separee, plafonnee, consommee uniquement par le
         # bloc Nyaa Live Action dans stream.py.

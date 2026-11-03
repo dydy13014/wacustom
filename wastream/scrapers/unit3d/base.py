@@ -15,7 +15,7 @@ from wastream.utils.quality import quality_sort_key
 
 class BaseUnit3d:
     """Scraper pour les trackers UNIT3D (Gemini, Génération-Free, …) via leur
-    API JSON native /api/torrents/filter — contrairement aux trackers Torznab
+    API JSON native /api/torrents/filter - contrairement aux trackers Torznab
     (XML), UNIT3D expose du JSON et supporte le filtrage saison/épisode côté
     serveur."""
 
