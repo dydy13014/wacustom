@@ -3918,7 +3918,7 @@
 
         const renderAddonLinks = (urls) => {
             els.addonLink.textContent = urls[0].url;
-            els.addonLinkUser.textContent = urls.length > 1 && urls[0].name ? ` — ${urls[0].name}` : '';
+            els.addonLinkUser.textContent = urls.length > 1 && urls[0].name ? ` - ${urls[0].name}` : '';
             els.addonLinksExtra.innerHTML = '';
             urls.slice(1).forEach(entry => {
                 const box = document.createElement('div');
@@ -3932,7 +3932,7 @@
                         </button>
                     </div>
                     <div class="result-box-value"></div>`;
-                box.querySelector('.result-box-label').textContent = `${t('labels.manifestUrl')} — ${entry.name || entry.id}`;
+                box.querySelector('.result-box-label').textContent = `${t('labels.manifestUrl')} - ${entry.name || entry.id}`;
                 box.querySelector('.result-box-copy span').textContent = t('buttons.copy');
                 box.querySelector('.result-box-value').textContent = entry.url;
                 box.querySelector('.result-box-copy').addEventListener('click', () => copyText(entry.url));
@@ -4186,7 +4186,7 @@
                 const failed = checks.find((_, i) => !results[i]);
                 if (failed) {
                     const p = state.profiles[failed.profileIndex];
-                    const who = state.profiles.length > 1 ? ` — ${p.name || p.id}` : '';
+                    const who = state.profiles.length > 1 ? ` - ${p.name || p.id}` : '';
                     showAlert(failed.kind === 'tmdb'
                         ? `${t('messages.invalidTmdbToken')}${who}`
                         : `${t('messages.invalidDebridKey')} (${failed.kind})${who}`);

@@ -70,17 +70,18 @@ def test_magnet_or_empty_url_is_not_remembered():
 
 def test_expired_entry_is_dropped():
     tf.remember_torrent_url(HASH, "C411", SECRET_URL)
-    source, url, _ = tf._registry[HASH]
-    tf._registry[HASH] = (source, url, time.monotonic() - 1)
+    key = (HASH, tf.GLOBAL_OWNER)
+    source, url, _ = tf._registry[key]
+    tf._registry[key] = (source, url, time.monotonic() - 1)
     assert tf.torrent_source(HASH) is None
-    assert HASH not in tf._registry
+    assert key not in tf._registry
 
 
 def test_registry_is_capped(monkeypatch):
     monkeypatch.setattr(tf, "_MAX_ENTRIES", 2)
     for h in ("1" * 40, "2" * 40, "3" * 40):
         tf.remember_torrent_url(h, "C411", SECRET_URL)
-    assert list(tf._registry) == ["2" * 40, "3" * 40]
+    assert list(tf._registry) == [("2" * 40, tf.GLOBAL_OWNER), ("3" * 40, tf.GLOBAL_OWNER)]
 
 
 # ===========================
