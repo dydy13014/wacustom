@@ -15,7 +15,7 @@
 
 ### Plusieurs utilisateurs
 
-- **Plusieurs utilisateurs par compte** (idée et code de [Kalix](https://github.com/Kalix91), repris avec son accord) : chaque utilisateur a son lien d'installation, ses services de débridage, son jeton TMDB et, s'il le souhaite, ses propres clés de trackers privés. Les réglages communs restent partagés et les comptes existants ne changent pas.
+- **Plusieurs utilisateurs par compte** (idée et code de [Kalix](https://github.com/Kalix91), repris avec son accord) : chaque utilisateur a son lien d'installation, ses services de débridage, son jeton TMDB et, s'il le souhaite, ses propres clés de trackers privés. Le jeton TMDB, les clés de trackers et le compte de débridage peuvent être partagés par une case « Default for all users » (le compte de débridage reste propre à chacun tant que la case n'est pas cochée). Les réglages communs restent partagés et les comptes existants ne changent pas.
 - **Cloisonnement des clés** : le jeton du lien est lié à l'utilisateur, et les résultats comme les fichiers `.torrent` obtenus avec la clé d'un utilisateur ne sont jamais servis à un autre.
 
 ### Débridage

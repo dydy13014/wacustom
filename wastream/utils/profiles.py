@@ -24,9 +24,15 @@ PROFILE_SERVICE_FIELDS = ("debrid_services", "tmdb_api_token", "nzbdav_url", "we
                           "tracker_api_keys")
 _FIELD_DEFAULTS = {"debrid_services": list, "tracker_api_keys": dict}
 
-# Services que le principal peut definir « par defaut » pour tous. Les services
-# debrid n'y figurent volontairement pas : chacun utilise son propre compte.
-SHAREABLE_SERVICES = {"tmdb": ("tmdb_api_token",), "trackers": ("tracker_api_keys",)}
+# Services que le principal peut definir « par defaut » pour tous. Le compte
+# debrid y figure en option (case cochee par le principal) : tous les
+# utilisateurs consomment alors le compte du principal. Sans la case, chacun
+# utilise le sien, comme avant.
+SHAREABLE_SERVICES = {
+    "tmdb": ("tmdb_api_token",),
+    "trackers": ("tracker_api_keys",),
+    "debrid": ("debrid_services", "nzbdav_url", "webdav_user", "webdav_password"),
+}
 
 PROFILE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 
@@ -61,7 +67,7 @@ def resolve_profile_config(config: Dict[str, Any], profile_id: Optional[str]) ->
     for field in PROFILE_SERVICE_FIELDS:
         effective[field] = profile.get(field, _FIELD_DEFAULTS.get(field, str)())
     for field in _shared_fields(config):
-        effective[field] = config.get(field, "")
+        effective[field] = config.get(field, _FIELD_DEFAULTS.get(field, str)())
 
     effective["_profile_id"] = profile_id
     effective["_profile_name"] = profile.get("name") or profile_id
@@ -97,7 +103,8 @@ def validate_profiles(config: Dict[str, Any]) -> Optional[str]:
             return f"Duplicate user id: {pid}"
         seen.add(pid)
         services = profile.get("debrid_services") or []
-        if not services or not all(isinstance(s, dict) and s.get("service") and s.get("api_key") for s in services):
+        if "debrid_services" not in shared and (
+                not services or not all(isinstance(s, dict) and s.get("service") and s.get("api_key") for s in services)):
             return f"User {name}: at least one debrid service is required"
         if "tmdb_api_token" not in shared and not profile.get("tmdb_api_token"):
             return f"User {name}: TMDB token required"

@@ -135,3 +135,36 @@ def test_build_addon_urls_legacy_format_without_profiles():
     urls = build_addon_urls("https://x", "uuid", "secret", {"debrid_services": []})
     assert len(urls) == 1
     assert urls[0]["url"].count("/") == 5  # https://x/uuid/token/manifest.json
+
+
+# ===========================
+# Compte debrid partage (case « Default for all users »)
+# ===========================
+def test_shared_debrid_gives_main_account_to_every_profile():
+    config = _config(default_services=["tmdb", "debrid"])
+    config["profiles"][0]["debrid_services"] = []
+    effective = resolve_profile_config(config, "lea")
+    assert effective["debrid_services"] == [{"service": "alldebrid", "api_key": "cle-papa"}]
+
+
+def test_shared_debrid_overrides_profile_own_account():
+    effective = resolve_profile_config(_config(default_services=["tmdb", "debrid"]), "lea")
+    assert effective["debrid_services"][0]["api_key"] == "cle-papa"
+    assert "cle-lea" not in str(effective)
+
+
+def test_without_sharing_profile_keeps_its_own_account():
+    effective = resolve_profile_config(_config(), "lea")
+    assert effective["debrid_services"] == [{"service": "torbox", "api_key": "cle-lea"}]
+
+
+def test_validate_accepts_profile_without_debrid_when_shared():
+    config = _config(default_services=["tmdb", "debrid"])
+    config["profiles"][0]["debrid_services"] = []
+    assert validate_profiles(config) is None
+
+
+def test_validate_still_requires_debrid_when_not_shared():
+    config = _config()
+    config["profiles"][0]["debrid_services"] = []
+    assert validate_profiles(config) is not None

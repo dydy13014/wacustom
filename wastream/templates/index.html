@@ -1997,6 +1997,13 @@
                         <button type="button" class="btn-remove-profile" id="removeProfileBtn" data-i18n="users.remove">Remove this user</button>
                     </div>
                 </div>
+                <div class="form-field">
+                    <div class="field-label-row">
+                        <label class="field-label" data-i18n="users.debridAccount">Debrid account</label>
+                        <sl-checkbox id="debridDefault" size="small"><span data-i18n="users.defaultForAll">Default for all users</span></sl-checkbox>
+                    </div>
+                    <span class="field-help" id="debridInheritedHelp" data-i18n="users.debridInherited" hidden>Uses the main user's debrid account (set as default)</span>
+                </div>
                 <div id="debridServicesContainer">
                     <div class="debrid-service-entry" data-index="0">
                         <div class="debrid-service-header">
@@ -2606,7 +2613,7 @@
         </div>
     </div>
 
-    <script src="/static/translations.js?v=20261030c"></script>
+    <script src="/static/translations.js?v=20261103a"></script>
 
     <div class="warning-modal" id="warningModal">
         <div class="warning-modal-content">
@@ -2768,6 +2775,8 @@
             profileName: null,
             profileIdLabel: null,
             removeProfileBtn: null,
+            debridDefault: null,
+            debridInheritedHelp: null,
             tmdbDefault: null,
             tmdbInheritedHelp: null,
             trackersDefault: null,
@@ -3631,7 +3640,8 @@
         // state.profiles avant tout changement d'utilisateur ou sauvegarde.
         const isTmdbShared = () => state.defaultServices.includes('tmdb');
         const areTrackersShared = () => state.defaultServices.includes('trackers');
-        const SHAREABLE_DEFAULTS = ['tmdb', 'trackers'];
+        const isDebridShared = () => state.defaultServices.includes('debrid');
+        const SHAREABLE_DEFAULTS = ['tmdb', 'trackers', 'debrid'];
 
         // Meme contrainte que PROFILE_ID_PATTERN cote serveur (profiles.py).
         const slugifyProfileId = (name) => (name || '')
@@ -3719,10 +3729,13 @@
             const p = state.profiles[state.activeProfile];
             if (!p) return;
             const services = getDebridServices();
-            p.debrid_services = cleanDebridServices(services);
-            p.nzbdav_url = services.nzbdav_url || '';
-            p.webdav_user = services.webdav_user || '';
-            p.webdav_password = services.webdav_password || '';
+            // Compte debrid herite du principal : section masquee, a ne pas capturer.
+            if (state.activeProfile === 0 || !isDebridShared()) {
+                p.debrid_services = cleanDebridServices(services);
+                p.nzbdav_url = services.nzbdav_url || '';
+                p.webdav_user = services.webdav_user || '';
+                p.webdav_password = services.webdav_password || '';
+            }
             // Cles heritees du principal : champs desactives et vides, a ne pas
             // capturer (meme logique que le token TMDB ci-dessous).
             if (state.activeProfile === 0 || !areTrackersShared()) {
@@ -3774,6 +3787,12 @@
             renderProfileTabs();
             els.profileName.value = p.name || '';
             els.removeProfileBtn.style.display = isMain ? 'none' : '';
+            const debridInherited = !isMain && isDebridShared();
+            els.debridDefault.style.display = isMain ? '' : 'none';
+            els.debridDefault.checked = isDebridShared();
+            els.debridInheritedHelp.hidden = !debridInherited;
+            els.debridServicesContainer.style.display = debridInherited ? 'none' : '';
+            els.addDebridServiceBtn.parentElement.style.display = debridInherited ? 'none' : '';
             els.tmdbDefault.style.display = isMain ? '' : 'none';
             els.tmdbDefault.checked = isTmdbShared();
             els.tmdbToken.disabled = inherited;
@@ -4123,7 +4142,8 @@
             // Chaque utilisateur doit avoir au moins un service debrid, et un
             // token TMDB sauf s'il herite de celui du principal.
             const missingIndex = state.profiles.findIndex((p, i) =>
-                !(p.debrid_services || []).length || ((i === 0 || !isTmdbShared()) && !p.tmdb_api_token));
+                ((i === 0 || !isDebridShared()) && !(p.debrid_services || []).length)
+                || ((i === 0 || !isTmdbShared()) && !p.tmdb_api_token));
             if (missingIndex !== -1) {
                 const p = state.profiles[missingIndex];
                 switchProfile(missingIndex);
@@ -4175,6 +4195,7 @@
                 };
                 state.profiles.forEach((p, i) => {
                     if (i === 0 || !isTmdbShared()) addCheck(i, 'tmdb', ['tmdb', p.tmdb_api_token]);
+                    if (i !== 0 && isDebridShared()) return;
                     p.debrid_services.forEach(s => {
                         addCheck(i, s.service, s.service === 'nzbdav'
                             ? [s.service, s.api_key, p.nzbdav_url, p.webdav_user, p.webdav_password]
@@ -4517,6 +4538,9 @@
                 state.defaultServices = state.defaultServices.filter(s => s !== service);
                 if (enabled) state.defaultServices.push(service);
             };
+            els.debridDefault.addEventListener('sl-change', () => {
+                toggleDefaultService('debrid', els.debridDefault.checked);
+            });
             els.tmdbDefault.addEventListener('sl-change', () => {
                 toggleDefaultService('tmdb', els.tmdbDefault.checked);
             });

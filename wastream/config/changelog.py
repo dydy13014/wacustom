@@ -15,6 +15,7 @@ CHANGELOG = [
         "date": "2026-11-03",
         "changes": [
             "Nouveau : plusieurs utilisateurs sur un même compte, idée et code de Kalix. Chaque utilisateur a son propre lien d'installation, ses services de débridage et son jeton TMDB (ou celui de l'utilisateur principal, au choix) ; les réglages communs (langues, qualité, tri) restent partagés. Les comptes existants ne changent pas.",
+            "Nouveau : une case « Par défaut pour tous les utilisateurs » permet de partager le compte de débridage de l'utilisateur principal : les autres n'ont alors pas besoin de saisir leur propre clé (ils consomment le quota du principal). Sans cette case, chacun utilise son propre compte, comme avant.",
             "Nouveau : chaque utilisateur peut saisir ses propres clés de trackers privés (YggReborn, Tr4ker, Torr9, C411, V3X, Gemini, Generation-Free). Une clé personnelle ne sert jamais à un autre utilisateur : ses résultats et ses fichiers .torrent restent séparés. À défaut, la clé du serveur s'applique comme avant.",
             "Nouveau : source Viewio, construite sur le modèle de Lumio. Elle reste inactive tant que le lien d'installation Viewio n'est pas renseigné dans les réglages.",
             "Nouveau : Zone-Telechargement peut utiliser le cookie de session d'un compte du site, ses liens étant désormais réservés aux membres connectés. Le cookie se renseigne dans les réglages et se modifie sans redémarrage.",
