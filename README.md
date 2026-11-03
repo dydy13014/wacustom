@@ -10,7 +10,13 @@
 - **Consolidation en un seul addon** : Wawacity, Free-Telecharger, Movix, Webshare, Zone-Telechargement, trackers Torznab (YggReborn, Tr4ker, Torr9, C411, V3X), Zilean et Nyaa — évite de maintenir 4-5 conteneurs séparés.
 - **Scraper Nyaa** (flux RSS, `infoHash` direct, sans clé API) : anime via Kitsu, **et contenu live action japonais**. La recherche essaie aussi les **titres alternatifs TMDB** — Nyaa n'indexe quasiment jamais un titre français, mais répond sur le titre international (cas réel : « Comme les grands » → 0 résultat, « Old Enough » → 3).
 - **Scraper UNIT3D natif** (Gemini, Generation-Free) et **scraper Zilean** (index DMM public).
+- **Viewio** (source directe sur le modèle de Lumio) et **Zone-Telechargement par cookie de session** (ses liens sont réservés aux membres du site).
 - **Aligné sur WAStream 3.8.2** : le fork repart de la base upstream et y réapplique ses correctifs, plutôt que de porter les nouveautés une par une (Turbobit, lecture résiliente et scraper Pastebin, autrefois portés à la main, sont désormais natifs).
+
+### Plusieurs utilisateurs
+
+- **Plusieurs utilisateurs par compte** (idée et code de [Kalix](https://github.com/Kalix91), repris avec son accord) : chaque utilisateur a son lien d'installation, ses services de débridage, son jeton TMDB et, s'il le souhaite, ses propres clés de trackers privés. Les réglages communs restent partagés et les comptes existants ne changent pas.
+- **Cloisonnement des clés** : le jeton du lien est lié à l'utilisateur, et les résultats comme les fichiers `.torrent` obtenus avec la clé d'un utilisateur ne sont jamais servis à un autre.
 
 ### Débridage
 
@@ -42,7 +48,7 @@
 
 ### Qualité de code
 
-- **156 tests** (`pytest`), ciblés sur les fonctions ayant déjà produit un bug réel — chaque test verrouille une régression précise :
+- **244 tests** (`pytest`), ciblés sur les fonctions ayant déjà produit un bug réel (chaque test verrouille une régression précise) :
   ```bash
   pip install -e ".[test]" && pytest
   ```
