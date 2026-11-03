@@ -27,7 +27,7 @@ const translations = {
             urlId: 'URL identifier:',
             remove: 'Remove this user',
             confirmRemove: 'Remove user "{name}"? Their manifest will stop working once you save.',
-            defaultForAll: 'Default for all users',
+            defaultForAll: 'Default for all profiles of this account',
             debridAccount: 'Debrid account',
             debridInherited: 'Uses the main user\'s debrid account (set as default)',
             tmdbInherited: 'Uses the main user\'s TMDB token (set as default)'
@@ -292,7 +292,7 @@ const translations = {
             urlId: 'Identifiant dans l\'URL :',
             remove: 'Supprimer cet utilisateur',
             confirmRemove: 'Supprimer l\'utilisateur « {name} » ? Son manifest cessera de fonctionner après la sauvegarde.',
-            defaultForAll: 'Par défaut pour tous les utilisateurs',
+            defaultForAll: 'Par défaut pour tous les profils de ce compte',
             debridAccount: 'Compte debrid',
             debridInherited: 'Utilise le compte debrid de l\'utilisateur principal (défini par défaut)',
             tmdbInherited: 'Utilise le token TMDB de l\'utilisateur principal (défini par défaut)'

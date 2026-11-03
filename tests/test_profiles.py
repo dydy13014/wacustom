@@ -138,7 +138,7 @@ def test_build_addon_urls_legacy_format_without_profiles():
 
 
 # ===========================
-# Compte debrid partage (case « Default for all users »)
+# Compte debrid partage (case « Default for all profiles of this account »)
 # ===========================
 def test_shared_debrid_gives_main_account_to_every_profile():
     config = _config(default_services=["tmdb", "debrid"])

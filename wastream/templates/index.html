@@ -2000,7 +2000,7 @@
                 <div class="form-field">
                     <div class="field-label-row">
                         <label class="field-label" data-i18n="users.debridAccount">Debrid account</label>
-                        <sl-checkbox id="debridDefault" size="small"><span data-i18n="users.defaultForAll">Default for all users</span></sl-checkbox>
+                        <sl-checkbox id="debridDefault" size="small"><span data-i18n="users.defaultForAll">Default for all profiles of this account</span></sl-checkbox>
                     </div>
                     <span class="field-help" id="debridInheritedHelp" data-i18n="users.debridInherited" hidden>Uses the main user's debrid account (set as default)</span>
                 </div>
@@ -2090,7 +2090,7 @@
                         <div class="form-field">
                             <div class="field-label-row">
                                 <label class="field-label" id="tmdbTokenLabel" for="tmdbToken">TMDB Token</label>
-                                <sl-checkbox id="tmdbDefault" size="small" checked><span data-i18n="users.defaultForAll">Default for all users</span></sl-checkbox>
+                                <sl-checkbox id="tmdbDefault" size="small" checked><span data-i18n="users.defaultForAll">Default for all profiles of this account</span></sl-checkbox>
                             </div>
                             <sl-input id="tmdbToken" type="text" placeholder="Your TMDB token"></sl-input>
                             <span class="field-help"><span data-i18n="help.tokenLabel">Token:</span> <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a></span>
@@ -2099,7 +2099,7 @@
                         <div class="form-field">
                             <div class="field-label-row">
                                 <label class="field-label" data-i18n="trackers.title">Private trackers</label>
-                                <sl-checkbox id="trackersDefault" size="small"><span data-i18n="users.defaultForAll">Default for all users</span></sl-checkbox>
+                                <sl-checkbox id="trackersDefault" size="small"><span data-i18n="users.defaultForAll">Default for all profiles of this account</span></sl-checkbox>
                             </div>
                             <span class="field-help" data-i18n="trackers.help">Your own API keys / passkeys. Leave empty to use the server's key (if any).</span>
                             <span class="field-help" id="trackersInheritedHelp" data-i18n="trackers.inherited" hidden>Uses the main user's tracker keys (set as default)</span>
@@ -2613,7 +2613,7 @@
         </div>
     </div>
 
-    <script src="/static/translations.js?v=20261103a"></script>
+    <script src="/static/translations.js?v=20261103f"></script>
 
     <div class="warning-modal" id="warningModal">
         <div class="warning-modal-content">
