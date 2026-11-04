@@ -252,8 +252,6 @@ class StreamService:
             # existantes re-enregistrees depuis la nouvelle interface.
             if settings.LUMIO_MANIFEST_ID and LUMIO_LABEL not in allowed_sources:
                 allowed_sources.append(LUMIO_LABEL)
-            if settings.VIEWIO_MANIFEST_URL and VIEWIO_LABEL not in allowed_sources:
-                allowed_sources.append(VIEWIO_LABEL)
 
             # Les flux « directs » de Lumio v2 sont déjà jouables : on ne les
             # soumet pas à la vérification de cache du service debrid.
@@ -1658,10 +1656,9 @@ class StreamService:
                     title, year, metadata=metadata, use_episode_key=False, filter_episodes=False)
             tasks_with_sources.append(("lumio", coro))
 
-        # Viewio : meme logique que Lumio (flux directs deja en cache). Active par
-        # la seule presence de VIEWIO_MANIFEST_URL : les comptes enregistres avant
-        # son ajout n'ont pas "viewio" dans leur liste de sources.
-        if ("viewio" in supported_sources or settings.VIEWIO_MANIFEST_URL) and self._is_source_allowed_for_content("viewio", content_name, config):
+        # Viewio : meme logique que Lumio (flux directs deja en cache). Respecte
+        # la selection des sources : decochee, elle n'est jamais interrogee.
+        if "viewio" in supported_sources and self._is_source_allowed_for_content("viewio", content_name, config):
             if use_episode_cache:
                 coro = self._search_source_with_cache(
                     "viewio", content_type,

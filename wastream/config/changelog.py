@@ -11,6 +11,13 @@ change à l'usage, pas le détail d'implémentation.
 
 CHANGELOG = [
     {
+        "version": "1.5.1",
+        "date": "2026-11-04",
+        "changes": [
+            "Correction : Viewio restait interrogé même quand on le décochait dans la sélection des sources, et ses résultats continuaient d'apparaître. Décochée, la source n'est maintenant plus utilisée du tout. Signalé par VGer.",
+        ],
+    },
+    {
         "version": "1.5.0",
         "date": "2026-11-03",
         "changes": [
