@@ -174,3 +174,43 @@ async def delete_all_content_cache() -> int:
     except Exception as e:
         database_logger.error(f"[Content-Cache] Failed to delete all content cache: {type(e).__name__}: {e}")
         return 0
+
+
+# ===========================
+# Purge des trackers prives au demarrage
+# ===========================
+# Les .torrent des trackers prives (URL avec la passkey) vivent UNIQUEMENT en
+# memoire (services/torrent_files : jamais en base, jamais en clair). Les resultats
+# de ces trackers, eux, sont en cache en base pendant CONTENT_CACHE_TTL : apres un
+# redemarrage (reboot du lundi, mise a jour), un resultat servi depuis ce cache n'a
+# plus son .torrent, donc un magnet nu sans pair ("No peer"). On vide donc ces
+# entrees au demarrage : la prochaine recherche les
+# recree ET reenregistre les .torrent.
+# Noms de cache (stream.py : tracker_cache_name) : "<base>_<type>..." avec la cle
+# globale, "<base>-<empreinte>_<type>..." avec une cle d'utilisateur.
+_PRIVATE_TRACKER_CACHE_BASES = (
+    "yggreborn", "tr4ker", "torr9", "c411", "v3x", "gemini", "generation_free",
+)
+
+
+async def purge_private_tracker_cache() -> int:
+    try:
+        total = 0
+        for base in _PRIVATE_TRACKER_CACHE_BASES:
+            escaped = base.replace("_", "!_")  # '_' est un joker de LIKE
+            for pattern in (f"{escaped}!_%", f"{escaped}-%"):
+                params = {"pattern": pattern}
+                count = await database.fetch_val(
+                    "SELECT COUNT(*) FROM content_cache WHERE cache_key LIKE :pattern ESCAPE '!'", params
+                ) or 0
+                if count:
+                    await database.execute(
+                        "DELETE FROM content_cache WHERE cache_key LIKE :pattern ESCAPE '!'", params
+                    )
+                    total += count
+        if total:
+            await rebuild_cache_stats()
+        return total
+    except Exception as e:
+        database_logger.error(f"[Content-Cache] Failed to purge private tracker cache: {type(e).__name__}: {e}")
+        return 0

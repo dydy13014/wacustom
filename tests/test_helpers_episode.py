@@ -217,3 +217,62 @@ def test_select_episode_file_falls_back_to_biggest_video_without_match():
 
 def test_select_episode_file_empty_list_returns_none():
     assert select_episode_file([], 2, 3) is None
+
+
+# ===========================
+# select_episode_file : numerotations de fichiers sans SxxExx
+# ===========================
+def _pack(*names_sizes):
+    return [{"filename": n, "size": s} for n, s in names_sizes]
+
+
+def test_select_file_code_saison_episode_a_trois_chiffres():
+    # Cas du rapport : S1E5 demande, le plus gros fichier est « 110.FINAL ».
+    files = _pack(("Show.101.mkv", 1_000), ("Show.105.mkv", 1_100), ("Show.110.FINAL.mkv", 9_000))
+    assert select_episode_file(files, 1, 5)["filename"] == "Show.105.mkv"
+
+
+def test_select_file_code_a_quatre_chiffres_saison_dix():
+    files = _pack(("Show.1004.mkv", 1_000), ("Show.1005.mkv", 1_100), ("Show.1010.mkv", 9_000))
+    assert select_episode_file(files, 10, 5)["filename"] == "Show.1005.mkv"
+
+
+def test_select_file_mot_episode():
+    files = _pack(("Episode 4.mkv", 9_000), ("Episode 5.mkv", 1_000), ("Episode 6.mkv", 8_000))
+    assert select_episode_file(files, 1, 5)["filename"] == "Episode 5.mkv"
+
+
+def test_select_file_numero_nu_en_tete_de_nom():
+    files = _pack(("04.mkv", 9_000), ("05.mkv", 1_000), ("06.mkv", 8_000))
+    assert select_episode_file(files, 1, 5)["filename"] == "05.mkv"
+    files = _pack(("4 - Le debut.mkv", 9_000), ("5 - La suite.mkv", 1_000))
+    assert select_episode_file(files, 1, 5)["filename"] == "5 - La suite.mkv"
+
+
+def test_select_file_dans_un_dossier():
+    files = _pack(("Show.Pack/Show.104.mkv", 9_000), ("Show.Pack/Show.105.mkv", 1_000))
+    assert select_episode_file(files, 1, 5)["filename"] == "Show.Pack/Show.105.mkv"
+
+
+def test_select_file_resolution_annee_codec_ne_sont_pas_des_episodes():
+    # 1080 / 2005 / 265 : ni S10E80, ni S20E05, ni S2E65.
+    files = _pack(("Show.1080p.mkv", 9_000), ("Show.2005.mkv", 8_000))
+    assert select_episode_file(files, 10, 80)["filename"] == "Show.1080p.mkv"   # repli : plus gros
+    files = _pack(("Show.H.265.mkv", 9_000), ("Show.x265.mkv", 8_000))
+    assert select_episode_file(files, 2, 65)["filename"] == "Show.H.265.mkv"   # repli : plus gros
+
+
+def test_select_file_marqueur_explicite_prioritaire_sur_le_code():
+    files = _pack(("Show.S01E05.mkv", 1_000), ("Show.105.mkv", 9_000))
+    assert select_episode_file(files, 1, 5)["filename"] == "Show.S01E05.mkv"
+
+
+def test_select_file_la_reconnaissance_souple_ignore_un_fichier_a_autre_episode_explicite():
+    # « S01E06 » est explicite (False) : jamais retenu par la reconnaissance souple.
+    files = _pack(("Show.S01E06.105.mkv", 9_000), ("Show.104.mkv", 1_000))
+    assert select_episode_file(files, 1, 5)["filename"] == "Show.S01E06.105.mkv"  # repli : plus gros, inchange
+
+
+def test_select_file_repli_sur_le_plus_gros_inchange_sans_reconnaissance():
+    files = _pack(("Pilot.mkv", 1_000), ("La suite.mkv", 9_000))
+    assert select_episode_file(files, 1, 5)["filename"] == "La suite.mkv"

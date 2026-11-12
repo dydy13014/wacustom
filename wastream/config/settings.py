@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Version du fork, indépendante de celle d'upstream : c'est elle qui identifie
 # ce qui tourne réellement (nos sources, nos correctifs), et elle avance à un
 # rythme qui n'est pas celui de WAStream.
-WACUSTOM_VERSION = "1.5.1"
+WACUSTOM_VERSION = "1.5.2"
 
 # Version WAStream servant de base au fork. Mise à jour uniquement lors d'un
 # rebase sur une nouvelle version upstream - sert à savoir d'où l'on part quand
@@ -466,7 +466,7 @@ class Settings(BaseSettings):
             "catalogs": [],
             "resources": ["stream"],
             "types": ["movie", "series", "anime"],
-            "idPrefixes": ["tt", "kitsu"],
+            "idPrefixes": ["tt", "kitsu", "tmdb"],
             "behaviorHints": {
                 "configurable": True
             },

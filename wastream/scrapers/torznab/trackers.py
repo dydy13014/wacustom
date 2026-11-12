@@ -83,10 +83,10 @@ class GeminiScraper:
     async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
                      season: Optional[str] = None, episode: Optional[str] = None,
                      config: Optional[Dict] = None) -> List[Dict]:
-        api_key, _ = resolve_tracker_key(config, "gemini")
+        api_key, owner = resolve_tracker_key(config, "gemini")
         if not api_key or not settings.GEMINI_URL:
             return []
-        scraper = BaseUnit3d("Gemini", settings.GEMINI_URL, api_key)
+        scraper = BaseUnit3d("Gemini", settings.GEMINI_URL, api_key, key_owner=owner)
         return await scraper.search(title, year, metadata, season, episode, config)
 
 
@@ -94,10 +94,10 @@ class GenerationFreeScraper:
     async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
                      season: Optional[str] = None, episode: Optional[str] = None,
                      config: Optional[Dict] = None) -> List[Dict]:
-        api_key, _ = resolve_tracker_key(config, "generation-free")
+        api_key, owner = resolve_tracker_key(config, "generation-free")
         if not api_key or not settings.GENERATIONFREE_URL:
             return []
-        scraper = BaseUnit3d("Generation-Free", settings.GENERATIONFREE_URL, api_key)
+        scraper = BaseUnit3d("Generation-Free", settings.GENERATIONFREE_URL, api_key, key_owner=owner)
         return await scraper.search(title, year, metadata, season, episode, config)
 
 

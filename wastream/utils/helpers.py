@@ -379,7 +379,7 @@ def normalize_tracker_url(name: str, url: str) -> str:
 #   S02 seul, Saison 2, Season 2 (packs)   → _EP_SEASON_RE
 _EP_SXEX_RE = re.compile(r'[Ss](\d{1,2})((?:[.\s_-]?[Ee]\d{1,3})+)')
 _EP_NUM_RE = re.compile(r'[Ee](\d{1,3})')
-_EP_RANGE_RE = re.compile(r'[Ss](\d{1,2})[.\s_-]?[Ee](\d{1,3})\s?[-–]\s?[Ee]?(\d{1,3})')
+_EP_RANGE_RE = re.compile(r'[Ss](\d{1,2})[.\s_-]?[Ee](\d{1,3})\s?[-\u2013]\s?[Ee]?(\d{1,3})')
 _EP_ALT_RE = re.compile(r'(?<!\d)(\d{1,2})x(\d{1,3})(?!\d)')
 _EP_SEASON_RE = re.compile(
     r'[Ss](\d{1,2})(?![.\s_-]?[Ee]\d)|saison[\s._-]?(\d{1,2})|season[\s._-]?(\d{1,2})',
@@ -563,6 +563,38 @@ def episode_matches(release_name: str, season, episode,
     return False if strict else None
 
 
+# Numerotations de FICHIERS dans un pack, sans marqueur SxxExx ni saison explicite
+# : « Show.105.mkv » (saison 1, episode 05),
+# « Episode 5.mkv », « 05.mkv », « 5 - Titre.mkv ». episode_matches() les ignore
+# (renvoie None) : on choisissait alors le plus gros fichier du pack, donc un autre
+# episode (ex. « Show.110.FINAL.mkv » pour S1E5). Utilise UNIQUEMENT pour departager
+# des fichiers d'un meme pack, jamais pour juger un nom de release.
+_FILE_EP_WORD_RE = re.compile(r'(?<![A-Za-z])(?:episode|[ée]pisode|ep)[\s._-]?0*(\d{1,3})(?!\d)', re.IGNORECASE)
+_FILE_EP_CODE_RE = re.compile(r'(?<![\dA-Za-z])(\d{3,4})(?![\dA-Za-z])')
+_FILE_EP_LEAD_RE = re.compile(r'^\s*(?:\[[^\]]*\]\s*)?0*(\d{1,3})(?=[\s._)\-]|$)')
+_FILE_EP_NOISE_RE = re.compile(r'[HhXx][.\s_-]?26[45]|\b(?:480|576|720|1080|1440|2160)[pi]?\b', re.IGNORECASE)
+
+
+def _loose_episode_match(filename: str, season, episode) -> bool:
+    try:
+        req_s, req_e = int(season), int(episode)
+    except (ValueError, TypeError):
+        return False
+    base = (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    base = re.sub(r'\.[A-Za-z0-9]{2,4}$', '', base)  # extension
+    base = _FILE_EP_NOISE_RE.sub(' ', base)           # codecs et resolutions : jamais un episode
+    if any(int(m.group(1)) == req_e for m in _FILE_EP_WORD_RE.finditer(base)):
+        return True
+    for m in _FILE_EP_CODE_RE.finditer(base):
+        n = int(m.group(1))
+        if 1900 <= n <= 2100:  # annee
+            continue
+        if (n // 100, n % 100) == (req_s, req_e):
+            return True
+    lead = _FILE_EP_LEAD_RE.match(base)
+    return bool(lead and int(lead.group(1)) == req_e)
+
+
 def select_episode_file(files: List[Dict], season, episode,
                         name_key: str = "filename", size_key: str = "size") -> Optional[Dict]:
     """Sélectionne le meilleur fichier vidéo d'une liste (season pack ou single).
@@ -582,5 +614,13 @@ def select_episode_file(files: List[Dict], season, episode,
         matching = [f for f in videos if episode_matches(f.get(name_key, ""), season, episode) is True]
         if matching:
             return max(matching, key=lambda f: f.get(size_key, 0) or 0)
+        # Pas de marqueur SxxExx exploitable : numerotation « 105 », « Episode 5 »,
+        # « 05 ». Seulement parmi les fichiers sans information d'episode (None),
+        # jamais ceux qui portent explicitement un autre episode (False).
+        loose = [f for f in videos
+                 if episode_matches(f.get(name_key, ""), season, episode) is None
+                 and _loose_episode_match(f.get(name_key, ""), season, episode)]
+        if loose:
+            return max(loose, key=lambda f: f.get(size_key, 0) or 0)
 
     return max(videos, key=lambda f: f.get(size_key, 0) or 0)

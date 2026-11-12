@@ -192,7 +192,24 @@ def get_system_info() -> Dict[str, Any]:
 # ===========================
 # Source Health Check Functions
 # ===========================
-async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
+# Trackers Torznab a cle API : la sonde ?t=caps est authentifiee et part du meme
+# compte que les vraies recherches (C411 : partage avec VODIO et Ludio). A 60 s
+# par defaut elle faisait 1 440 requetes/jour/tracker ; on ne les re-sonde qu'au
+# plus toutes les _TRACKER_PROBE_MIN_INTERVAL secondes, sauf changement d'URL ou de
+# cle, ou verification manuelle (force).
+_AUTH_TRACKERS = ("YggReborn", "Tr4ker", "Torr9", "C411")
+_TRACKER_PROBE_MIN_INTERVAL = 600
+_tracker_probe_sig: Dict[str, int] = {}
+
+
+def _tracker_api_key(name: str) -> str:
+    return {
+        "YggReborn": settings.YGGREBORN_API_KEY, "Tr4ker": settings.TR4KER_API_KEY,
+        "Torr9": settings.TORR9_API_KEY, "C411": settings.C411_API_KEY,
+    }.get(name) or ""
+
+
+async def _check_single_source(name: str, url: Optional[str], force: bool = True) -> SourceStatus:
     if not url:
         return SourceStatus(
             name=name,
@@ -200,6 +217,15 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
             status="unconfigured",
             last_check=time.time()
         )
+
+    if name in _AUTH_TRACKERS:
+        sig = hash((url, _tracker_api_key(name)))
+        prev = _health_state.sources.get(name)
+        if (not force and prev is not None and prev.status in ("online", "offline")
+                and prev.last_check and time.time() - prev.last_check < _TRACKER_PROBE_MIN_INTERVAL
+                and _tracker_probe_sig.get(name) == sig):
+            return prev
+        _tracker_probe_sig[name] = sig
 
     start_time = time.time()
     try:
@@ -281,29 +307,31 @@ async def _check_single_source(name: str, url: Optional[str]) -> SourceStatus:
             headers = {
                 "User-Agent": "WAStream/1.0"
             }
-            if name == "YggReborn":
-                tracker_url += f"?t=caps&apikey={settings.YGGREBORN_API_KEY}"
-            elif name == "Tr4ker":
-                tracker_url += f"?t=caps&apikey={settings.TR4KER_API_KEY}"
-            elif name == "Torr9":
-                tracker_url += f"?t=caps&apikey={settings.TORR9_API_KEY}"
-            elif name == "C411":
-                tracker_url += f"?t=caps&apikey={settings.C411_API_KEY}"
+            # `params` : la cle ne figure dans aucune chaine d'URL manipulee ici
+            # (et plus d'"apikey=None" quand elle manque).
+            params = {"t": "caps"}
+            api_key = _tracker_api_key(name)
+            if api_key:
+                params["apikey"] = api_key
 
             response = await http_client.get(
                 tracker_url,
                 headers=headers,
+                params=params,
                 timeout=settings.HEALTH_CHECK_TIMEOUT
             )
             response_time = int((time.time() - start_time) * 1000)
 
-            if response.status_code == 200:
+            if response.status_code in (200, 429):
+                # 429 = le tracker repond mais limite le debit : il est en ligne
+                # (le marquer hors ligne coupait la source pour tout le monde).
                 return SourceStatus(
                     name=name,
                     url=_mask_url(url),
                     status="online",
                     response_time=response_time,
-                    last_check=time.time()
+                    last_check=time.time(),
+                    error="HTTP 429 (limite de debit)" if response.status_code == 429 else None
                 )
             else:
                 return SourceStatus(
@@ -409,7 +437,7 @@ async def check_sources_and_services(force: bool = False) -> Dict[str, Any]:
 
     try:
         sources = _get_sources_config()
-        source_tasks = [_check_single_source(name, url) for name, url in sources.items()]
+        source_tasks = [_check_single_source(name, url, force=force) for name, url in sources.items()]
         service_tasks = [_check_database(), _check_proxy()]
 
         all_results = await asyncio.gather(*source_tasks, *service_tasks)

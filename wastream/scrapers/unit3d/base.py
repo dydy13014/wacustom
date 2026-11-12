@@ -1,5 +1,7 @@
 from typing import List, Dict, Optional
 
+from wastream.services.torrent_files import remember_torrent_url
+from wastream.utils.tracker_keys import GLOBAL_OWNER
 from wastream.utils.http_client import http_client
 from wastream.utils.logger import scraper_logger
 from wastream.utils.release_parser import tokenize_filename
@@ -19,10 +21,13 @@ class BaseUnit3d:
     (XML), UNIT3D expose du JSON et supporte le filtrage saison/épisode côté
     serveur."""
 
-    def __init__(self, name: str, url: str, api_token: str):
+    def __init__(self, name: str, url: str, api_token: str, key_owner: str = GLOBAL_OWNER):
         self.name = name
         self.url = url.rstrip("/").removesuffix("/api")
         self.api_token = api_token
+        # Proprietaire de la cle (globale ou d'un utilisateur) : range l'URL du
+        # .torrent a son nom (cf. torrent_files), comme pour les trackers Torznab.
+        self.key_owner = key_owner
 
     async def search(self, title: str, year: Optional[str] = None, metadata: Optional[Dict] = None,
                      season: Optional[str] = None, episode: Optional[str] = None,
@@ -97,6 +102,13 @@ class BaseUnit3d:
                 )
                 if not display_name:
                     display_name = release_name
+
+                # Le resultat ne porte qu'un magnet nu ; le vrai .torrent reste cote
+                # serveur pour la lecture hors cache (cf. torrent_files). Un tracker
+                # prive n'a ni DHT ni PEX : sans lui, "No peer" cote debrideur.
+                download_link = attrs.get("download_link")
+                if download_link and not str(download_link).startswith("magnet:"):
+                    remember_torrent_url(infohash, self.name, download_link, self.key_owner)
 
                 result = {
                     "link": f"magnet:?xt=urn:btih:{infohash}",

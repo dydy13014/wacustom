@@ -174,10 +174,15 @@ def extract_media_info(content_id: str, content_type: str) -> Dict[str, Optional
     # ID et decalait saison/episode d'un cran (tmdb_id pris pour la saison).
     if content_id_formatted.startswith("tmdb:"):
         parts = content_id_formatted.split(":")
+        # Un film n'a ni saison ni episode (comme un ID `tt...` de film, plus bas) :
+        # leur forcer "1" faisait chercher « S01E01 » (selection de fichier debrid,
+        # jeton de lecture) et classait un film d'animation comme un episode
+        #.
+        is_movie = content_type == "movie"
         return {
             "tmdb_id": parts[1] if len(parts) > 1 else None,
-            "season": parts[2] if len(parts) > 2 else "1",
-            "episode": parts[3] if len(parts) > 3 else "1",
+            "season": None if is_movie else (parts[2] if len(parts) > 2 else "1"),
+            "episode": None if is_movie else (parts[3] if len(parts) > 3 else "1"),
             "imdb_id": None,
             "kitsu_id": None
         }

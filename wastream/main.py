@@ -18,6 +18,7 @@ from wastream.utils.helpers import decode_playback_token
 from wastream.utils.http_client import http_client
 from wastream.config.settings import settings
 from wastream.utils.logger import setup_logger, addon_logger, api_logger, user_id_var
+from wastream.services.content_cache import purge_private_tracker_cache
 from wastream.services.health import start_background_health_check
 from wastream.services.domain_sync import start_background_domain_sync
 from wastream.services.pastebin_scraper import start_pastebin_scraper_loop
@@ -114,6 +115,9 @@ class LoguruMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     await setup_database()
     await apply_startup_overrides()
+    purged = await purge_private_tracker_cache()
+    if purged:
+        addon_logger.info(f"Cache des trackers prives vide au demarrage ({purged} entree(s)) : .torrent a re-enregistrer")
 
     # Nos sources maison sont comptées ici au même titre que celles d'upstream :
     # sans elles, un déploiement n'utilisant QUE nos trackers verrait

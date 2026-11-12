@@ -11,6 +11,20 @@ change à l'usage, pas le détail d'implémentation.
 
 CHANGELOG = [
     {
+        "version": "1.5.2",
+        "date": "2026-11-12",
+        "changes": [
+            "Sécurité : renforcement de la protection de l'administration et du mot de passe de l'addon, désormais vérifiés par le serveur. Mise à jour recommandée.",
+            "Correction : une recherche par identifiant n'est plus refaite pour chaque titre alternatif, et un film retrouvé par son identifiant mais dont le titre français diffère du titre anglais n'est plus écarté à tort.",
+            "Correction : moins d'erreurs « trop de requêtes » (429) sur les trackers : les requêtes sont espacées, et un tracker qui répond 429 est mis en pause le temps demandé au lieu d'être sollicité en rafale.",
+            "Correction : dans un pack de saison, les fichiers numérotés « 105 » (saison 1, épisode 5), « Episode 5 » ou « 05 » sont reconnus, au lieu de lire le plus gros fichier du pack, qui pouvait être un autre épisode.",
+            "Correction : un film identifié par un numéro TMDB n'est plus cherché comme l'épisode 1 de la saison 1.",
+            "Correction : une réponse de tracker avec une taille vide ne fait plus perdre tous ses résultats.",
+            "Correction : après un redémarrage, les résultats en cache des trackers privés sont vidés, ce qui évitait des lectures sans pair (« No peer ») pendant l'heure suivante. Gemini et Generation-Free enregistrent aussi leur fichier .torrent.",
+            "Le contrôle de santé des trackers est plus espacé (toutes les 10 minutes), et une réponse « trop de requêtes » compte comme « en ligne ».",
+        ],
+    },
+    {
         "version": "1.5.1",
         "date": "2026-11-04",
         "changes": [

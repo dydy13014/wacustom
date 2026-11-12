@@ -176,8 +176,9 @@ def test_extract_media_info_tmdb_series_missing_episode_defaults_to_1():
 
 
 def test_extract_media_info_tmdb_movie_plain():
+    # Un film n'a ni saison ni episode. Meme forme qu'un ID `tt...`.
     info = extract_media_info("tmdb:12345", "movie")
-    assert info == {"tmdb_id": "12345", "season": "1", "episode": "1", "imdb_id": None, "kitsu_id": None}
+    assert info == {"tmdb_id": "12345", "season": None, "episode": None, "imdb_id": None, "kitsu_id": None}
 
 
 def test_extract_media_info_tmdb_strips_json_suffix():
@@ -193,3 +194,35 @@ def test_extract_media_info_tmdb_never_misparsed_as_imdb_id():
     info = extract_media_info("tmdb:335292:1:5", "series")
     assert info["imdb_id"] != "tmdb"
     assert info["season"] != "335292"
+
+
+# ===========================
+# extract_media_info : IDs `tmdb:`
+# ===========================
+def test_extract_media_info_tmdb_film_sans_saison_ni_episode():
+    info = extract_media_info("tmdb:603", "movie")
+    assert info == {"tmdb_id": "603", "season": None, "episode": None, "imdb_id": None, "kitsu_id": None}
+
+
+def test_extract_media_info_tmdb_film_json_suffix():
+    assert extract_media_info("tmdb:603.json", "movie")["season"] is None
+
+
+def test_extract_media_info_tmdb_film_avec_parties_en_trop_reste_sans_saison():
+    info = extract_media_info("tmdb:603:1:1", "movie")
+    assert info["season"] is None and info["episode"] is None
+
+
+def test_extract_media_info_tmdb_serie_sans_numeros_garde_s01e01():
+    info = extract_media_info("tmdb:1399", "series")
+    assert info == {"tmdb_id": "1399", "season": "1", "episode": "1", "imdb_id": None, "kitsu_id": None}
+
+
+def test_extract_media_info_tmdb_serie_avec_saison_et_episode():
+    info = extract_media_info("tmdb:1399:2:5", "series")
+    assert info["tmdb_id"] == "1399" and info["season"] == "2" and info["episode"] == "5"
+
+
+def test_extract_media_info_tmdb_anime_traite_comme_une_serie():
+    info = extract_media_info("tmdb:37854:1:12", "anime")
+    assert info["season"] == "1" and info["episode"] == "12"

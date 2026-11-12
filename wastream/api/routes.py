@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Optional, Dict, Any, List
 from base64 import b64encode
 
-from fastapi import APIRouter, Request, Query, Path, Body, Cookie, Depends
+from fastapi import APIRouter, Request, Query, Path, Body, Cookie, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse, RedirectResponse, FileResponse, HTMLResponse, StreamingResponse
 
@@ -295,6 +295,9 @@ async def create_user_route(
     password: str = Body(..., embed=True, description="User password"),
     config: Dict[str, Any] = Body(..., embed=True, description="User configuration")
 ):
+    if not _addon_password_ok(request):
+        return JSONResponse(status_code=403, content={"error": "Addon password required or incorrect"})
+
     if not config.get("debrid_services"):
         return JSONResponse(
             status_code=400,
@@ -682,7 +685,9 @@ async def resolve(
 
     if user_uuid and enc_password:
         config = await get_user_config_from_url(user_uuid, enc_password, profile)
-    elif b64config:
+    elif b64config and not settings.ADDON_PASSWORD.strip():
+        # Config en clair dans l'URL : reservee aux instances sans mot de passe
+        # d'addon (sinon elle contourne la protection, cf. M3).
         config = validate_config(b64config)
 
     if not config:
@@ -811,6 +816,25 @@ async def get_changelog():
     })
 
 
+def _addon_passwords() -> list:
+    return [pwd.strip() for pwd in settings.ADDON_PASSWORD.split(",") if pwd.strip()]
+
+
+def _addon_password_ok(request: Request) -> bool:
+    """Mot de passe d'addon applique cote serveur : la page l'envoie dans l'en-tete
+    X-Addon-Password. Sans ADDON_PASSWORD : ouvert, comme avant. Comparaison en
+    octets (une valeur non ASCII ne leve pas d'exception)."""
+    if not settings.ADDON_PASSWORD.strip():
+        return True
+    given = request.headers.get("x-addon-password", "").encode("utf-8")
+    return any(secrets.compare_digest(given, pwd.encode("utf-8")) for pwd in _addon_passwords())
+
+
+async def require_addon_password(request: Request) -> None:
+    if not _addon_password_ok(request):
+        raise HTTPException(status_code=403, detail="Addon password required")
+
+
 @router.get("/config/password",
             tags=["Configuration"],
             summary="Password Status",
@@ -829,8 +853,8 @@ async def verify_password(password: str = Body(..., embed=True, description="Pas
     if not settings.ADDON_PASSWORD.strip():
         return JSONResponse(content={"valid": True})
 
-    valid_passwords = [pwd.strip() for pwd in settings.ADDON_PASSWORD.split(",") if pwd.strip()]
-    is_valid = any(secrets.compare_digest(password, pwd) for pwd in valid_passwords)
+    given = password.encode("utf-8")
+    is_valid = any(secrets.compare_digest(given, pwd.encode("utf-8")) for pwd in _addon_passwords())
 
     return JSONResponse(content={"valid": is_valid})
 
@@ -838,7 +862,8 @@ async def verify_password(password: str = Body(..., embed=True, description="Pas
 @router.get("/config/api-key/verify",
             tags=["Configuration"],
             summary="Verify API Key",
-            description="Validates debrid service API key or TMDB token")
+            description="Validates debrid service API key or TMDB token",
+            dependencies=[Depends(require_addon_password)])
 async def verify_api_key(
     service: ServiceType = Query(..., description="Service"),
     api_key: str = Query(..., description="API key"),
@@ -1772,7 +1797,7 @@ async def admin_clear_logs(
 async def admin_purge_cached_links(
     admin_token: Optional[str] = Cookie(None)
 ):
-    if not _verify_admin_token(admin_token):
+    if not await _verify_admin_token(admin_token):
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
 
     deleted = await delete_all_content_cache()
@@ -2671,76 +2696,3 @@ async def admin_tmdb_find_by_imdb(
         return JSONResponse(status_code=500, content={"error": "Failed to fetch TMDB data"})
 
 
-# ===========================
-# Admin Settings Endpoints
-# ===========================
-@router.get("/admin/api/settings",
-            tags=["Admin"],
-            summary="Get Settings",
-            description="Returns editable system settings")
-async def admin_get_settings(admin_token: Optional[str] = Cookie(None)):
-    if not _verify_admin_token(admin_token):
-        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-
-    keys = [
-        "WAWACITY_URL", "FREE_TELECHARGER_URL", "DARKI_API_URL", "MOVIX_URL", "WEBSHARE_URL",
-        "YGGREBORN_URL", "YGGREBORN_API_KEY", "TR4KER_URL", "TR4KER_API_KEY",
-        "TORR9_URL", "TORR9_API_KEY", "C411_URL", "C411_API_KEY",
-        "GEMINI_URL", "GEMINI_API_KEY", "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY",
-        "ZILEAN_URL", "AIOSOURCES_URL"
-    ]
-    
-    settings_dict = {}
-    for key in keys:
-        settings_dict[key] = getattr(settings, key, "") or ""
-    return JSONResponse(content=settings_dict)
-
-
-@router.post("/admin/api/settings",
-             tags=["Admin"],
-             summary="Save Settings",
-             description="Updates system settings and persists them to the database")
-async def admin_save_settings(
-    request: Request,
-    admin_token: Optional[str] = Cookie(None)
-):
-    if not _verify_admin_token(admin_token):
-        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
-
-    allowed_keys = [
-        "WAWACITY_URL", "FREE_TELECHARGER_URL", "DARKI_API_URL", "MOVIX_URL", "WEBSHARE_URL",
-        "YGGREBORN_URL", "YGGREBORN_API_KEY", "TR4KER_URL", "TR4KER_API_KEY",
-        "TORR9_URL", "TORR9_API_KEY", "C411_URL", "C411_API_KEY",
-        "GEMINI_URL", "GEMINI_API_KEY", "GENERATIONFREE_URL", "GENERATIONFREE_API_KEY",
-        "ZILEAN_URL", "AIOSOURCES_URL"
-    ]
-
-    from wastream.utils.database import database
-
-    try:
-        for key, value in body.items():
-            if key not in allowed_keys:
-                continue
-
-            # Apply to settings singleton in memory
-            val_to_apply = value if (value and str(value).strip()) else None
-            setattr(settings, key, val_to_apply)
-
-            # Persist to database
-            await database.execute(
-                """
-                INSERT OR REPLACE INTO admin_settings (key, value)
-                VALUES (:key, :value)
-                """,
-                {"key": key, "value": str(value) if value is not None else ""}
-            )
-
-        return JSONResponse(content={"success": True})
-    except Exception as e:
-        api_logger.error(f"Failed to save settings: {e}")
-        return JSONResponse(status_code=500, content={"error": f"Failed to save settings: {e}"})

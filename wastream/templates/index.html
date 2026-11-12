@@ -4005,13 +4005,18 @@
             }
         };
 
+        // Mot de passe d'addon renvoye au serveur, qui le controle lui-meme
+        // (avant, seul ce navigateur le verifiait).
+        const addonHeaders = () => (state.passwordRequired && state.addonPassword)
+            ? { 'X-Addon-Password': state.addonPassword } : {};
+
         const verifyApiKey = async (service, apiKey, nzbdavUrl = '', webdavUser = '', webdavPassword = '') => {
             try {
                 let url = `/config/api-key/verify?service=${encodeURIComponent(service)}&api_key=${encodeURIComponent(apiKey)}`;
                 if (service === 'nzbdav') {
                     url += `&nzbdav_url=${encodeURIComponent(nzbdavUrl)}&webdav_user=${encodeURIComponent(webdavUser)}&webdav_password=${encodeURIComponent(webdavPassword)}`;
                 }
-                const res = await fetch(url);
+                const res = await fetch(url, { headers: addonHeaders() });
                 const data = await res.json();
                 return data.valid;
             } catch (error) {
@@ -4164,6 +4169,7 @@
             }
 
             setLoading(true);
+            state.addonPassword = addonPassword;
 
             try {
                 if (state.passwordRequired) {
@@ -4240,7 +4246,7 @@
                 } else {
                     const createRes = await fetch('/user', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', ...addonHeaders() },
                         body: JSON.stringify({ password: userPassword, config })
                     });
 

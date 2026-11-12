@@ -1,8 +1,10 @@
 import asyncio
+import copy
 import time
 import xml.etree.ElementTree as ET
 import re
 from typing import List, Dict, Optional, Tuple
+from urllib.parse import urlsplit
 
 from wastream.config.settings import settings
 from wastream.services.torrent_files import remember_torrent_url
@@ -81,6 +83,101 @@ def _is_relevant(title: str, release_name: str) -> bool:
         if (matched / len(title_tokens)) >= _MIN_RELEVANCE_RATIO:
             return True
     return False
+
+
+def _is_relevant_any(titles: List[str], release_name: str) -> bool:
+    """Pertinence testee sur TOUS les titres connus du contenu (titre principal +
+    titres traduits TMDB), pas sur un seul. Cas reel :
+    le titre principal est l'anglais ("The Godfather") alors que le tracker
+    publie "Le.Parrain.1972..." ; trouve a raison par tmdbid, le resultat etait
+    jete, `has_torrent_results` restait faux et la recherche repartait sur chaque
+    titre alternatif (2 a 3 requetes par tracker au lieu d'une)."""
+    return any(_is_relevant(t, release_name) for t in titles if t)
+
+
+# ---------------------------------------------------------------------------
+# Limiteur par tracker. Avant : aucun frein, donc une rafale (preload d'une
+# saison, plusieurs titres alternatifs) declenchait des 429 en cascade sur des
+# comptes partages (C411 : Wacustom + VODIO + Ludio) - 43 erreurs en 5 jours.
+# - au plus _MAX_CONCURRENT requetes simultanees par hote ;
+# - un ecart minimal _MIN_INTERVAL entre deux departs ;
+# - apres un 429, l'hote est mis en pause (Retry-After si fourni, plafonne) :
+#   les recherches suivantes rendent [] tout de suite au lieu d'aggraver le blocage.
+# ---------------------------------------------------------------------------
+_MAX_CONCURRENT = 2
+_MIN_INTERVAL = 0.4
+_PAUSE_429_DEFAULT = 30.0
+_PAUSE_429_MAX = 120.0
+
+
+class _Gate:
+    def __init__(self) -> None:
+        self.sem = asyncio.Semaphore(_MAX_CONCURRENT)
+        self.lock = asyncio.Lock()
+        self.next_at = 0.0
+        self.blocked_until = 0.0
+
+    async def __aenter__(self) -> "_Gate":
+        await self.sem.acquire()
+        async with self.lock:
+            now = time.monotonic()
+            wait = self.next_at - now
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self.next_at = max(now, self.next_at) + _MIN_INTERVAL
+        return self
+
+    async def __aexit__(self, *exc) -> None:
+        self.sem.release()
+
+    def paused_for(self) -> float:
+        return max(0.0, self.blocked_until - time.monotonic())
+
+    def pause(self, seconds: float) -> None:
+        self.blocked_until = max(self.blocked_until, time.monotonic() + seconds)
+
+
+_GATES: Dict[Tuple[int, str], _Gate] = {}
+
+
+def _gate_for(url: str) -> _Gate:
+    host = urlsplit(url).netloc or url
+    key = (id(asyncio.get_running_loop()), host)
+    gate = _GATES.get(key)
+    if gate is None:
+        if len(_GATES) > 64:
+            _GATES.clear()
+        gate = _GATES[key] = _Gate()
+    return gate
+
+
+def _retry_after_seconds(response) -> float:
+    try:
+        value = float(response.headers.get("Retry-After", ""))
+    except (ValueError, TypeError, AttributeError):
+        return _PAUSE_429_DEFAULT
+    return min(max(value, 1.0), _PAUSE_429_MAX)
+
+
+# Memo des recherches PAR IDENTIFIANT (imdbid/tmdbid/tvdbid) : le resultat ne
+# depend pas du titre, donc la relance sur chaque titre alternatif repetait la
+# meme requete a l'identique. Seules les reponses reussies sont memorisees
+# (jamais un echec : un 429 ou une erreur renvoie [] sans etre memorise).
+_ID_MEMO_TTL = 120.0
+_ID_MEMO: Dict[tuple, Tuple[float, List[Dict]]] = {}
+
+
+def _memo_get(key: tuple) -> Optional[List[Dict]]:
+    hit = _ID_MEMO.get(key)
+    if hit and time.monotonic() - hit[0] < _ID_MEMO_TTL:
+        return copy.deepcopy(hit[1])
+    return None
+
+
+def _memo_put(key: tuple, results: List[Dict]) -> None:
+    if len(_ID_MEMO) > 500:
+        _ID_MEMO.clear()
+    _ID_MEMO[key] = (time.monotonic(), copy.deepcopy(results))
 
 
 _KNOWN_ID_PARAMS = ("imdbid", "tmdbid", "tvdbid")
@@ -278,8 +375,27 @@ class BaseTorznab:
         else:
             scraper_logger.debug(f"[{self.name}] Querying: {search_query}")
 
+        memo_key = None
+        if id_param:
+            memo_key = (self.name, self.url, self.key_owner, id_param, str(id_value), mode,
+                        str(season) if is_tv else None)
+            memoized = _memo_get(memo_key)
+            if memoized is not None:
+                scraper_logger.debug(f"[{self.name}] Recherche par {id_param} deja faite (memo), requete evitee")
+                return memoized
+
+        gate = _gate_for(self.url)
+        remaining = gate.paused_for()
+        if remaining > 0:
+            scraper_logger.warning(f"[{self.name}] en pause (429 recent), encore {remaining:.0f}s : recherche ignoree")
+            return []
+
+        async def _get():
+            async with gate:
+                return await http_client.get(self.url, headers=headers, params=params)
+
         try:
-            response = await http_client.get(self.url, headers=headers, params=params)
+            response = await _get()
             # Un 5xx isole est frequent sur ces trackers et coutait toute la
             # source pour la recherche en cours. Une seule seconde chance,
             # uniquement sur erreur serveur : un 4xx (cle invalide, quota)
@@ -289,7 +405,13 @@ class BaseTorznab:
                     f"[{self.name}] HTTP {response.status_code}, nouvelle tentative dans {settings.TORZNAB_RETRY_DELAY}s"
                 )
                 await asyncio.sleep(settings.TORZNAB_RETRY_DELAY)
-                response = await http_client.get(self.url, headers=headers, params=params)
+                response = await _get()
+
+            if response.status_code == 429:
+                pause = _retry_after_seconds(response)
+                gate.pause(pause)
+                scraper_logger.error(f"[{self.name}] Torznab search failed: HTTP 429 (pause {pause:.0f}s)")
+                return []
 
             if response.status_code != 200:
                 scraper_logger.error(f"[{self.name}] Torznab search failed: HTTP {response.status_code}")
@@ -312,6 +434,7 @@ class BaseTorznab:
                 return []
 
             results = []
+            known_titles = [title] + [t for t in (metadata.get("titles") or []) if t and t != title]
 
             for item in root.findall(".//item"):
                 title_node = item.find("title")
@@ -319,7 +442,7 @@ class BaseTorznab:
                     continue
                 release_name = title_node.text
 
-                if not _is_relevant(title, release_name):
+                if not _is_relevant_any(known_titles, release_name):
                     scraper_logger.debug(
                         f"[{self.name}] Skip (hors sujet, tracker en repli tendance ?): {release_name}"
                     )
@@ -339,7 +462,7 @@ class BaseTorznab:
                     elif attr_name == "size":
                         try:
                             size = int(attr_value)
-                        except ValueError:
+                        except (ValueError, TypeError):
                             pass
                     elif attr_name == "seeders":
                         try:
@@ -478,6 +601,8 @@ class BaseTorznab:
 
             results.sort(key=quality_sort_key)
             scraper_logger.debug(f"[{self.name}] Found {len(results)} torrents")
+            if memo_key is not None:
+                _memo_put(memo_key, results)
             return results
 
         except Exception as e:
